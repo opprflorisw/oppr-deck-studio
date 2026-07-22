@@ -21,6 +21,8 @@ const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(APP_DIR, "..");
 const WEB_DIR = path.join(APP_DIR, "web");
 const DRAFTS_DIR = path.join(REPO_ROOT, "decks", "drafts");
+const SOCIAL_DRAFTS_DIR = path.join(REPO_ROOT, "social", "drafts");
+const DUMP_APP_DIR = path.join(REPO_ROOT, "dump", "_app");
 const INDEX_JSON = path.join(APP_DIR, "index.json");
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4173;
@@ -169,20 +171,19 @@ async function knowledgeFiles() {
   return _knowledgeCache;
 }
 
-async function listDrafts() {
+async function listDraftsIn(baseDir, shape) {
   try {
-    const entries = await fsp.readdir(DRAFTS_DIR, { withFileTypes: true });
+    const entries = await fsp.readdir(baseDir, { withFileTypes: true });
     const out = [];
     for (const e of entries) {
       if (!e.isDirectory()) continue;
-      const f = path.join(DRAFTS_DIR, e.name, "draft.json");
-      if (fs.existsSync(f)) {
-        try {
-          const d = JSON.parse(await fsp.readFile(f, "utf-8"));
-          out.push({ slug: e.name, title: d.title || e.name, slides: (d.slides || []).length });
-        } catch {
-          out.push({ slug: e.name, title: e.name, slides: 0 });
-        }
+      const f = path.join(baseDir, e.name, "draft.json");
+      if (!fs.existsSync(f)) continue;
+      try {
+        const d = JSON.parse(await fsp.readFile(f, "utf-8"));
+        out.push(shape(e.name, d));
+      } catch {
+        out.push(shape(e.name, {}));
       }
     }
     return out;
@@ -190,6 +191,8 @@ async function listDrafts() {
     return [];
   }
 }
+const listDrafts = () => listDraftsIn(DRAFTS_DIR, (slug, d) => ({ slug, title: d.title || slug, slides: (d.slides || []).length }));
+const listSocialDrafts = () => listDraftsIn(SOCIAL_DRAFTS_DIR, (slug, d) => ({ slug, title: d.title || slug, kind: d.kind || "carousel", pages: (d.pages || []).length }));
 
 async function handleApi(req, res, url) {
   const p = url.pathname;
@@ -235,6 +238,66 @@ async function handleApi(req, res, url) {
     } catch {
       return send(res, 404, "version not found");
     }
+  }
+
+  // Import graphics: stage files into dump/_app/<date>/ for /ingest-dump to file.
+  // Base64 JSON (no multipart dep). The app never touches brand/img directly.
+  if (req.method === "POST" && p === "/api/import-graphics") {
+    let data;
+    try { data = JSON.parse(await readBody(req, 40_000_000)); } catch { return sendJson(res, 400, { error: "bad json" }); }
+    const files = Array.isArray(data.files) ? data.files : [];
+    if (!files.length) return sendJson(res, 400, { error: "no files" });
+    if (files.length > 50) return sendJson(res, 400, { error: "too many files (max 50)" });
+    const IMG_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"]);
+    const date = new Date().toISOString().slice(0, 10);
+    let dir = path.join(DUMP_APP_DIR, date);
+    // avoid clobbering a prior same-day import
+    let n = 1;
+    while (fs.existsSync(dir) && fs.readdirSync(dir).length) { dir = path.join(DUMP_APP_DIR, `${date}_${++n}`); }
+    await fsp.mkdir(dir, { recursive: true });
+    const written = [];
+    for (const f of files) {
+      const base = path.basename(String(f.name || "")).replace(/[^\w.\- ]/g, "_");
+      const ext = path.extname(base).toLowerCase();
+      if (!base || !IMG_EXT.has(ext)) continue;
+      try {
+        const buf = Buffer.from(String(f.data || "").split(",").pop(), "base64");
+        await fsp.writeFile(path.join(dir, base), buf);
+        written.push(base);
+      } catch {}
+    }
+    if (!written.length) { await fsp.rm(dir, { recursive: true, force: true }); return sendJson(res, 400, { error: "no valid image files" }); }
+    const note = `# App-imported graphics — ${date}\n\n${data.note ? String(data.note).slice(0, 4000) + "\n\n" : ""}Files:\n${written.map((w) => `- ${w}`).join("\n")}\n\nRun /ingest-dump to file these into brand/img/ + library.json (described, entitlement-gated).\n`;
+    await fsp.writeFile(path.join(dir, "note.md"), note, "utf-8");
+    return sendJson(res, 200, { ok: true, dir: path.relative(REPO_ROOT, dir).replace(/\\/g, "/"), count: written.length });
+  }
+
+  // Social drafts (Phase 6): staged like deck drafts, built by /deckbuilder.
+  const sm = p.match(/^\/api\/social-drafts\/([^/]+)$/);
+  if (sm) {
+    const slug = sm[1];
+    if (!SLUG_RE.test(slug)) return sendJson(res, 400, { error: "invalid slug" });
+    const dir = safeResolve(SOCIAL_DRAFTS_DIR, "/" + slug);
+    if (!dir || dir === SOCIAL_DRAFTS_DIR) return sendJson(res, 400, { error: "invalid slug" });
+    const file = path.join(dir, "draft.json");
+    if (req.method === "GET") {
+      try { return sendJson(res, 200, JSON.parse(await fsp.readFile(file, "utf-8"))); }
+      catch { return sendJson(res, 404, { error: "no such draft" }); }
+    }
+    if (req.method === "PUT" || req.method === "POST") {
+      let d; try { d = JSON.parse(await readBody(req)); } catch { return sendJson(res, 400, { error: "bad json" }); }
+      const rec = { slug, kind: String(d.kind || "carousel"), title: String(d.title || slug), channel: String(d.channel || "linkedin"), intent: d.intent || {}, pages: Array.isArray(d.pages) ? d.pages : [], post: d.post || {}, status: "draft" };
+      await fsp.mkdir(dir, { recursive: true });
+      await fsp.writeFile(file, JSON.stringify(rec, null, 2), "utf-8");
+      return sendJson(res, 200, { ok: true, slug, prompt: `/deckbuilder build social ${slug}` });
+    }
+    if (req.method === "DELETE") {
+      try { await fsp.rm(dir, { recursive: true, force: true }); return sendJson(res, 200, { ok: true }); }
+      catch { return sendJson(res, 500, { error: "delete failed" }); }
+    }
+  }
+  if (req.method === "GET" && p === "/api/social-drafts") {
+    return sendJson(res, 200, { drafts: await listSocialDrafts() });
   }
 
   // Knowledge whitelist (Phase 7).

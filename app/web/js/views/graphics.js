@@ -2,9 +2,10 @@
 // cross-references (which slides / decks use each graphic), a detail page, and
 // (Phase 5) an import flow. Usage is computed from the index client-side.
 
-import { $, $$, el, esc, decodeEntities } from "../util.js";
+import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
 import { state } from "../state.js";
 import { go } from "../router.js";
+import * as api from "../api.js";
 
 const norm = (p) => String(p).replace(/^.*brand\/img\//, "");
 
@@ -36,7 +37,7 @@ export function renderList() {
   $("#gq", wrap).addEventListener("input", (e) => { gFilter.q = e.target.value; upd(); });
   $("#gent", wrap).addEventListener("change", (e) => { gFilter.ent = e.target.value; upd(); });
   $("#gun", wrap).addEventListener("change", (e) => { gFilter.unused = e.target.checked; upd(); });
-  $("#gimport", wrap).addEventListener("click", () => go("/graphics")); // Phase 5 wires the drop zone
+  $("#gimport", wrap).addEventListener("click", () => openImport());
   renderGrid(body);
   return wrap;
 }
@@ -73,6 +74,61 @@ function gcard(im) {
         <div class="tags">used in ${u.slides.length} slide(s) · ${u.decks.length} deck(s)</div>
       </div>
     </div>`;
+}
+
+// ---- import flow: stage files into dump/_app for /ingest-dump --------------
+function openImport() {
+  const picked = [];
+  const m = el(`
+    <div class="modal">
+      <div class="box import-box">
+        <header><b>Import graphics</b><div class="spacer"></div><button class="ghost close">Close</button></header>
+        <div class="import-body">
+          <p class="note">Files are staged into <span class="mono">dump/_app/</span>. Run <span class="mono">/ingest-dump</span> in the CLI to describe them and file them into <span class="mono">brand/img/</span> with entitlement. The app never edits the manifest directly.</p>
+          <div class="dropzone" id="dz">
+            <p>Drop images here, or <label class="link-btn">browse<input type="file" id="fin" accept="image/*" multiple hidden></label></p>
+            <ul class="picked" id="picked"></ul>
+          </div>
+          <div class="field"><label>Note (who / what / suggested tags)</label><textarea id="note" placeholder="e.g. Trade-show floor photos, operator close-ups. Tags: operator, capture."></textarea></div>
+          <div class="import-actions">
+            <button class="primary" id="do-import" disabled>Import <span id="cnt"></span></button>
+            <div id="import-result" class="note"></div>
+          </div>
+        </div>
+      </div>
+    </div>`);
+  const close = () => m.remove();
+  $(".close", m).addEventListener("click", close);
+  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+
+  const dz = $("#dz", m), fin = $("#fin", m);
+  const refresh = () => {
+    $("#picked", m).innerHTML = picked.map((f, i) => `<li>${esc(f.name)} <span class="tmuted">${(f.size / 1024 | 0)} KB</span> <button data-rm="${i}">✕</button></li>`).join("");
+    $$("[data-rm]", m).forEach((b) => b.addEventListener("click", () => { picked.splice(+b.dataset.rm, 1); refresh(); }));
+    $("#do-import", m).disabled = !picked.length;
+    $("#cnt", m).textContent = picked.length ? `(${picked.length})` : "";
+  };
+  const accept = (files) => { for (const f of files) if (f.type.startsWith("image/")) picked.push(f); refresh(); };
+  fin.addEventListener("change", () => accept(fin.files));
+  dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("over"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("over"));
+  dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("over"); accept(e.dataTransfer.files); });
+
+  $("#do-import", m).addEventListener("click", async () => {
+    $("#do-import", m).disabled = true;
+    try {
+      const files = await Promise.all(picked.map((f) => new Promise((resolve) => {
+        const r = new FileReader();
+        r.onload = () => resolve({ name: f.name, data: r.result });
+        r.readAsDataURL(f);
+      })));
+      const out = await api.importGraphics({ note: $("#note", m).value, files });
+      $("#import-result", m).innerHTML = `Staged ${out.count} file(s) to <span class="mono">${esc(out.dir)}</span>. Run <span class="mono">/ingest-dump</span> to file them.`;
+      toast("Imported to dump/_app.");
+    } catch (err) { $("#import-result", m).innerHTML = `<span class="warn-text">${esc(err.message || "import failed")}</span>`; $("#do-import", m).disabled = false; }
+  });
+
+  document.body.append(m);
 }
 
 export function renderDetail(file) {

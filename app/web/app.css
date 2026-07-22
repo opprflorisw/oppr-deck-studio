@@ -238,3 +238,14 @@ ul.plain li { padding: 3px 0; font-size: 14px; }
 .modal .box header .spacer { margin-left: auto; }
 .modal iframe { flex: 1; border: none; width: 100%; background: #fff; }
 .posttext { margin: 0; padding: 20px; overflow: auto; white-space: pre-wrap; font-family: var(--mono); font-size: 14px; line-height: 1.5; }
+
+/* ---- import modal ---- */
+.import-box { height: auto; max-height: 86vh; }
+.import-body { padding: 18px; overflow-y: auto; }
+.dropzone { border: 2px dashed var(--line); border-radius: var(--radius); padding: 26px; text-align: center; color: var(--muted); margin: 12px 0; }
+.dropzone.over { border-color: var(--accent); background: var(--bg); }
+.link-btn { color: var(--accent); cursor: pointer; text-decoration: underline; }
+.picked { list-style: none; padding: 0; margin: 12px 0 0; text-align: left; }
+.picked li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
+.picked li button { margin-left: auto; background: transparent; border: none; color: var(--muted); cursor: pointer; }
+.import-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
