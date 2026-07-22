@@ -27,7 +27,7 @@ setTimeout(fit,20);setTimeout(fit,120);fit();})();</script>
 </body></html>`;
 }
 
-export function openDeckViewer(pages, { title = "" } = {}) {
+export function openDeckViewer(pages, { title = "", pdf = null } = {}) {
   if (!pages.length) return;
   let i = 0;
 
@@ -38,6 +38,7 @@ export function openDeckViewer(pages, { title = "" } = {}) {
           <b>${esc(title)}</b>
           <span class="viewer-count mono"></span>
           <div class="spacer"></div>
+          ${pdf ? `<a class="ghost" href="/repo/${esc(pdf)}" download>Download PDF</a>` : ""}
           <button class="ghost close">Close</button>
         </header>
         <div class="viewer-body">
@@ -82,7 +83,7 @@ export function openDeckViewer(pages, { title = "" } = {}) {
 // ---- page builders ----------------------------------------------------------
 
 // Split an assembled deck/carousel index.html into one self-scaling page each.
-export async function assembledViewer(indexPath, title) {
+export async function assembledViewer(indexPath, title, pdf = null) {
   const html = await (await fetch(`/repo/${indexPath}`)).text();
   const doc = new DOMParser().parseFromString(html, "text/html");
   const links = [...doc.head.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.outerHTML).join("");
@@ -95,7 +96,7 @@ export async function assembledViewer(indexPath, title) {
     label: sec.id || String(i + 1),
     render: () => scaledDoc(head, `<div class="${container}">${sec.outerHTML}</div>`, w, h),
   }));
-  openDeckViewer(pages, { title });
+  openDeckViewer(pages, { title, pdf });
 }
 
 // A draft deck: library slides render live; new-slide slots show a placeholder.

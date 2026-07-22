@@ -197,13 +197,13 @@ export function renderOutputs() {
           <span class="badge">${esc(o.channel)}</span>
           <span class="tags">${esc(o.kind || "")}</span>
           <div class="spacer">
-            ${o.pdf ? `<a class="ghost" href="/repo/${esc(o.pdf)}" target="_blank">PDF</a>` : ""}
             ${o.index ? `<button class="ghost prev">Preview</button>` : ""}
+            ${o.pdf ? `<a class="ghost" href="/repo/${esc(o.pdf)}" download>Download PDF</a>` : ""}
             ${o.post ? `<button class="ghost post">Post text</button>` : ""}
           </div>
         </div>
       </div>`);
-    if (o.index) $(".prev", row).addEventListener("click", () => assembledViewer(o.index, o.slug));
+    if (o.index) $(".prev", row).addEventListener("click", () => assembledViewer(o.index, o.slug, o.pdf));
     if (o.post) $(".post", row).addEventListener("click", async () => {
       const t = await (await fetch(`/repo/${o.post}`)).text();
       openPreviewText(o.slug + " — post text", t);

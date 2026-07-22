@@ -31,8 +31,8 @@ function deckRow(d) {
         <span class="badge">${esc(d.type || "—")}</span>
         <span class="tags">${d.slides.length} slides</span>
         <div class="spacer">
-          ${d.pdf ? `<a class="ghost" href="/repo/${esc(d.pdf)}" target="_blank">PDF</a>` : ""}
           ${d.index ? `<button class="ghost prev">Preview</button>` : ""}
+          ${d.pdf ? `<a class="ghost" href="/repo/${esc(d.pdf)}" download>Download PDF</a>` : ""}
           <button class="ghost clone">Start draft from this</button>
         </div>
       </div>
@@ -40,7 +40,7 @@ function deckRow(d) {
         ${d.slides.map((id) => `<div class="frame" data-open="${esc(id)}"><img src="${thumbFor(id)}" alt=""><div class="cap">${esc(id)}</div></div>`).join("")}
       </div>
     </div>`);
-  if (d.index) $(".prev", row).addEventListener("click", () => assembledViewer(d.index, decodeEntities(d.title)));
+  if (d.index) $(".prev", row).addEventListener("click", () => assembledViewer(d.index, decodeEntities(d.title), d.pdf));
   $(".clone", row).addEventListener("click", () => cloneToDraft(d));
   $$("[data-open]", row).forEach((f) => f.addEventListener("click", () => go("/slides/" + f.dataset.open)));
   return row;

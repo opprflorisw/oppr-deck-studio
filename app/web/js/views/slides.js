@@ -48,13 +48,19 @@ export function renderList() {
   return wrap;
 }
 
+const VIEW_ICON = {
+  cards: `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1.2"/><rect x="9" y="1" width="6" height="6" rx="1.2"/><rect x="1" y="9" width="6" height="6" rx="1.2"/><rect x="9" y="9" width="6" height="6" rx="1.2"/></svg>`,
+  sections: `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1.5" y="1.8" width="13" height="2.6" rx="1"/><rect x="1.5" y="6.6" width="9" height="1.7" rx=".85" opacity=".55"/><rect x="1.5" y="9.5" width="9" height="1.7" rx=".85" opacity=".55"/><rect x="1.5" y="12.4" width="9" height="1.7" rx=".85" opacity=".55"/></svg>`,
+  table: `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1.5" y="2.5" width="13" height="11" rx="1.2"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><line x1="6" y1="6" x2="6" y2="13.5"/><line x1="10.5" y1="6" x2="10.5" y2="13.5"/></svg>`,
+};
+
 function toolbar() {
   const roles = [...new Set(state.index.slides.map((s) => s.role).filter(Boolean))];
   const sections = state.index.sections.map((s) => s.name);
   const bar = el(`
     <div class="subbar">
       <div class="viewswitch">
-        ${["cards", "sections", "table"].map((v) => `<button data-view="${v}" class="${state.slideView === v ? "active" : ""}">${v[0].toUpperCase() + v.slice(1)}</button>`).join("")}
+        ${["cards", "sections", "table"].map((v) => `<button data-view="${v}" class="${state.slideView === v ? "active" : ""}">${VIEW_ICON[v]}<span>${v[0].toUpperCase() + v.slice(1)}</span></button>`).join("")}
       </div>
       <div class="filters">
         <input type="search" id="q" placeholder="Filter…" value="${esc(state.filter.q)}">
