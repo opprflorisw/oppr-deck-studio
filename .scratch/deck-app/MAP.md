@@ -84,13 +84,22 @@ Resolve = append `## Resolution`, set `status: closed`, add a one-liner to
 
 <!-- one line per closed ticket; zoom the link for detail -->
 
+- [05 — LinkedIn carousel & post format facts](tickets/05-linkedin-format-research.md) —
+  carousel = PDF document post, page 1080×1350 (4:5), 8–10 pages, body font ≥ 32 px;
+  post hook in first 140 chars; unicode bold sparingly (screen readers / search can't
+  handle it); post from Floris's profile (~5–10x Page reach). Needs a dedicated 4:5
+  template — 16:9 deck pages are the wrong shape.
+- [07 — Gemini image generation capabilities](tickets/07-gemini-imagegen-research.md) —
+  default `gemini-3.1-flash-image` at 2K (~$0,07–0,10/image), `gemini-3-pro-image` for
+  text-heavy graphics; 16:9 and 4:5 native; brand look held via 2–3 style-reference
+  images; billed key required (no free tier); no IP indemnity on API-key tier; SynthID
+  watermark; manifest gets `source: generated` + prompt/model/date for regenerability.
+
 ## Frontier (takeable now)
 
 - [01 — /deckbuilder orchestrator: scope & routes](tickets/01-deckbuilder-orchestrator.md) — grilling
 - [02 — Draft model & lifecycle](tickets/02-draft-model-lifecycle.md) — grilling
 - [03 — App UI prototype](tickets/03-app-ui-prototype.md) — prototype
-- [05 — LinkedIn carousel & post format facts](tickets/05-linkedin-format-research.md) — research (subagent fired)
-- [07 — Gemini image generation capabilities](tickets/07-gemini-imagegen-research.md) — research (subagent fired)
 - [08 — PDF naming convention & enforcement](tickets/08-pdf-naming.md) — grilling (small)
 - [09 — Rotate Gemini key + .env handling](tickets/09-gemini-key-env.md) — task (HITL)
 
