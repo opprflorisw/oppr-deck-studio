@@ -1,8 +1,9 @@
-// Compose mode + the persistent draft tray. Enriched in Phase 4.
+// Compose mode + the persistent draft tray, with a multi-draft switcher.
 
-import { $, el, esc, decodeEntities, toast } from "./util.js";
-import { state, saveDraftLocal, slideExceedsClearance, slideById } from "./state.js";
+import { $, $$, el, esc, decodeEntities, toast } from "./util.js";
+import { state, saveDraftLocal, setDraft, blankDraft, slideExceedsClearance, slideById } from "./state.js";
 import { go, dispatch } from "./router.js";
+import * as api from "./api.js";
 
 export function toggleCompose(force) {
   state.composeMode = force === undefined ? !state.composeMode : force;
@@ -21,6 +22,9 @@ export function renderTray() {
   tray.hidden = false;
   tray.innerHTML = `
     <div class="tray-inner">
+      <div class="tray-switch">
+        <select id="tray-draft" title="switch draft"><option>${esc(d.title || d.slug || "current draft")}</option></select>
+      </div>
       <div class="tray-mini">
         ${d.slides.length ? d.slides.map((s, i) => s.thumb
           ? `<img src="/repo/${esc(s.thumb)}" title="${esc(decodeEntities(s.title || s.id))}" alt="">`
@@ -42,4 +46,26 @@ export function renderTray() {
       toast("Draft cleared.");
     }
   });
+  populateSwitcher($("#tray-draft", tray));
+}
+
+async function populateSwitcher(sel) {
+  let drafts = [];
+  try { drafts = (await api.listDrafts()).drafts; } catch {}
+  const cur = state.draft.title || state.draft.slug || "current draft";
+  sel.innerHTML =
+    `<option value="__current">${esc(cur)} (working)</option>` +
+    drafts.map((dr) => `<option value="${esc(dr.slug)}">${esc(dr.title)} · ${dr.slides} slides</option>`).join("") +
+    `<option value="__new">+ New draft</option>`;
+  sel.onchange = async () => {
+    const v = sel.value;
+    if (v === "__current") return;
+    if (v === "__new") {
+      if (!state.draft.slides.length || confirm("Start a new draft?")) { setDraft(blankDraft()); renderTray(); dispatch(); }
+      else sel.value = "__current";
+      return;
+    }
+    try { setDraft(await api.getDraft(v)); renderTray(); dispatch(); toast("Switched to " + v); }
+    catch { toast("Could not load draft"); }
+  };
 }

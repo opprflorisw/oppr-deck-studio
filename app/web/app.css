@@ -204,6 +204,7 @@ ul.plain li { padding: 3px 0; font-size: 14px; }
 /* ---- tray (compose) ---- */
 #tray { position: sticky; bottom: 0; z-index: 15; background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(21,32,30,.08); }
 .tray-inner { display: flex; align-items: center; gap: 16px; padding: 10px 20px; max-width: 1440px; margin: 0 auto; }
+.tray-switch select { font-family: inherit; font-size: 13px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; max-width: 220px; }
 .tray-mini { display: flex; gap: 5px; overflow-x: auto; flex: 1; }
 .tray-mini img { height: 40px; aspect-ratio: 16/9; object-fit: cover; border: 1px solid var(--line); border-radius: 4px; }
 .tray-new { display: inline-flex; align-items: center; justify-content: center; height: 40px; width: 56px; border: 1px dashed var(--line); border-radius: 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
