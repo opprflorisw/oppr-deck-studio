@@ -1,0 +1,19 @@
+id: cta-next-step
+role: cta
+title: See your own blind spots before the year does another lap.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- cta
+- next-step
+- closing
+- timeline
+images: []
+variables: []
+used_in:
+- product-showcase
+- management-outlook
+notes: Next-step timeline (1-2-3) + contact block. Ink slide, no footer.

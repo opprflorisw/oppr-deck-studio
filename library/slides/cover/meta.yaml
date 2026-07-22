@@ -1,0 +1,21 @@
+id: cover
+role: cover
+title: Find the improvements your machines can&rsquo;t see.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- opening
+- hero
+- cover
+images:
+- brand/img/hero-plate.jpg
+variables:
+- asset
+- cover_meta
+used_in:
+- product-showcase
+- management-outlook
+notes: Hero cover with unified-timeline treatment. No footer.

@@ -1,0 +1,20 @@
+id: why-now
+role: why-now
+title: Your dashboards say what happened. Not why.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- context
+- problem
+- narrative
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- product-showcase
+- management-outlook
+notes: Cause-and-effect-are-lost narrative in three rows.

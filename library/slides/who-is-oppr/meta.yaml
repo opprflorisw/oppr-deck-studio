@@ -1,0 +1,21 @@
+id: who-is-oppr
+role: who-is-oppr
+title: Operators who build software, not a software company guessing at operations.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- company
+- team
+- credibility
+- founder
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- product-showcase
+- management-outlook
+notes: Company facts + three principles + founder line.

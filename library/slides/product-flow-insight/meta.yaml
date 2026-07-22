@@ -1,0 +1,24 @@
+id: product-flow-insight
+role: product-flow
+title: From the field, to insight, to standard practice.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- product
+- screenshots
+- workflow
+- insight
+images:
+- brand/img/product/docs-showcase.png
+- brand/img/product/ida-laptop-production-metrics.png
+- brand/img/product/logs-app-capture.png
+variables:
+- asset
+- deck_footer
+- total
+used_in:
+- product-showcase
+notes: Capture -> analyze -> execute to SOP. Product screenshots.

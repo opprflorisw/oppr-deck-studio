@@ -1,0 +1,20 @@
+id: step3-scale
+role: step-detail
+title: Make it the way the plant works.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- step
+- scale
+- annual
+- commercial
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- product-showcase
+notes: 'Step 3 detail: convert / extend / wind down. Stepband sb3.'

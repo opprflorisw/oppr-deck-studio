@@ -1,0 +1,21 @@
+id: kpi-payback
+role: kpi
+title: What one improvement is worth. Then multiply it.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- kpi
+- payback
+- roi
+- commercial
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- product-showcase
+- management-outlook
+notes: One improvement's worth x multiply. Conservative, illustrative.

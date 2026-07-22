@@ -1,0 +1,22 @@
+id: platform-cce
+role: platform
+title: Capture. Connect. Execute.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- product
+- capture-connect-execute
+- framework
+images:
+- brand/img/product/platform-loop.png
+variables:
+- asset
+- deck_footer
+- total
+used_in:
+- product-showcase
+- management-outlook
+notes: Capture/Connect/Execute legend + the platform-loop image.

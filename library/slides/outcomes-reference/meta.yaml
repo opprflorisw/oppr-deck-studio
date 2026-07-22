@@ -1,0 +1,20 @@
+id: outcomes-reference
+role: outcomes
+title: What changes when the floor becomes visible.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- outcomes
+- reference-stats
+- proof
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- product-showcase
+- management-outlook
+notes: Four outcomes + the verified reference-case stat grid.

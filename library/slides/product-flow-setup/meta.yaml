@@ -1,0 +1,24 @@
+id: product-flow-setup
+role: product-flow
+title: From a floorplan to the first capture on the floor.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- product
+- screenshots
+- workflow
+- setup
+images:
+- brand/img/product/logs-app-round.png
+- brand/img/product/logs-desktop-builder.png
+- brand/img/product/logs-desktop-floorplan.png
+variables:
+- asset
+- deck_footer
+- total
+used_in:
+- product-showcase
+notes: Floorplan -> log builder -> take a round. Product screenshots.

@@ -1,0 +1,19 @@
+id: step1-analyze
+role: step-detail
+title: We start with the data you already have.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- step
+- analyze
+- commercial
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- product-showcase
+notes: Step 1 detail. Colored stepband sb1.

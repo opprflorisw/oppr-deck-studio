@@ -1,0 +1,20 @@
+id: operator-acceptance
+role: acceptance
+title: Built with operators, not against them.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- adoption
+- operators
+- change-management
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- product-showcase
+- management-outlook
+notes: Built-with-operators, four icon cards. Adoption is the game.

@@ -1,0 +1,21 @@
+id: engagement-ladder
+role: engagement
+title: From first look to yearly impact, in three steps.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+- pricing
+- steps
+- ladder
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- product-showcase
+- management-outlook
+notes: Analyze/Prove/Scale rungs + what-we-need-from-you strip.

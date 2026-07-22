@@ -1,0 +1,18 @@
+id: back-cover
+role: closer
+title: Find the improvements your machines can&rsquo;t see.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- closing
+- contact
+- cover
+images: []
+variables: []
+used_in:
+- product-showcase
+- management-outlook
+notes: Back cover / contact. Ink slide, no footer.

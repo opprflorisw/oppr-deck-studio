@@ -1,0 +1,20 @@
+id: running-projects
+role: running-projects
+title: Already on the floor across manufacturing.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- references
+- projects
+- industries
+- nda
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- product-showcase
+notes: Three current engagements by process type (NL/FR), no names.

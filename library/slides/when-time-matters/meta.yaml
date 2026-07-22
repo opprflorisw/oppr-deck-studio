@@ -1,0 +1,21 @@
+id: when-time-matters
+role: when-time-matters
+title: Built for operations under pressure to improve.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- pressure
+- ebitda
+- urgency
+- management
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- product-showcase
+- management-outlook
+notes: Four reasons to move now, icon cards. Management register.

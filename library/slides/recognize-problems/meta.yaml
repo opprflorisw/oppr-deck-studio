@@ -1,0 +1,19 @@
+id: recognize-problems
+role: problem-recognition
+title: Does any of this sound familiar?
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- problem
+- recognition
+- pain-points
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- product-showcase
+notes: Five familiar problems, summarised to recurring/knowledge/data.
