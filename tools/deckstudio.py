@@ -74,14 +74,25 @@ def unfilled(text: str) -> list[str]:
     return sorted(set(_PLACEHOLDER_RE.findall(text)))
 
 
-def slide_path(slide_id: str) -> Path:
+def slide_path(slide_id: str, deckdir: Path | None = None) -> Path:
+    """Resolve a slide id to a fragment path. A deck may hold local slide
+    overrides (adjusted or brand-new slides for a variant) under
+    <deckdir>/slides/<id>/slide.html or <deckdir>/slides/<id>.html; those win
+    over the shared library so a variant never has to touch library/."""
+    if deckdir is not None:
+        local_dir = Path(deckdir) / "slides" / slide_id / "slide.html"
+        local_flat = Path(deckdir) / "slides" / f"{slide_id}.html"
+        if local_dir.exists():
+            return local_dir
+        if local_flat.exists():
+            return local_flat
     return SLIDES_DIR / slide_id / "slide.html"
 
 
-def read_slide(slide_id: str) -> str:
-    p = slide_path(slide_id)
+def read_slide(slide_id: str, deckdir: Path | None = None) -> str:
+    p = slide_path(slide_id, deckdir)
     if not p.exists():
-        raise SystemExit(f"ERROR: library slide not found: {slide_id} ({p})")
+        raise SystemExit(f"ERROR: slide not found: {slide_id} ({p})")
     return p.read_text(encoding="utf-8").rstrip("\n")
 
 
@@ -111,7 +122,7 @@ def assemble(deckdir: Path, write: bool = True) -> str:
 
     blocks = []
     for i, slide_id in enumerate(slides, start=1):
-        raw = read_slide(slide_id)
+        raw = read_slide(slide_id, deckdir)
         block = f"<!-- {i:02d} · {slide_id} -->\n{raw}"
         blocks.append(block)
 

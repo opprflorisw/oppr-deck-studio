@@ -1,0 +1,14 @@
+title: Oppr · Operator Intelligence · Teaser
+type: management-outlook
+vars:
+  deck_footer: Operator Intelligence &middot; Teaser &middot; July 2026
+  cover_meta: Teaser &nbsp;&middot;&nbsp; July 2026 &nbsp;&middot;&nbsp; Confidential &nbsp;&middot;&nbsp; oppr.ai
+allowed_entitlements:
+- public
+slides:
+- cover
+- when-time-matters
+- outcomes-reference
+- evidence-quotes
+- kpi-payback
+- cta-next-step
