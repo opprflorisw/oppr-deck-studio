@@ -25,6 +25,10 @@ should be able to build a deck from these docs alone.
 5. **Workflows** — `.claude/commands/new-deck.md` (Personalize) and
    `.claude/commands/edit-canonical.md` (Edit). The wall between them is real:
    Personalize writes only in `decks/variants/`; Edit changes the system itself.
+6. **Intake inbox** — `dump/` : drop past decks / event material / images here;
+   `/ingest-dump` files each piece into its home (library, images, brief,
+   references) and leaves `dump/` empty. `/new-deck` checks it first. See
+   `dump/CLAUDE.md`.
 
 The full design rationale is `.scratch/deck-tool/SPEC.md`.
 
@@ -104,7 +108,8 @@ Regenerate the browsable surfaces after changes:
 - `decks/` — `canonical/<type>/` (masters) and `variants/<slug>/` (frozen)
 - `tools/` — `deckstudio.py` (engine), `assemble-deck.py`, `verify-deck.py`,
   `build-pdf.ps1`, `build-asset-index.ps1`, `build-slide-catalog.ps1`
-- `.claude/commands/` — `new-deck.md`, `edit-canonical.md`
+- `dump/` — the intake inbox (drop material to seed a deck; ends empty)
+- `.claude/commands/` — `new-deck.md`, `edit-canonical.md`, `ingest-dump.md`
 - `.scratch/deck-tool/` — the wayfinder map, SPEC.md, research, migration scripts
 
 ## Versioning

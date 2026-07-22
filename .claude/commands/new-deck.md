@@ -11,6 +11,13 @@ wait for Floris's approval before building anything.** You may write ONLY inside
 
 Read `SPEC.md` sections 5–7 and `CLAUDE.md` if you need context. Then:
 
+## Step 0 — Check the dump inbox
+If `dump/` has anything besides `.gitkeep`, offer to run `/ingest-dump` first: it
+files past decks / event material / images into their homes and pre-fills the
+brief from any audience/goal notes it finds. Ingest, then continue with the
+extracted brief and the newly available library slides/images. If `dump/` is
+empty, skip straight to Step 1.
+
 ## Step 1 — Choose the type
 List the recipes in `types/`. Ask which type this deck is, or whether it is a new
 type. If new, create `types/<slug>/recipe.md` first by interviewing (seed it from
