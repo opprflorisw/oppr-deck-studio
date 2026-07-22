@@ -126,10 +126,25 @@ knowledge layer (root CLAUDE.md layers 7–8, `app/README.md`, `decks/drafts/`,
   derived in `deckstudio.pdf_name()`, enforced by `verify-deck.py`; existing PDFs renamed.
 - [10 — APP-SPEC synthesis](tickets/10-spec-synthesis.md) — [APP-SPEC.md](APP-SPEC.md) written.
 
+## V2 PROPOSED — 2026-07-22
+
+Floris asked for the next level and the full instruction is written:
+**[V2-SPEC.md](V2-SPEC.md)** (awaiting his approval — nothing built). Scope:
+left-sidebar IA + routing; Slides in card/section/table views + detail pages
+with **git version history**; compose as an explicit mode with a draft tray;
+a **Social studio** (LinkedIn carousel/post/article, social images, YouTube
+thumbnails) with outputs restructured under `social/`; a **Graphics repository**
+with usage cross-references and an import flow staged through `dump/_app/`;
+in-app **knowledge pages** (design philosophy, per-format best-practices living
+docs under `knowledge/`, recipes, a whitelisted Config browser). §10 defines the
+first deliverable: the 6-page "book a data analysis" carousel for operational
+owners.
+
 ## Frontier (takeable now)
 
 - [09 — Rotate Gemini key + .env handling](tickets/09-gemini-key-env.md) — task
   (HITL): Claude side done; **Floris must rotate the pasted key into `.env`.**
+- **Approve or edit [V2-SPEC.md](V2-SPEC.md)** — then build phase by phase (§9).
 
 ## Not yet specified
 
