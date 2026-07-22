@@ -1,13 +1,16 @@
 # V2-SPEC.md — Deck Studio App v2: the full workbench
 
-> Status: **PROPOSED (2026-07-22, awaiting Floris's approval — do not build until
-> approved).** Successor to APP-SPEC.md (v1, built). This is the complete build
-> instruction for upgrading the app from "viewer + draft composer" to the full
-> workbench: sidebar IA, three slide views + sections, slide version history,
-> compose as an explicit mode, a Social studio (LinkedIn carousel/post/article,
-> social images, YouTube thumbnails), a graphics repository with usage
-> cross-references and an import flow, and an in-app knowledge layer (design
-> philosophy, per-format best practices, config browser).
+> Status: **BUILT (2026-07-22).** Floris approved via `/goal implement the plan`
+> and all seven phases were built and verified in-browser, one commit each.
+> Successor to APP-SPEC.md (v1). This document is the build instruction and the
+> record. What shipped: sidebar IA + hash routing; Slides in card/section/table
+> views with detail pages and git version history; compose as an explicit mode
+> with a draft tray + multi-draft switcher; a Social studio (carousel + post
+> composers, brief-only for article/image/thumbnail) with outputs under `social/`;
+> a Graphics repository with usage cross-references and an import flow via
+> `dump/_app/`; in-app Knowledge pages (design philosophy, living best-practices
+> docs, recipes) and a whitelisted Config browser. The §10 carousel
+> (`social/linkedin/2026-07-22_book-a-data-analysis`) was built and verified.
 
 ## 0. Principles carried over (unchanged, load-bearing)
 

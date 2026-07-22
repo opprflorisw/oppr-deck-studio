@@ -126,25 +126,30 @@ knowledge layer (root CLAUDE.md layers 7–8, `app/README.md`, `decks/drafts/`,
   derived in `deckstudio.pdf_name()`, enforced by `verify-deck.py`; existing PDFs renamed.
 - [10 — APP-SPEC synthesis](tickets/10-spec-synthesis.md) — [APP-SPEC.md](APP-SPEC.md) written.
 
-## V2 PROPOSED — 2026-07-22
+## V2 BUILT — 2026-07-22
 
-Floris asked for the next level and the full instruction is written:
-**[V2-SPEC.md](V2-SPEC.md)** (awaiting his approval — nothing built). Scope:
-left-sidebar IA + routing; Slides in card/section/table views + detail pages
-with **git version history**; compose as an explicit mode with a draft tray;
-a **Social studio** (LinkedIn carousel/post/article, social images, YouTube
-thumbnails) with outputs restructured under `social/`; a **Graphics repository**
-with usage cross-references and an import flow staged through `dump/_app/`;
-in-app **knowledge pages** (design philosophy, per-format best-practices living
-docs under `knowledge/`, recipes, a whitelisted Config browser). §10 defines the
-first deliverable: the 6-page "book a data analysis" carousel for operational
-owners.
+Floris approved via `/goal implement the plan` and **[V2-SPEC.md](V2-SPEC.md)
+was built end to end**, all seven phases, one commit each, each verified in the
+browser:
+
+1. Repo restructure — `social/` (linkedin moved under it), `knowledge/`
+   (design-philosophy + living best-practices docs), the narrative-spine
+   section map.
+2. Sidebar IA + hash routing; Slides in card/section/table views + detail pages.
+3. Git-backed slide version history (server endpoints + index version counts).
+4. Compose as an explicit mode: draft tray + multi-draft switcher.
+5. Graphics repository: usage cross-references + import via `dump/_app/`.
+6. Social studio: carousel + post composers, output browser, `/deckbuilder build
+   social`; the §10 **book-a-data-analysis** carousel built + verified.
+7. Knowledge pages + whitelisted Config browser + built-in markdown renderer.
+
+The app is now a full workbench (zero-dependency Node server + vanilla ES
+modules, still). CLI stays the engine; the app writes only staging areas.
 
 ## Frontier (takeable now)
 
 - [09 — Rotate Gemini key + .env handling](tickets/09-gemini-key-env.md) — task
   (HITL): Claude side done; **Floris must rotate the pasted key into `.env`.**
-- **Approve or edit [V2-SPEC.md](V2-SPEC.md)** — then build phase by phase (§9).
 
 ## Not yet specified
 
