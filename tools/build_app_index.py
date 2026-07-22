@@ -32,6 +32,18 @@ ROLE_ORDER = [
     "step-detail", "acceptance", "running-projects", "who-is-oppr", "cta", "closer",
 ]
 
+# The narrative spine: roles grouped into sections (see V2-SPEC.md 2.3).
+SECTIONS = [
+    ("Opening", "The hook and the one idea", ["cover", "idea"]),
+    ("Problem", "Make them recognize themselves", ["why-now", "problem-recognition", "when-time-matters"]),
+    ("Product", "How it works", ["platform", "product-flow"]),
+    ("Proof", "Outcomes, evidence, payback", ["outcomes", "evidence", "kpi"]),
+    ("Path", "How we engage and deliver", ["engagement", "step-detail"]),
+    ("Trust", "Why us, who we are", ["acceptance", "running-projects", "who-is-oppr"]),
+    ("Closing", "The ask and the close", ["cta", "closer"]),
+]
+ROLE_SECTION = {role: name for name, _desc, roles in SECTIONS for role in roles}
+
 
 def _yaml(p: Path) -> dict:
     if not p.exists():
@@ -52,9 +64,11 @@ def build_slides() -> list[dict]:
         if not meta:
             continue
         thumb = d / "thumb.png"
+        role = meta.get("role", "")
         slides.append({
             "id": meta.get("id", d.name),
-            "role": meta.get("role", ""),
+            "role": role,
+            "section": ROLE_SECTION.get(role, "Other"),
             "title": meta.get("title", d.name),
             "tags": meta.get("tags", []) or [],
             "entitlement": meta.get("entitlement", "public"),
@@ -143,6 +157,7 @@ def build_index() -> dict:
         "decks": build_decks(),
         "images": build_images(),
         "roles": ROLE_ORDER,
+        "sections": [{"name": n, "desc": d, "roles": r} for n, d, r in SECTIONS],
         "recipes": build_recipes(),
     }
 

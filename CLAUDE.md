@@ -32,15 +32,22 @@ should be able to build a deck from these docs alone.
    `/ingest-dump` files each piece into its home (library, images, brief,
    references) and leaves `dump/` empty. See `dump/CLAUDE.md`.
 7. **Deck Studio App** — `app/` : a local viewer + composer (`npm run dev`).
-   Browse slides/decks/images, cherry-pick into a **draft** with per-slide
+   Browse slides/decks/graphics, cherry-pick into a **draft** with per-slide
    comments and new-slide instructions, then hand off to the CLI. Writes only
-   `decks/drafts/<slug>/draft.json`; the CLI builds it. See `app/README.md`.
-8. **LinkedIn output** — `linkedin/<date>_<slug>/` : brand-styled 4:5 carousels
-   (built with `tools/build-carousel.ps1`) + `post.txt`. Made via `/deckbuilder`.
-   Public by definition — no named-customer material. See `linkedin/CLAUDE.md`.
+   staging areas (`decks/drafts/`, `social/drafts/`, `dump/_app/`); the CLI
+   builds. See `app/README.md`.
+8. **Social output** — `social/<channel>/<date>_<slug>/` : brand-styled
+   carousels (4:5, `tools/build-carousel.ps1`), posts, articles, images,
+   thumbnails. Made via `/deckbuilder`. Public by definition — no named-customer
+   material. See `social/CLAUDE.md`.
+9. **Knowledge** — `knowledge/` : the design brain in the open —
+   `design-philosophy.md` and living `best-practices/<type>.md` docs
+   (platform facts + how Oppr applies them + dated learnings). Surfaced in the
+   app's Knowledge/Config pages. See `knowledge/CLAUDE.md`.
 
-The full design rationale is `.scratch/deck-tool/SPEC.md` (studio) and
-`.scratch/deck-app/APP-SPEC.md` (the app + orchestrator + LinkedIn).
+The full design rationale is `.scratch/deck-tool/SPEC.md` (studio),
+`.scratch/deck-app/APP-SPEC.md` (app v1) and `.scratch/deck-app/V2-SPEC.md`
+(the v2 workbench).
 
 ## Setup (fresh clone)
 
@@ -136,7 +143,9 @@ manual regeneration.
 - `types/` — `<type>/recipe.md` per presentation type
 - `decks/` — `canonical/<type>/` (masters), `variants/<slug>/` (frozen), and
   `drafts/<slug>/` (pending drafts from the app; normally empty)
-- `linkedin/` — `<date>_<slug>/` carousels (4:5 PDF + `post.txt`)
+- `social/` — `<channel>/<date>_<slug>/` outputs (carousels, posts, articles,
+  images, thumbnails) + `drafts/` staging
+- `knowledge/` — `design-philosophy.md`, `best-practices/<type>.md` (living docs)
 - `app/` — the Deck Studio App (`server.mjs`, `web/`; `npm run dev`)
 - `tools/` — `deckstudio.py` (engine), `assemble-deck.py`, `verify-deck.py`,
   `build_app_index.py`, `deck_pdf_name.py`, `build-pdf.ps1`, `build-carousel.ps1`,

@@ -1,6 +1,6 @@
 # Renders a LinkedIn carousel's index.html to a 4:5 PDF with headless Chrome/Edge.
 # The page size (1080x1350) comes from @page in templates/linkedin.css.
-# Usage:  .\tools\build-carousel.ps1 -Carousel linkedin\2026-07-22_operators-are-the-sensor
+# Usage:  .\tools\build-carousel.ps1 -Carousel social\linkedin\2026-07-22_operators-are-the-sensor
 param(
     [Parameter(Mandatory = $true)][string]$Carousel,
     [string]$Out

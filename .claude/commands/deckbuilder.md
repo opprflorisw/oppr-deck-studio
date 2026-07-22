@@ -13,7 +13,7 @@ The **CLI is always the engine**: the local app (`app/`) only browses and drafts
 assembly, new-slide creation, PDF and verify happen here, and **every building
 route keeps a hard plan-approval gate** — nothing is assembled or shipped before
 Floris approves the plan. You may write only under `decks/variants/`,
-`decks/drafts/` (to clear a built draft), and `linkedin/`. Editing the library or
+`decks/drafts/` (to clear a built draft), and `social/`. Editing the library or
 canonicals is the other side of the wall: that is `/edit-canonical`, never here.
 
 ## Step 0 — Classify the intent
@@ -23,10 +23,10 @@ question. Then also check `dump/` (offer `/ingest-dump` first if it has material
 
 | If he wants… | Route |
 |---|---|
-| Build a draft he made in the app | **A. Build draft** (below) |
+| Build a deck draft he made in the app (`build draft <slug>`) | **A. Build draft** (below) |
 | A new deck from scratch, by interview | delegate to **`/new-deck`** |
 | To process dumped material first | delegate to **`/ingest-dump`**, then continue |
-| A LinkedIn carousel or post | **B. LinkedIn** (below) |
+| A social output — carousel / post / article / image / thumbnail, or `build social <slug>` | **B. Social** (below) |
 | To change a library slide / canonical | tell him that is **`/edit-canonical`** (different wall) |
 
 `/new-deck`, `/ingest-dump` and `/edit-canonical` remain callable directly;
@@ -62,25 +62,37 @@ for the schema. Then:
    `decks/drafts/<slug>/` so drafts stays clean. Commit the variant. Finally ask
    the `/new-deck` closing question — anything to feed back into the brain.
 
-## Route B — LinkedIn carousel or post
+## Route B — Social (carousel, post, article, image, thumbnail)
 
-Read `linkedin/CLAUDE.md` (format facts, templates, the naming rule) first.
-Ask which he wants and the topic/source (from scratch, or "carousel-ify" an
-existing deck's argument). Then:
+Read `social/CLAUDE.md` and the relevant `knowledge/best-practices/<type>.md`
+first (format facts, our rules, learnings). This route builds any social output,
+either from a **social draft** the app saved (`build social <slug>` reads
+`social/drafts/<slug>/draft.json`, `kind` = carousel|post|article|image|
+youtube-thumbnail) or from scratch by asking the topic/source ("carousel-ify"
+an existing deck's argument, or new). Then:
 
 1. **Propose the plan (approval gate):** the page sequence for a carousel (hook
-   → points → CTA, 8–10 pages at 1080×1350 / 4:5) or the post structure, plus
-   which brand images/tokens. Entitlement rules apply **fully** — LinkedIn is
-   public by definition, so no named-customer material. Stop for approval.
-2. **Build** into `linkedin/<YYYY-MM-DD>_<slug>/` using the carousel template
-   (`templates/linkedin.css`), producing the page HTML + a 4:5 PDF via
-   `tools/build-carousel.ps1`, and `post.txt` — the accompanying text with the
-   hook in the first ~140 characters and unicode bold used only for 1–3 short
-   phrases (never numbers or keywords; it breaks screen readers and search).
+   → point/stat pages → CTA, 6–10 pages at 1080×1350 / 4:5) or the post/article
+   structure, plus which **public** graphics. Entitlement rules apply **fully** —
+   social is public by definition, so no named-customer / mutares-family
+   material. Stop for approval.
+2. **Build** into `social/<channel>/<YYYY-MM-DD>_<slug>/`:
+   - carousel → page HTML on `templates/linkedin.css` + a 4:5 PDF via
+     `tools/build-carousel.ps1`, plus `post.txt`.
+   - post → `post.txt` only; article → `article.md` + a 1200×627 hero.
+   - image / thumbnail → the template in `templates/` once it exists (brief-only
+     until then).
+   Post/caption text: hook in the first ~140 characters; unicode bold only for
+   1–3 short phrases (never numbers or keywords — it breaks screen readers and
+   search); link in the first comment.
 3. **Verify + name:** run `tools/verify-deck.py` semantics where they apply (no
-   em dashes, no unfilled placeholders, images resolve, page size 4:5), confirm
-   the PDF filename carries `oppr` (see naming rule below), then the visual pass.
-4. Approval before "done", then commit.
+   em dashes, no unfilled placeholders, images resolve, page size correct),
+   confirm the filename carries `oppr` (naming rule below), then the visual pass
+   at feed size.
+4. Approval before "done". If built from a social draft, archive it into the
+   output as `draft.source.json` and clear `social/drafts/<slug>/`. Commit.
+   Then the learning question — **format lessons go to
+   `knowledge/best-practices/<type>.md`**, not the recipe.
 
 ## Naming rule (every PDF this command produces)
 
