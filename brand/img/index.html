@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -8,42 +8,47 @@
   h1 { letter-spacing: -0.03em; } h1 b { color: #a65032; }
   h2 { font-size: 15px; font-family: Consolas, monospace; letter-spacing: 0.04em; margin: 36px 0 10px; border-bottom: 1px solid #c8ceca; padding-bottom: 6px; }
   .grid { display: flex; flex-wrap: wrap; gap: 12px; }
-  figure { margin: 0; width: 190px; background: #fcfbf7; border: 1px solid #c8ceca; border-radius: 8px; padding: 8px; }
-  figure img { width: 100%; height: 120px; object-fit: contain; display: block; background: repeating-conic-gradient(#e8e8e2 0% 25%, #fff 0% 50%) 0 0/16px 16px; border-radius: 4px; }
-  figcaption { font-family: Consolas, monospace; font-size: 9.5px; color: #5f6965; margin-top: 6px; word-break: break-all; }
+  figure { margin: 0; width: 220px; background: #fcfbf7; border: 1px solid #c8ceca; border-radius: 8px; padding: 8px; display:flex; flex-direction:column; }
+  figure img { width: 100%; height: 130px; object-fit: contain; display: block; background: repeating-conic-gradient(#e8e8e2 0% 25%, #fff 0% 50%) 0 0/16px 16px; border-radius: 4px; }
+  .fn { font-family: Consolas, monospace; font-size: 9.5px; color: #5f6965; margin-top: 6px; word-break: break-all; }
+  .desc { font-size: 12px; line-height:1.35; margin-top: 6px; color:#15201e; }
+  .su { font-size: 10.5px; color:#5f6965; margin-top:5px; font-style:italic; }
+  .ent { display:inline-block; font-family:Consolas,monospace; font-size:9px; letter-spacing:0.06em; text-transform:uppercase; color:#fff; padding:1px 6px; border-radius:3px; margin-top:6px; align-self:flex-start; }
+  .nomatch { outline:2px solid #a65032; }
+  .warn { color:#a65032; }
 </style>
 </head>
 <body>
 <h1>oppr<b>.</b> deck assets</h1>
-<p style='font-family:Consolas,monospace;font-size:12px;color:#5f6965;'>23 images &middot; regenerate with tools\build-asset-index.ps1</p>
-<h2>(root)</h2><div class='grid'>
-<figure><img loading='lazy' src='capture.jpg'><figcaption>capture.jpg</figcaption></figure>
-<figure><img loading='lazy' src='connect-timeline.jpg'><figcaption>connect-timeline.jpg</figcaption></figure>
-<figure><img loading='lazy' src='execute-loop.jpg'><figcaption>execute-loop.jpg</figcaption></figure>
-<figure><img loading='lazy' src='hero-plate.jpg'><figcaption>hero-plate.jpg</figcaption></figure>
+
+<p style='font-family:Consolas,monospace;font-size:12px;color:#5f6965;'>23 images &middot; manifest in sync &middot; regenerate with tools\build-asset-index.ps1</p>
+<h2>.</h2><div class='grid'>
+<figure><img loading='lazy' src='capture.jpg'><div class='fn'>capture.jpg</div><div class='desc'>Film still of an operator logging what he sees in the moment it happens.</div><div class='su'>operators are the sensor · Capture step of Capture -&gt; Connect -&gt; Execute · catching signal at the source</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='connect-timeline.jpg'><div class='fn'>connect-timeline.jpg</div><div class='desc'>Film still evoking machine data and human context meeting on one timeline.</div><div class='su'>Connect step · one timeline for machine and operator signal · how the data finally comes together</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='execute-loop.jpg'><div class='fn'>execute-loop.jpg</div><div class='desc'>Film still of the improvement loop: a finding returning to the floor as a standard action.</div><div class='su'>Execute step · closing the loop on the floor · turning insight into standard practice</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='hero-plate.jpg'><div class='fn'>hero-plate.jpg</div><div class='desc'>Operator on the plant floor capturing an observation on his phone.</div><div class='su'>operators are the sensor · augment don&#x27;t replace · cover / opening emotional hook · the human context machines can&#x27;t see</div><span class='ent' style='background:#55745e'>public</span></figure>
 </div>
 <h2>customers</h2><div class='grid'>
-<figure><img loading='lazy' src='customers/attero.png'><figcaption>customers/attero.png</figcaption></figure>
-<figure><img loading='lazy' src='customers/holliday.png'><figcaption>customers/holliday.png</figcaption></figure>
-<figure><img loading='lazy' src='customers/host.png'><figcaption>customers/host.png</figcaption></figure>
-<figure><img loading='lazy' src='customers/keeeper.webp'><figcaption>customers/keeeper.webp</figcaption></figure>
-<figure><img loading='lazy' src='customers/mutares.svg'><figcaption>customers/mutares.svg</figcaption></figure>
-<figure><img loading='lazy' src='customers/omniplast.png'><figcaption>customers/omniplast.png</figcaption></figure>
-<figure><img loading='lazy' src='customers/selo.svg'><figcaption>customers/selo.svg</figcaption></figure>
-<figure><img loading='lazy' src='customers/sonneborn.png'><figcaption>customers/sonneborn.png</figcaption></figure>
+<figure><img loading='lazy' src='customers/attero.png'><div class='fn'>customers/attero.png</div><div class='desc'>Attero customer / partner logo.</div><div class='su'>named reference — only in a deck cleared to show Attero</div><span class='ent' style='background:#a65032'>named-customer</span></figure>
+<figure><img loading='lazy' src='customers/holliday.png'><div class='fn'>customers/holliday.png</div><div class='desc'>Holliday (Venator) customer logo.</div><div class='su'>named reference — Mutares-family decks only</div><span class='ent' style='background:#3e6874'>mutares-family</span></figure>
+<figure><img loading='lazy' src='customers/host.png'><div class='fn'>customers/host.png</div><div class='desc'>HOST customer / partner logo.</div><div class='su'>named reference — only in a deck cleared to show HOST</div><span class='ent' style='background:#a65032'>named-customer</span></figure>
+<figure><img loading='lazy' src='customers/keeeper.webp'><div class='fn'>customers/keeeper.webp</div><div class='desc'>keeeper customer / partner logo.</div><div class='su'>named reference — only in a deck cleared to show keeeper</div><span class='ent' style='background:#a65032'>named-customer</span></figure>
+<figure><img loading='lazy' src='customers/mutares.svg'><div class='fn'>customers/mutares.svg</div><div class='desc'>Mutares logo (portfolio owner).</div><div class='su'>prepared-for mark in Mutares-family decks only</div><span class='ent' style='background:#3e6874'>mutares-family</span></figure>
+<figure><img loading='lazy' src='customers/omniplast.png'><div class='fn'>customers/omniplast.png</div><div class='desc'>Omniplast customer / partner logo.</div><div class='su'>named reference — only in a deck cleared to show Omniplast</div><span class='ent' style='background:#a65032'>named-customer</span></figure>
+<figure><img loading='lazy' src='customers/selo.svg'><div class='fn'>customers/selo.svg</div><div class='desc'>Selo customer / partner logo.</div><div class='su'>named reference — only in a deck cleared to show Selo</div><span class='ent' style='background:#a65032'>named-customer</span></figure>
+<figure><img loading='lazy' src='customers/sonneborn.png'><div class='fn'>customers/sonneborn.png</div><div class='desc'>Sonneborn customer / partner logo.</div><div class='su'>named reference — only in a deck cleared to show Sonneborn</div><span class='ent' style='background:#a65032'>named-customer</span></figure>
 </div>
 <h2>product</h2><div class='grid'>
-<figure><img loading='lazy' src='product/docs-showcase.png'><figcaption>product/docs-showcase.png</figcaption></figure>
-<figure><img loading='lazy' src='product/ida-desktop-assistant.png'><figcaption>product/ida-desktop-assistant.png</figcaption></figure>
-<figure><img loading='lazy' src='product/ida-laptop-production-metrics.png'><figcaption>product/ida-laptop-production-metrics.png</figcaption></figure>
-<figure><img loading='lazy' src='product/ida-laptop-wall-thickness.png'><figcaption>product/ida-laptop-wall-thickness.png</figcaption></figure>
-<figure><img loading='lazy' src='product/logs-app-capture.png'><figcaption>product/logs-app-capture.png</figcaption></figure>
-<figure><img loading='lazy' src='product/logs-app-review.png'><figcaption>product/logs-app-review.png</figcaption></figure>
-<figure><img loading='lazy' src='product/logs-app-round.png'><figcaption>product/logs-app-round.png</figcaption></figure>
-<figure><img loading='lazy' src='product/logs-app-schedule.png'><figcaption>product/logs-app-schedule.png</figcaption></figure>
-<figure><img loading='lazy' src='product/logs-desktop-builder.png'><figcaption>product/logs-desktop-builder.png</figcaption></figure>
-<figure><img loading='lazy' src='product/logs-desktop-floorplan.png'><figcaption>product/logs-desktop-floorplan.png</figcaption></figure>
-<figure><img loading='lazy' src='product/platform-loop.png'><figcaption>product/platform-loop.png</figcaption></figure>
+<figure><img loading='lazy' src='product/docs-showcase.png'><div class='fn'>product/docs-showcase.png</div><div class='desc'>Executing according to SOPs built from the captured information.</div><div class='su'>Execute to SOP · what you learn becomes standard practice · the SOP / DOCS surface</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='product/ida-desktop-assistant.png'><div class='fn'>product/ida-desktop-assistant.png</div><div class='desc'>The Industrial Operator Assistant answering a question about the process on the desktop.</div><div class='su'>ask the data a question · the assistant surface · analyze step, conversational</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='product/ida-laptop-production-metrics.png'><div class='fn'>product/ida-laptop-production-metrics.png</div><div class='desc'>Analyzing captured data alongside machine data.</div><div class='su'>Analyze the data · patterns and causes finally show · machine data and operator context together</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='product/ida-laptop-wall-thickness.png'><div class='fn'>product/ida-laptop-wall-thickness.png</div><div class='desc'>Analyzing a specific quality parameter (wall thickness) against captured conditions.</div><div class='su'>root cause on a specific parameter · connecting a defect to its conditions · analyze step, concrete example</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='product/logs-app-capture.png'><div class='fn'>product/logs-app-capture.png</div><div class='desc'>Capturing information from the field.</div><div class='su'>Capture in the field · twenty seconds in any language · the mobile capture moment</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='product/logs-app-review.png'><div class='fn'>product/logs-app-review.png</div><div class='desc'>Reviewing captured entries on the phone before they sync.</div><div class='su'>review what was captured · the operator confirms the record · closing the mobile logs flow</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='product/logs-app-round.png'><div class='fn'>product/logs-app-round.png</div><div class='desc'>An operator taking a round in the field.</div><div class='su'>Take a round · guided station to station · the operator&#x27;s daily flow</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='product/logs-app-schedule.png'><div class='fn'>product/logs-app-schedule.png</div><div class='desc'>The operator&#x27;s schedule of rounds and checks for the shift, on the phone.</div><div class='su'>what the operator is guided to do · rounds and checks for the shift · start of the mobile logs flow</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='product/logs-desktop-builder.png'><div class='fn'>product/logs-desktop-builder.png</div><div class='desc'>Building a log to capture the right information.</div><div class='su'>Build the logs · compose the exact checks, no code · configuring what gets captured</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='product/logs-desktop-floorplan.png'><div class='fn'>product/logs-desktop-floorplan.png</div><div class='desc'>Setting up data collection on a plant floorplan.</div><div class='su'>Set up data collection · pin log points to a floorplan · every capture has a place</div><span class='ent' style='background:#55745e'>public</span></figure>
+<figure><img loading='lazy' src='product/platform-loop.png'><div class='fn'>product/platform-loop.png</div><div class='desc'>The Capture, Connect, Execute loop: operator context above the timeline, machine data below.</div><div class='su'>explaining the three moves · how the product works end to end · connect human and machine signal</div><span class='ent' style='background:#55745e'>public</span></figure>
 </div>
 </body></html>
-
