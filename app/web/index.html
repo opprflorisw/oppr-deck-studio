@@ -8,24 +8,22 @@
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-<header class="topbar">
-  <div class="brand"><span class="wm">oppr<b>.</b></span><span class="app-name">Deck Studio</span></div>
-  <nav class="tabs" id="tabs">
-    <button data-view="browse" class="active">Browse</button>
-    <button data-view="draft">Draft <span class="count" id="draft-count">0</span></button>
-    <button data-view="handoff">Handoff</button>
-  </nav>
-  <div class="topbar-actions">
-    <button id="refresh-btn" class="ghost" title="Re-scan the library from disk">Refresh library</button>
+<div id="app">
+  <aside id="sidebar"></aside>
+  <div id="content">
+    <header id="topstrip">
+      <button id="sidebar-toggle" class="icon-btn" title="Collapse sidebar" aria-label="Toggle sidebar">☰</button>
+      <input id="global-search" type="search" placeholder="Search slides, graphics, decks…" autocomplete="off">
+      <div class="topstrip-right">
+        <button id="compose-toggle" class="ghost">Compose</button>
+        <button id="refresh-btn" class="ghost" title="Re-scan the library from disk">Refresh</button>
+      </div>
+    </header>
+    <main id="main"><div class="loading">Loading library…</div></main>
   </div>
-</header>
-
-<main id="main">
-  <div id="loading" class="loading">Loading library…</div>
-</main>
-
+</div>
+<div id="tray" hidden></div>
 <div id="toast" class="toast" hidden></div>
-
-<script type="module" src="/app.js"></script>
+<script type="module" src="/js/main.js"></script>
 </body>
 </html>
