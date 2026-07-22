@@ -135,8 +135,9 @@ app, translation alignment).
 - **Team access & sharing** — the original "usable by people in my company, easily
   shareable" ask. Deliberately deferred; revisit once the library/workflow shape is
   settled, since who-uses-it changes what sharing means.
-- **Phase-2 visual browser / deck-builder app.** The spec should *name* its role and
-  rough scope, not design it. Sketch once the phase-1 element/workflow model exists.
+- ~~**Phase-2 visual browser / deck-builder app.**~~ **Graduated (2026-07-22)**
+  into its own wayfinder map: [.scratch/deck-app/MAP.md](../deck-app/MAP.md)
+  (local viewer/composer app + `/deckbuilder` orchestrator + LinkedIn output).
 - **Final spec synthesis** — assembling the resolved decisions into the single
   hand-off document that is this map's destination.
 
