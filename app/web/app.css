@@ -249,3 +249,4 @@ ul.plain li { padding: 3px 0; font-size: 14px; }
 .picked li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
 .picked li button { margin-left: auto; background: transparent; border: none; color: var(--muted); cursor: pointer; }
 .import-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+.mini-btn { padding: 2px 8px; font-size: 12px; }

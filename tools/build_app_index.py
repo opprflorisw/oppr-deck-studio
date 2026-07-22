@@ -172,6 +172,38 @@ def build_images() -> list[dict]:
     return imgs
 
 
+def build_social() -> list[dict]:
+    """Scan social/<channel>/<date>_<slug>/ for built outputs."""
+    out = []
+    root = REPO_ROOT / "social"
+    if not root.exists():
+        return out
+    for channel in sorted(root.iterdir()):
+        if not channel.is_dir() or channel.name == "drafts":
+            continue
+        for d in sorted(channel.iterdir()):
+            if not d.is_dir():
+                continue
+            index = d / "index.html"
+            pdfs = list(d.glob("*.pdf"))
+            post = d / "post.txt"
+            article = d / "article.md"
+            if not (index.exists() or pdfs or post.exists() or article.exists()):
+                continue
+            kind = "carousel" if index.exists() and pdfs else ("article" if article.exists() else "post")
+            out.append({
+                "channel": channel.name,
+                "slug": d.name,
+                "path": rel(d),
+                "kind": kind,
+                "index": rel(index) if index.exists() else None,
+                "pdf": rel(pdfs[0]) if pdfs else None,
+                "post": rel(post) if post.exists() else None,
+                "article": rel(article) if article.exists() else None,
+            })
+    return out
+
+
 def build_recipes() -> list[dict]:
     out = []
     types = REPO_ROOT / "types"
@@ -189,6 +221,7 @@ def build_index() -> dict:
         "images": build_images(),
         "roles": ROLE_ORDER,
         "sections": [{"name": n, "desc": d, "roles": r} for n, d, r in SECTIONS],
+        "social": build_social(),
         "recipes": build_recipes(),
     }
 
