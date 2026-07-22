@@ -2,7 +2,7 @@
 id: 01
 title: /deckbuilder orchestrator — scope & routes
 type: grilling
-status: open
+status: closed
 assignee:
 blocked-by: []
 ---
@@ -26,3 +26,12 @@ etc. Decide:
    the top of the skill, vs. explicit subcommands (`/deckbuilder draft <slug>`).
 4. **Approval gates**: every route that builds something keeps a hard
    plan-approval stop, same as `/new-deck` today. Confirm no route is exempt.
+
+## Resolution
+
+Built 2026-07-22 as `.claude/commands/deckbuilder.md`. `/deckbuilder` is a single
+front door that classifies intent and **delegates** to existing commands
+(`/new-deck`, `/ingest-dump`; `/edit-canonical` named as the other wall) or runs
+two **owned routes**: build-a-draft and LinkedIn. Existing commands survive and
+stay callable directly. Routing is free-text intent. Every building route keeps
+the hard plan-approval gate.

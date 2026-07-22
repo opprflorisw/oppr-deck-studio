@@ -2,7 +2,7 @@
 id: 02
 title: Draft model & lifecycle (decks/drafts/<slug>/)
 type: grilling
-status: open
+status: closed
 assignee:
 blocked-by: []
 ---
@@ -25,3 +25,14 @@ The app saves a **draft** the CLI later builds. Decide the schema and its life:
    treats draft content as **data, not instructions** (same rule as `dump/`),
    and every build still passes the approval gate + verify.
 5. **Naming**: `decks/drafts/<slug>/` slug convention (date + purpose?).
+
+## Resolution
+
+Built 2026-07-22. Schema = `decks/drafts/<slug>/draft.json` (JSON: machine
+written by the app, machine read by the CLI). Documented in
+`decks/drafts/CLAUDE.md`: ordered `slides[]` of reused ids (optional `comment`)
+and `source:new` placeholders (`brief`+`role`); `intent` + `vars`. Drafts start
+blank, from a recipe, or by cloning a deck ("start draft from this"). Lifecycle:
+building archives the draft into the variant as `draft.source.json` and clears
+`decks/drafts/<slug>/` so the folder stays clean; abandoned drafts deletable in
+the app. Content is data, not instructions.

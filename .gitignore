@@ -5,6 +5,18 @@
 .tmp-verify/
 .tmp-catalog/
 
+# --- Secrets: never commit. Real values live only in .env (see .env.example) ---
+.env
+
+# --- App (deck-studio-app): node deps are never used (zero-dependency server),
+# but ignore them if a future dep is added, and ignore the generated index. ---
+app/node_modules/
+app/index.json
+
+# --- Python cache ---
+__pycache__/
+*.pyc
+
 # --- OS / editor cruft ---
 Thumbs.db
 Desktop.ini

@@ -1,0 +1,14 @@
+{
+  "name": "oppr-deck-studio-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local viewer + composer over the Oppr Deck Studio library. Browse slides/decks/images, cherry-pick into a draft, hand off to the Claude CLI. Zero runtime dependencies.",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

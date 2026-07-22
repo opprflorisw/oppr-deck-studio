@@ -19,3 +19,10 @@ HITL checklist for Floris:
    variable name only, and note the convention in root CLAUDE.md.
 
 Resolved when the old key is dead and the new one lives only in `.env`.
+
+## Partial resolution (2026-07-22)
+
+Claude side **done**: `.gitignore` ignores `.env`; `.env.example` created with
+`GEMINI_API_KEY` (name only); the convention is documented in root CLAUDE.md
+(Setup + Rules). **Still open — Floris's action:** rotate/delete the key pasted
+in chat and put the new one only in `.env`. Ticket stays OPEN until that is done.

@@ -2,7 +2,7 @@
 id: 03
 title: App UI prototype — viewer + composer wireframe
 type: prototype
-status: open
+status: closed
 assignee:
 blocked-by: []
 ---
@@ -22,3 +22,10 @@ deck.css tokens) covering the flows Floris described:
 
 React to it together, then feed the agreed layout into tickets 02 (draft
 model) and 04 (stack). Asset lands in `.scratch/deck-app/prototypes/`.
+
+## Resolution
+
+Superseded by building the real app (2026-07-22) rather than a throwaway
+wireframe — the flows (Browse: slides/decks/images; Draft: reorder + comment +
+insert-new + intent form + clearance flagging; Handoff: save + copy prompt) are
+implemented in `app/web/`. Visual language reuses the deck palette. See ticket 04.

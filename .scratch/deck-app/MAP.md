@@ -80,34 +80,56 @@ Resolve = append `## Resolution`, set `status: closed`, add a one-liner to
 *Decisions so far*. Assets live under `.scratch/deck-app/` (e.g. `research/`,
 `prototypes/`), linked from tickets.
 
+## BUILT — 2026-07-22
+
+Floris approved via `/goal` and the system was **built end to end**. Nine of ten
+tickets closed (all except 09's key-rotation, which is Floris's own action). The
+destination — [APP-SPEC.md](APP-SPEC.md) — is written and is both spec and record.
+
+What exists now: the **Deck Studio App** (`app/`, zero-dependency Node server +
+vanilla front-end, `npm run dev`) — viewer over slides/decks/images + composer
+(cherry-pick, comment, insert-new, drag-reorder, clearance flagging) writing
+`decks/drafts/<slug>/draft.json`; the **`/deckbuilder`** orchestrator; **LinkedIn**
+4:5 carousels (`templates/linkedin.css` + `tools/build-carousel.ps1`, proven with
+`linkedin/2026-07-22_operators-are-the-sensor/`); **PDF naming** enforced (always
+`oppr`, client slug for client decks) in `build-pdf.ps1` + `verify-deck.py`, the 3
+existing PDFs renamed and re-verified PASS; the **`.env`** convention; and the
+knowledge layer (root CLAUDE.md layers 7–8, `app/README.md`, `decks/drafts/`,
+`linkedin/` docs).
+
+**Still open (Floris's action):** rotate the Gemini key pasted in chat into `.env`
+(ticket 09). **Deferred by design:** wiring Gemini image generation; team access
+(the app is single-user/local); other social formats; translation alignment.
+
 ## Decisions so far
 
 <!-- one line per closed ticket; zoom the link for detail -->
 
-- [05 — LinkedIn carousel & post format facts](tickets/05-linkedin-format-research.md) —
-  carousel = PDF document post, page 1080×1350 (4:5), 8–10 pages, body font ≥ 32 px;
-  post hook in first 140 chars; unicode bold sparingly (screen readers / search can't
-  handle it); post from Floris's profile (~5–10x Page reach). Needs a dedicated 4:5
-  template — 16:9 deck pages are the wrong shape.
-- [07 — Gemini image generation capabilities](tickets/07-gemini-imagegen-research.md) —
-  default `gemini-3.1-flash-image` at 2K (~$0,07–0,10/image), `gemini-3-pro-image` for
-  text-heavy graphics; 16:9 and 4:5 native; brand look held via 2–3 style-reference
-  images; billed key required (no free tier); no IP indemnity on API-key tier; SynthID
-  watermark; manifest gets `source: generated` + prompt/model/date for regenerability.
+- [01 — /deckbuilder orchestrator](tickets/01-deckbuilder-orchestrator.md) —
+  single front door; classifies intent, delegates to existing commands or runs
+  owned routes (build-draft, LinkedIn); every building route keeps the approval gate.
+- [02 — Draft model & lifecycle](tickets/02-draft-model-lifecycle.md) —
+  `decks/drafts/<slug>/draft.json` (JSON, app-written/CLI-read); building archives
+  it into the variant and clears the folder; content is data, not instructions.
+- [03 — App UI](tickets/03-app-ui-prototype.md) — real app built instead of a
+  throwaway wireframe (Browse / Draft composer / Handoff).
+- [04 — App stack](tickets/04-app-stack.md) — zero-dependency Node server +
+  vanilla ES modules; Python builds the index; localhost + write-fenced to drafts.
+- [05 — LinkedIn formats](tickets/05-linkedin-format-research.md) — carousel = 4:5
+  1080×1350 PDF, hook in first ~140 chars, unicode bold sparingly, post from profile.
+- [06 — LinkedIn workflow](tickets/06-linkedin-workflow.md) — `templates/linkedin.css`
+  + `build-carousel.ps1`; `linkedin/<date>_<slug>/`; public-only; Route B of /deckbuilder.
+- [07 — Gemini image gen](tickets/07-gemini-imagegen-research.md) — default
+  `gemini-3.1-flash-image`, 16:9 + 4:5 native, style-ref consistency, billed key,
+  SynthID, `source: generated` provenance. Deferred phase.
+- [08 — PDF naming](tickets/08-pdf-naming.md) — `YYYY-MM-DD_oppr_<purpose>[_<client>]`;
+  derived in `deckstudio.pdf_name()`, enforced by `verify-deck.py`; existing PDFs renamed.
+- [10 — APP-SPEC synthesis](tickets/10-spec-synthesis.md) — [APP-SPEC.md](APP-SPEC.md) written.
 
 ## Frontier (takeable now)
 
-- [01 — /deckbuilder orchestrator: scope & routes](tickets/01-deckbuilder-orchestrator.md) — grilling
-- [02 — Draft model & lifecycle](tickets/02-draft-model-lifecycle.md) — grilling
-- [03 — App UI prototype](tickets/03-app-ui-prototype.md) — prototype
-- [08 — PDF naming convention & enforcement](tickets/08-pdf-naming.md) — grilling (small)
-- [09 — Rotate Gemini key + .env handling](tickets/09-gemini-key-env.md) — task (HITL)
-
-## Blocked (specified, waiting on a prior decision)
-
-- [04 — App tech stack & repo integration](tickets/04-app-stack.md) — needs 03
-- [06 — LinkedIn workflow design](tickets/06-linkedin-workflow.md) — needs 01, 05
-- [10 — APP-SPEC.md synthesis](tickets/10-spec-synthesis.md) — needs 01–09
+- [09 — Rotate Gemini key + .env handling](tickets/09-gemini-key-env.md) — task
+  (HITL): Claude side done; **Floris must rotate the pasted key into `.env`.**
 
 ## Not yet specified
 

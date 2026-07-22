@@ -2,7 +2,7 @@
 id: 08
 title: PDF naming convention & enforcement
 type: grilling
-status: open
+status: closed
 assignee:
 blocked-by: []
 ---
@@ -23,3 +23,12 @@ client. Confirm the pattern and where it's enforced (small ticket):
    is fine — but never for merely "prepared for" decks that aren't entitled?
    Or is filename-level naming always OK because the file goes only to that
    client? Decide the rule.
+
+## Resolution
+
+Built 2026-07-22. Pattern `YYYY-MM-DD_oppr_<type-or-purpose>[_<client>].pdf`
+(canonical `oppr_<type>.pdf`). `deckstudio.pdf_name()` derives it from deck.yaml
+(top-level `client:` for named decks); `build-pdf.ps1` uses it via
+`tools/deck_pdf_name.py`; `verify-deck.py` FAILs a PDF missing `oppr` or the
+client slug (WARNs if the name differs from derived). The 3 existing PDFs were
+renamed to comply and all decks re-verified PASS. LinkedIn PDFs follow the rule.

@@ -142,6 +142,49 @@ def assemble(deckdir: Path, write: bool = True) -> str:
     return document
 
 
+# --- PDF naming (enforced) --------------------------------------------------
+
+_DATE_PREFIX_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})[_-](.+)$")
+
+
+def slugify(s: str) -> str:
+    s = re.sub(r"[^\w\s-]", "", str(s).lower()).strip()
+    return re.sub(r"[\s_-]+", "-", s).strip("-")
+
+
+def pdf_name(deckdir: Path) -> str:
+    """The enforced PDF filename for a deck. ALWAYS carries 'oppr'; carries the
+    client slug for a named-client deck. Canonical -> oppr_<type>.pdf; a variant
+    folder 'YYYY-MM-DD_<purpose>' -> YYYY-MM-DD_oppr_<purpose>[_<client>].pdf.
+
+        <date>_oppr_<core>[_<client>].pdf   (date only if the folder has one)
+    """
+    deckdir = Path(deckdir).resolve()
+    deck = load_deck(deckdir)
+    leaf = deckdir.name
+    is_canonical = deckdir.parent.name == "canonical"
+
+    m = _DATE_PREFIX_RE.match(leaf)
+    if m:
+        date, core = m.group(1), slugify(m.group(2))
+    elif is_canonical:
+        date, core = "", slugify(deck.get("type") or leaf)
+    else:
+        date, core = "", slugify(leaf)
+
+    client = slugify(deck.get("client", "")) if deck.get("client") else ""
+
+    parts = []
+    if date:
+        parts.append(date)
+    parts.append("oppr")
+    if core and core != "oppr":
+        parts.append(core)
+    if client and client not in "-".join(parts):
+        parts.append(client)
+    return "_".join(parts) + ".pdf"
+
+
 # --- helpers shared with verification ---------------------------------------
 
 def sections(html: str) -> list[str]:

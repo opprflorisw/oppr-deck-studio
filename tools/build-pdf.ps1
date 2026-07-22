@@ -10,7 +10,14 @@ $deckDir = Join-Path $root $Deck
 $html = Join-Path $deckDir "index.html"
 if (-not (Test-Path $html)) { throw "Not found: $html" }
 
-if (-not $Out) { $Out = Join-Path $deckDir ((Split-Path $deckDir -Leaf) + ".pdf") }
+# Derive the PDF name from deck.yaml (always carries 'oppr'; client decks carry
+# the client slug) rather than trusting the folder leaf. verify-deck.py enforces
+# the same rule, so an -Out that breaks it will FAIL verification.
+if (-not $Out) {
+    $pdfName = & python (Join-Path $PSScriptRoot "deck_pdf_name.py") $Deck
+    if ($LASTEXITCODE -ne 0 -or -not $pdfName) { throw "Could not derive PDF name for $Deck" }
+    $Out = Join-Path $deckDir $pdfName.Trim()
+}
 
 $browser = @(
     "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",

@@ -2,7 +2,7 @@
 id: 04
 title: App tech stack & repo integration
 type: grilling
-status: open
+status: closed
 assignee:
 blocked-by: [03]
 ---
@@ -25,3 +25,13 @@ interactivity:
    everywhere else; no network beyond localhost.
 5. **Where it lives**: `app/` folder in this repo, its own package.json,
    documented in root CLAUDE.md as layer 7.
+
+## Resolution
+
+Built 2026-07-22. Stack: **zero-dependency Node server** (`app/server.mjs`,
+built-ins only, Node 18+) + vanilla ES-module front-end (`app/web/`), no build
+step. Data via `tools/build_app_index.py` → `app/index.json` (Python owns YAML;
+Node needs no parser); server regenerates on start + Refresh. Previews reuse
+existing `thumb.png` + assembled `index.html` in iframes. Guardrails: localhost
+only, `/repo/` read-only + traversal-blocked, writes only under `decks/drafts/`.
+Lives in `app/`, documented as layer 7 in root CLAUDE.md.

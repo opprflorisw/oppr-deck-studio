@@ -142,6 +142,20 @@ def verify(deckdir: Path, r: Report) -> None:
     if not pdfs:
         r.warn("no PDF found; skipped page-count / size / blank-page checks")
     else:
+        # 8a. naming: every PDF must carry 'oppr'; a client deck must carry the
+        # client slug. Enforces the rule build-pdf.ps1 derives.
+        pdf_lc = pdfs[0].name.lower()
+        if "oppr" not in pdf_lc:
+            r.fail(f"PDF '{pdfs[0].name}' does not carry 'oppr' in its name")
+        client = deck.get("client", "")
+        if client:
+            cslug = ds.slugify(client)
+            if cslug and cslug not in pdf_lc:
+                r.fail(f"client deck PDF '{pdfs[0].name}' is missing the client slug '{cslug}'")
+        expected = ds.pdf_name(deckdir)
+        if pdfs[0].name != expected:
+            r.warn(f"PDF name '{pdfs[0].name}' differs from the derived '{expected}'")
+
         import fitz
         pdf = fitz.open(pdfs[0])
         if pdf.page_count != n:

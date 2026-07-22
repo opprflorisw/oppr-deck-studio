@@ -1,0 +1,85 @@
+/* Oppr LinkedIn carousel — 4:5 document-post pages (1080 x 1350).
+   Self-contained (own tokens + fonts) so a carousel is one HTML + this file.
+   Research: LinkedIn document posts read best at 4:5 portrait, big type, one
+   idea per page, body >= 32px on the 1080 canvas. See linkedin/CLAUDE.md. */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("../brand/fonts/Archivo-var.woff2") format("woff2");
+  font-weight: 100 900; font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../brand/fonts/JetBrainsMono-var.woff2") format("woff2");
+  font-weight: 100 800; font-display: swap;
+}
+
+:root {
+  --bg: #f2f2ed; --surface: #fcfbf7; --ink: #15201e; --muted: #5f6965;
+  --line: #c8ceca; --accent: #a65032; --machine: #3e6874; --verified: #55745e;
+  --sans: "Archivo", Arial, sans-serif; --mono: "JetBrains Mono", Consolas, monospace;
+}
+
+@page { size: 1080px 1350px; margin: 0; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #d9d5cc; }
+body { font-family: var(--sans); color: var(--ink); }
+
+.carousel { display: flex; flex-direction: column; align-items: center; }
+
+.lpage {
+  width: 1080px; height: 1350px; background: var(--bg); color: var(--ink);
+  padding: 96px 88px; position: relative; overflow: hidden;
+  display: flex; flex-direction: column; page-break-after: always;
+}
+.lpage:last-child { page-break-after: auto; }
+
+/* On screen, space the pages apart for browsing. In print each .lpage must map
+   to exactly ONE 4:5 PDF page, so no gap/padding leaks a blank page between. */
+@media screen {
+  .carousel { gap: 24px; padding: 24px 0; }
+}
+
+/* shared furniture */
+.lpage .wm { position: absolute; top: 64px; left: 88px; font-weight: 800; font-size: 34px; letter-spacing: -.02em; }
+.lpage .wm b { color: var(--accent); }
+.lpage .pagedot {
+  position: absolute; bottom: 64px; right: 88px; font-family: var(--mono);
+  font-size: 26px; color: var(--muted);
+}
+.lpage .eyebrow {
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em;
+  font-size: 26px; color: var(--accent); font-weight: 700; margin: 0 0 20px;
+}
+.lpage h1 { font-size: 88px; line-height: 1.02; letter-spacing: -.02em; margin: 0; text-wrap: balance; font-weight: 800; }
+.lpage h2 { font-size: 66px; line-height: 1.05; letter-spacing: -.02em; margin: 0 0 28px; font-weight: 800; text-wrap: balance; }
+.lpage p { font-size: 38px; line-height: 1.34; margin: 0 0 22px; color: var(--ink); }
+.lpage .lead { font-size: 44px; color: var(--muted); }
+.lpage .spacer { flex: 1; }
+
+/* page types */
+.lpage--hook { justify-content: center; }
+.lpage--hook h1 { font-size: 104px; }
+.lpage--hook .sub { font-size: 42px; color: var(--muted); margin-top: 32px; }
+
+.lpage--point { justify-content: center; }
+.lpage--point .num {
+  font-family: var(--mono); font-size: 40px; color: var(--machine); font-weight: 700; margin-bottom: 18px;
+}
+
+.lpage--cta { justify-content: center; background: var(--ink); color: var(--bg); }
+.lpage--cta .wm { color: var(--bg); }
+.lpage--cta .wm b { color: var(--accent); }
+.lpage--cta h2 { color: var(--bg); }
+.lpage--cta p { color: #d7dbd6; }
+.lpage--cta .handle { font-family: var(--mono); font-size: 34px; color: var(--accent); margin-top: 24px; }
+.lpage--cta .pagedot { color: #7f8b86; }
+
+/* a big number / stat block */
+.lstat { font-size: 132px; font-weight: 800; letter-spacing: -.03em; line-height: 1; color: var(--accent); margin: 12px 0 24px; }
+.lstat.machine { color: var(--machine); }
+
+/* callout image band */
+.lband { border-radius: 18px; overflow: hidden; border: 1px solid var(--line); margin: 12px 0 28px; }
+.lband img { display: block; width: 100%; height: 420px; object-fit: cover; }
