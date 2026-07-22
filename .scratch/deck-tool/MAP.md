@@ -94,8 +94,23 @@ understood and operated) and the **design system built with Claude Design**
 (§10b — specimens in-repo, synced to a claude.ai/design project, new slides
 compose only from documented blocks).
 
-**Open tickets stay open until Floris approves the spec's checklist; on
-approval they close as "resolved by spec" and building starts at Phase 0.**
+## BUILT — 2026-07-22
+
+Floris approved (via `/goal`) and the spec was **built end to end**. All decision
+tickets are closed (resolved by SPEC.md + built). Git history: Phase 0 baseline →
+Phase 7 design system, one commit per phase.
+
+- Slide library extracted; both canonical decks rebuild **pixel-identical** to the
+  originals (`canonical/*@v1` tagged).
+- Image manifest + drift-checked contact sheet; `verify-deck.py` gates (proven on
+  a seeded bad deck); recipes + `/new-deck` & `/edit-canonical`; a worked frozen
+  **teaser variant**; slide **catalog** with thumbnails; **CLAUDE.md** knowledge
+  layer; **design-system** specimens rendered from the real CSS.
+
+**Still deferred (as planned):** pushing the specimens to claude.ai/design (needs
+Floris's login + approval — see `library/design-system/SYNC.md`); a soft
+"undocumented-class" check in verify-deck; and the fog items (team access, phase-2
+app, translation alignment).
 
 ## Frontier (takeable now)
 

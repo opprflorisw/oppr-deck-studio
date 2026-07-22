@@ -1,6 +1,6 @@
 ---
 type: grilling
-status: open
+status: closed
 assignee:
 blocked-by: [01]
 ---
@@ -53,3 +53,7 @@ reason from.
 The brief/recipe schema is specified (fields, recipe-vs-instance, file locations, the
 memory tie-in), with a worked example: the recipe for one existing named cut
 (e.g. Management Outlook) and a filled instance brief for a specific deck.
+
+## Resolution
+
+Resolved by SPEC.md and **built**: §5 — types/<type>/recipe.md + memory tie-in; Phase 4.

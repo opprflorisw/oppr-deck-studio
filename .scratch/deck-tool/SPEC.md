@@ -1,8 +1,9 @@
 # Oppr Deck Studio — complete build instruction
 
-**Status: DRAFT for Floris's approval. This is the instruction for building the
-tool — the tool itself is NOT built yet. Nothing below exists until approved and
-executed phase by phase.**
+**Status: BUILT (2026-07-22).** Approved by Floris and implemented end to end;
+see git history (Phase 0 baseline → Phase 7), one commit per phase, and `MAP.md`.
+Deferred-as-planned items are listed in the MAP's "BUILT" note. This file remains
+the design rationale; the operating manual is the root `CLAUDE.md`.
 
 This is the destination artifact of the wayfinder map at
 [.scratch/deck-tool/MAP.md](MAP.md). Where a decision was already settled during

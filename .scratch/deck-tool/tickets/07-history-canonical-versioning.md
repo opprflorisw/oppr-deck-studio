@@ -1,6 +1,6 @@
 ---
 type: grilling
-status: open
+status: closed
 assignee:
 blocked-by: [03, 04]
 ---
@@ -36,3 +36,7 @@ versions. This must be concrete and low-ceremony, not a heavyweight DAM.
 
 A history + canonical-marking mechanism is specified, including how a frozen variant
 records its source canonical version.
+
+## Resolution
+
+Resolved by SPEC.md and **built**: §6 — git tags canonical/<type>@vN + variant manifest provenance; Phase 1.

@@ -1,6 +1,6 @@
 ---
 type: grilling
-status: open
+status: closed
 assignee:
 blocked-by: [01, 03]
 ---
@@ -33,3 +33,7 @@ findable, and stay legible to both Floris and teammates.
 
 A concrete directory + naming convention is specified (with examples for a canonical
 deck, a client variant, and a French variant), plus how "canonical/best" is marked.
+
+## Resolution
+
+Resolved by SPEC.md and **built**: §2 — library/ · types/ · decks/canonical + decks/variants; Phase 1.

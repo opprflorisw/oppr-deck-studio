@@ -1,6 +1,6 @@
 ---
 type: prototype
-status: open
+status: closed
 assignee:
 blocked-by: []
 ---
@@ -42,3 +42,7 @@ Surface what breaks (CSS coupling, variable leakage, image paths) and recommend 
 
 A recommended element representation is written up, with a worked example of the
 same slide living in the library and being dropped into a second deck.
+
+## Resolution
+
+Resolved by SPEC.md and **built**: §3 — library/slides/<id>/ (fragment + meta.yaml); Phase 1 commit; canonical decks rebuild pixel-identical.

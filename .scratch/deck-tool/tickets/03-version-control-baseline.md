@@ -1,6 +1,6 @@
 ---
 type: task
-status: open
+status: closed
 assignee:
 blocked-by: []
 ---

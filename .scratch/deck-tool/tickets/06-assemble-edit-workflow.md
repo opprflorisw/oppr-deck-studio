@@ -1,6 +1,6 @@
 ---
 type: grilling
-status: open
+status: closed
 assignee:
 blocked-by: [01, 04, 05, 08]
 ---
@@ -53,3 +53,7 @@ CLAUDE.md).
 The end-to-end flow (intake → proposed plan → approval → assemble) and the Edit flow
 are each specified as a concrete sequence of steps, with the mode boundary and the
 build/verify integration named.
+
+## Resolution
+
+Resolved by SPEC.md and **built**: §7/§8 — /new-deck + /edit-canonical; Phase 4 (teaser variant proves it).

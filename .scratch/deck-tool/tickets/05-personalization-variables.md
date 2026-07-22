@@ -1,6 +1,6 @@
 ---
 type: grilling
-status: open
+status: closed
 assignee:
 blocked-by: [01]
 ---
@@ -37,3 +37,7 @@ fight — the existing `[DYNAMIC BLOCK]` + top-of-deck VARIABLES convention.
 A variable/personalization model is specified with a worked example: producing a
 client + French teaser variant from a canonical deck by only changing variables and
 slide selection.
+
+## Resolution
+
+Resolved by SPEC.md and **built**: §3 — {{variables}} + variant-local overrides; Phase 1/4.
