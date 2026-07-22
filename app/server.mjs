@@ -98,6 +98,21 @@ function regenerateIndex() {
 }
 
 const SLUG_RE = /^[a-z0-9][a-z0-9._-]{0,80}$/;
+const SLIDE_ID_RE = /^[a-z0-9][a-z0-9-]{0,80}$/;
+const HASH_RE = /^[0-9a-f]{7,40}$/;
+
+// Run git in the repo, resolve stdout (or reject). Args are passed as an array
+// (never string-interpolated) so a validated id/hash can't inject flags.
+function git(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("git", args, { cwd: REPO_ROOT });
+    let out = "", err = "";
+    child.stdout.on("data", (d) => (out += d));
+    child.stderr.on("data", (d) => (err += d));
+    child.on("error", reject);
+    child.on("close", (code) => (code === 0 ? resolve(out) : reject(new Error(err || `git exit ${code}`))));
+  });
+}
 
 function draftDir(slug) {
   if (!SLUG_RE.test(slug)) return null;
@@ -115,6 +130,43 @@ async function readBody(req, limit = 2_000_000) {
     chunks.push(c);
   }
   return Buffer.concat(chunks).toString("utf-8");
+}
+
+// The Config/Knowledge whitelist: which repo files the app may read as docs.
+// Nothing outside this list is ever exposed by /api/knowledge.
+let _knowledgeCache = null;
+async function knowledgeFiles() {
+  if (_knowledgeCache) return _knowledgeCache;
+  const out = new Set();
+  const add = (rel) => { if (fs.existsSync(path.join(REPO_ROOT, rel))) out.add(rel.replace(/\\/g, "/")); };
+
+  // Fixed docs.
+  ["brand/BRAND.md", ".env.example", "CLAUDE.md",
+   ".scratch/deck-tool/SPEC.md", ".scratch/deck-app/APP-SPEC.md", ".scratch/deck-app/V2-SPEC.md",
+  ].forEach(add);
+
+  // Walk for CLAUDE.md anywhere (excluding noise), plus knowledge/**, types/*/recipe.md,
+  // .claude/commands/*.md.
+  const SKIP = new Set([".git", "node_modules", "__pycache__", ".tmp-verify", ".tmp-catalog"]);
+  const walk = (dir, depth) => {
+    if (depth > 6) return;
+    let entries = [];
+    try { entries = fs.readdirSync(path.join(REPO_ROOT, dir), { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (SKIP.has(e.name)) continue;
+      const rel = dir ? `${dir}/${e.name}` : e.name;
+      if (e.isDirectory()) walk(rel, depth + 1);
+      else if (
+        e.name === "CLAUDE.md" ||
+        rel.startsWith("knowledge/") && e.name.endsWith(".md") ||
+        rel.startsWith("types/") && e.name === "recipe.md" ||
+        rel.startsWith(".claude/commands/") && e.name.endsWith(".md")
+      ) out.add(rel);
+    }
+  };
+  walk("", 0);
+  _knowledgeCache = [...out].sort();
+  return _knowledgeCache;
 }
 
 async function listDrafts() {
@@ -149,8 +201,53 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && p === "/api/refresh") {
+    _knowledgeCache = null;
     const ok = await regenerateIndex();
     return sendJson(res, ok ? 200 : 500, { ok });
+  }
+
+  // Slide fragment history (git log --follow).
+  let hm = p.match(/^\/api\/history\/slide\/([^/]+)$/);
+  if (req.method === "GET" && hm) {
+    const id = hm[1];
+    if (!SLIDE_ID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+    const rel = `library/slides/${id}/slide.html`;
+    try {
+      const out = await git(["log", "--follow", "--format=%H%x1f%ad%x1f%s", "--date=short", "--", rel]);
+      const commits = out.split("\n").filter(Boolean).map((l) => {
+        const [hash, date, subject] = l.split("\x1f");
+        return { hash, date, subject };
+      });
+      return sendJson(res, 200, { id, commits });
+    } catch (e) {
+      return sendJson(res, 500, { error: "git unavailable" });
+    }
+  }
+
+  // One historical version of a fragment (git show <hash>:<path>).
+  hm = p.match(/^\/api\/history\/slide\/([^/]+)\/([^/]+)$/);
+  if (req.method === "GET" && hm) {
+    const [, id, hash] = hm;
+    if (!SLIDE_ID_RE.test(id) || !HASH_RE.test(hash)) return send(res, 400, "bad request");
+    try {
+      const body = await git(["show", `${hash}:library/slides/${id}/slide.html`]);
+      return send(res, 200, body, { "Content-Type": "text/html; charset=utf-8" });
+    } catch {
+      return send(res, 404, "version not found");
+    }
+  }
+
+  // Knowledge whitelist (Phase 7).
+  if (req.method === "GET" && p === "/api/knowledge") {
+    return sendJson(res, 200, { files: await knowledgeFiles() });
+  }
+  const km = p.match(/^\/api\/knowledge\/(.+)$/);
+  if (req.method === "GET" && km) {
+    const relPath = decodeURIComponent(km[1]);
+    if (!(await knowledgeFiles()).includes(relPath)) return send(res, 403, "not whitelisted");
+    const abs = safeResolve(REPO_ROOT, "/" + relPath);
+    if (!abs) return send(res, 403, "forbidden");
+    return serveFile(res, abs);
   }
 
   if (req.method === "GET" && p === "/api/drafts") {

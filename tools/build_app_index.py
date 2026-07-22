@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -55,7 +56,34 @@ def rel(p: Path) -> str:
     return p.relative_to(REPO_ROOT).as_posix()
 
 
+def git_version_map() -> dict:
+    """One `git log` pass over the slide fragments -> {id: (count, last_date)}.
+    Empty if git is unavailable or the repo has no history."""
+    import re as _re
+    date_re = _re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    try:
+        out = subprocess.run(
+            ["git", "log", "--format=%ad", "--date=short", "--name-only",
+             "--", "library/slides"],
+            cwd=REPO_ROOT, capture_output=True, text=True, encoding="utf-8",
+        ).stdout
+    except Exception:
+        return {}
+    counts: dict[str, int] = {}
+    last: dict[str, str] = {}
+    cur_date = ""
+    for line in out.splitlines():
+        if date_re.match(line):
+            cur_date = line
+        elif line.startswith("library/slides/") and line.endswith("/slide.html"):
+            sid = line.split("/")[2]
+            counts[sid] = counts.get(sid, 0) + 1
+            last.setdefault(sid, cur_date)  # first seen = most recent (log is newest-first)
+    return {sid: (counts[sid], last.get(sid, "")) for sid in counts}
+
+
 def build_slides() -> list[dict]:
+    versions = git_version_map()
     slides = []
     for d in sorted(SLIDES_DIR.iterdir()):
         if not d.is_dir():
@@ -65,6 +93,7 @@ def build_slides() -> list[dict]:
             continue
         thumb = d / "thumb.png"
         role = meta.get("role", "")
+        vcount, vlast = versions.get(d.name, (None, ""))
         slides.append({
             "id": meta.get("id", d.name),
             "role": role,
@@ -78,6 +107,8 @@ def build_slides() -> list[dict]:
             "used_in": meta.get("used_in", []) or [],
             "notes": meta.get("notes", ""),
             "thumb": rel(thumb) if thumb.exists() else None,
+            "versions": vcount,
+            "last_changed": vlast,
         })
 
     def sort_key(s):
