@@ -57,10 +57,13 @@ def load_image_entitlements() -> dict:
     return {m["file"]: m.get("entitlement", "public") for m in data.get("images", [])}
 
 
-def slide_roles(deck: dict) -> list[str]:
+def slide_roles(deck: dict, deckdir: Path) -> list[str]:
+    """Role per slide. A variant-local override (decks/<v>/slides/<id>/meta.yaml)
+    wins over the library, so a brand-new variant slide can declare its role."""
     roles = []
     for sid in deck["slides"]:
-        meta = ds.SLIDES_DIR / sid / "meta.yaml"
+        local = Path(deckdir) / "slides" / sid / "meta.yaml"
+        meta = local if local.exists() else ds.SLIDES_DIR / sid / "meta.yaml"
         role = ""
         if meta.exists():
             role = (yaml.safe_load(meta.read_text(encoding="utf-8")) or {}).get("role", "")
@@ -101,8 +104,12 @@ def verify(deckdir: Path, r: Report) -> None:
     secs = ds.sections(doc)
     if len(secs) != n:
         r.fail(f"{len(secs)} <section> blocks != {n} slides in deck.yaml")
-    for sid, role, sec in zip(deck["slides"], slide_roles(deck), secs):
+    for sid, role, sec in zip(deck["slides"], slide_roles(deck, deckdir), secs):
         has_foot = "slide-foot" in sec
+        if not role:
+            r.warn(f"slide '{sid}' has no declared role; footer discipline not checked "
+                   "(add a meta.yaml with a role for a variant-local slide)")
+            continue
         if role in NO_FOOTER_ROLES and has_foot:
             r.fail(f"slide '{sid}' (role {role}) should have NO footer")
         if role not in NO_FOOTER_ROLES and not has_foot:

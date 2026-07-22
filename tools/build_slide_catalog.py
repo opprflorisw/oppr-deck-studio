@@ -69,6 +69,7 @@ def find_browser() -> str:
 def render_pdf(html_path: Path, out_pdf: Path) -> None:
     browser = find_browser()
     uri = html_path.resolve().as_uri()
+    out_pdf = Path(out_pdf).resolve()  # --print-to-pdf resolves relative paths against the browser cwd
     subprocess.run(
         [browser, "--headless=new", "--disable-gpu", "--no-pdf-header-footer",
          "--virtual-time-budget=10000", f"--print-to-pdf={out_pdf}", uri],

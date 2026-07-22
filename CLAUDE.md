@@ -28,6 +28,16 @@ should be able to build a deck from these docs alone.
 
 The full design rationale is `.scratch/deck-tool/SPEC.md`.
 
+## Setup (fresh clone)
+
+```powershell
+pip install -r requirements.txt   # PyYAML, pypdf, PyMuPDF (fitz), Pillow
+```
+Rendering also needs **Google Chrome or Microsoft Edge** installed (HTML → PDF/PNG).
+The workflows are driven from the **Claude Code CLI**: `/new-deck` (make a deck) and
+`/edit-canonical` (change the system). `/new-deck` has a hard approval gate — an
+unattended run stops at the proposed plan and waits for a human to approve before building.
+
 ## How a deck is composed
 
 A deck is not hand-written HTML. `deck.yaml` lists an ordered set of library slide
