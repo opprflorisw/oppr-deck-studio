@@ -18,7 +18,7 @@ export function blankPage(id) {
   return p;
 }
 
-function pageHtml(p, i, total) {
+export function pageHtmlFor(p, i, total) {
   const wm = `<span class="wm">oppr<b>.</b></span>`;
   const dot = `<span class="pagedot">${String(i + 1).padStart(2, "0")}</span>`;
   const e = (s) => esc(s || "");
@@ -49,7 +49,7 @@ function pageHtml(p, i, total) {
 }
 
 export function carouselHtml(pages) {
-  const body = pages.map((p, i) => pageHtml(p, i, pages.length)).join("\n");
+  const body = pages.map((p, i) => pageHtmlFor(p, i, pages.length)).join("\n");
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/repo/templates/linkedin.css"></head>
 <body><div class="carousel">${body}</div></body></html>`;
@@ -60,5 +60,5 @@ export function pagePreviewDoc(page, i, total) {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/repo/templates/linkedin.css">
 <style>body{margin:0}.carousel{padding:0;gap:0}</style></head>
-<body><div class="carousel">${pageHtml(page, i, total)}</div></body></html>`;
+<body><div class="carousel">${pageHtmlFor(page, i, total)}</div></body></html>`;
 }

@@ -4,7 +4,7 @@ import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
 import { state, blankDraft, setDraft, slideById } from "../state.js";
 import { go } from "../router.js";
 import { toggleCompose } from "../compose.js";
-import { openPreview } from "./modal.js";
+import { assembledViewer } from "./viewer.js";
 
 export function renderList() {
   const box = el(`<div></div>`);
@@ -40,7 +40,7 @@ function deckRow(d) {
         ${d.slides.map((id) => `<div class="frame" data-open="${esc(id)}"><img src="${thumbFor(id)}" alt=""><div class="cap">${esc(id)}</div></div>`).join("")}
       </div>
     </div>`);
-  if (d.index) $(".prev", row).addEventListener("click", () => openPreview(`/repo/${d.index}`, decodeEntities(d.title)));
+  if (d.index) $(".prev", row).addEventListener("click", () => assembledViewer(d.index, decodeEntities(d.title)));
   $(".clone", row).addEventListener("click", () => cloneToDraft(d));
   $$("[data-open]", row).forEach((f) => f.addEventListener("click", () => go("/slides/" + f.dataset.open)));
   return row;

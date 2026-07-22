@@ -5,8 +5,8 @@ import { $, $$, el, esc, decodeEntities, slugify, toast, todayISO } from "../uti
 import { state } from "../state.js";
 import * as api from "../api.js";
 import { go } from "../router.js";
-import { openPreview } from "./modal.js";
-import { PATTERNS, blankPage, carouselHtml, pagePreviewDoc } from "./carousel-build.js";
+import { assembledViewer, carouselComposerViewer } from "./viewer.js";
+import { PATTERNS, blankPage } from "./carousel-build.js";
 
 const KINDS = [
   { kind: "carousel", label: "LinkedIn carousel", desc: "4:5 document post, 6–10 pages", ready: true },
@@ -76,11 +76,7 @@ function carouselComposer() {
   bind("#c-goal", (v) => (d.intent.goal = v));
   $("#c-addbtn", wrap).addEventListener("click", () => { d.pages.push(blankPage($("#c-add", wrap).value)); renderPages(); });
   $("#back", wrap).addEventListener("click", () => go("/social"));
-  $("#preview", wrap).addEventListener("click", () => {
-    const html = carouselHtml(d.pages);
-    const blob = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-    openPreview(blob, "Carousel preview");
-  });
+  $("#preview", wrap).addEventListener("click", () => carouselComposerViewer(d.pages, "Carousel preview"));
 
   const renderPages = () => {
     const host = $("#pages", wrap);
@@ -207,7 +203,7 @@ export function renderOutputs() {
           </div>
         </div>
       </div>`);
-    if (o.index) $(".prev", row).addEventListener("click", () => openPreview(`/repo/${o.index}`, o.slug));
+    if (o.index) $(".prev", row).addEventListener("click", () => assembledViewer(o.index, o.slug));
     if (o.post) $(".post", row).addEventListener("click", async () => {
       const t = await (await fetch(`/repo/${o.post}`)).text();
       openPreviewText(o.slug + " — post text", t);

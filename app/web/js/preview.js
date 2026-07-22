@@ -10,14 +10,18 @@ const PREVIEW_VARS = {
   cover_meta: "Preview &nbsp;&middot;&nbsp; 2026 &nbsp;&middot;&nbsp; oppr.ai",
 };
 
-export function previewDoc(fragment) {
+export function fillPreviewVars(fragment) {
   let body = fragment;
   for (const [k, v] of Object.entries(PREVIEW_VARS)) body = body.split("{{" + k + "}}").join(v);
+  return body;
+}
+
+export function previewDoc(fragment) {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/repo/templates/deck.css">
 <link rel="stylesheet" href="/repo/templates/showcase.css">
 <style>html,body{margin:0;background:transparent}</style></head>
-<body><div class="deck">${body}</div></body></html>`;
+<body><div class="deck">${fillPreviewVars(fragment)}</div></body></html>`;
 }
 
 // fragmentSource: a string or a Promise<string>. width: rendered CSS px.

@@ -6,11 +6,17 @@ import { state, saveDraftLocal, setDraft, blankDraft, slideById, slideExceedsCle
 import * as api from "../api.js";
 import { go } from "../router.js";
 import { renderTray, toggleCompose } from "../compose.js";
+import { draftViewer } from "./viewer.js";
 
 export function render() {
   const wrap = el(`<div></div>`);
   wrap.append(el(`<div class="subbar"><h1 class="page-title">Deck draft</h1>
-    <button class="ghost" id="new-draft" style="margin-left:auto">New draft</button></div>`));
+    <button class="ghost" id="preview-draft" style="margin-left:auto">Preview</button>
+    <button class="ghost" id="new-draft">New draft</button></div>`));
+  $("#preview-draft", wrap).addEventListener("click", () => {
+    if (!state.draft.slides.length) { toast("Add slides first."); return; }
+    draftViewer(state.draft, state.draft.title || "Draft preview");
+  });
   const comp = el(`<div class="composer"></div>`);
   comp.append(metaPanel(), stripCol());
   wrap.append(comp);
