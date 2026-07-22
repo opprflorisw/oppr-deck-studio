@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Oppr — [DECK TITLE]</title>
+<link rel="stylesheet" href="../../templates/deck.css">
+<style>
+  /* deck-local tweaks only; shared styles live in templates/deck.css */
+</style>
+</head>
+<body>
+<div class="deck">
+
+<!-- VARIABLES for this deck:
+     · AUDIENCE   = [who receives this]
+     · INITIATOR  = [named initiator/references — swap per audience]
+     · FOOTER     = update the meta text + data-total on every .pageno -->
+
+<!-- COVER (ink) -->
+<section class="slide slide--ink" style="display:flex; flex-direction:column; justify-content:space-between;">
+  <div style="font-size:34px; font-weight:700; letter-spacing:-0.04em;">oppr<b style="color:var(--accent)">.</b></div>
+  <div>
+    <p class="eyebrow">Operator Intelligence for manufacturing</p>
+    <h1 style="max-width:20ch;">[Headline.]</h1>
+    <p class="lede" style="margin-top:22px; color:rgba(242,242,237,0.78);">[Subtitle.]</p>
+  </div>
+  <p class="mono" style="font-size:11.5px; color:rgba(242,242,237,0.6);">
+    Prepared for [AUDIENCE] &nbsp;&middot;&nbsp; Discussion draft &nbsp;&middot;&nbsp; [DATE] &nbsp;&middot;&nbsp; Confidential
+  </p>
+</section>
+
+<!-- CONTENT SLIDE -->
+<section class="slide">
+  <p class="eyebrow">[Section label]</p>
+  <h2>[Slide title.]</h2>
+  <p class="lede">[Lead paragraph.]</p>
+  <!-- building blocks: .cols + .card, .steps, .tbl, .stat, .grid patterns — see
+       decks/2026-07-21_mutares-portfolio/index.html for worked examples -->
+  <p class="kicker">[Closing line.]</p>
+  <footer class="slide-foot"><span class="wm">oppr<b>.</b></span><span>Operator Intelligence &middot; [AUDIENCE] &middot; [MONTH YEAR]</span><span class="pageno" data-total="[N]"></span></footer>
+</section>
+
+<!-- CLOSER (ink) -->
+<section class="slide slide--ink" style="display:flex; flex-direction:column; justify-content:space-between;">
+  <div>
+    <p class="eyebrow">Next step</p>
+    <h2 style="font-size:44px; max-width:22ch;">[Call to action.]</h2>
+  </div>
+  <div>
+    <p style="font-size:16px; margin-bottom:14px;"><strong>Floris Wyers</strong> &middot; Founder &amp; CEO, Oppr.ai<br>
+    <span class="mono" style="font-size:12.5px; color:rgba(242,242,237,0.7);">floris@oppr.ai &nbsp;&middot;&nbsp; +31 (0)6 24 69 02 39 &nbsp;&middot;&nbsp; www.oppr.ai &nbsp;&middot;&nbsp; The Hague, NL</span></p>
+    <p class="mono" style="font-size:10.5px; color:rgba(242,242,237,0.45);">This document is for the conversation, not for signature. &nbsp;&middot;&nbsp; Oppr.ai &middot; Confidential &middot; [MONTH YEAR]</p>
+  </div>
+</section>
+
+</div>
+</body>
+</html>

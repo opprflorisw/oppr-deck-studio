@@ -1,0 +1,187 @@
+  /* ===================================================================
+     Deck-local styles · Operator Intelligence · Product Showcase
+     Generic management-level deck. Big type, whitespace, one idea per
+     slide, terracotta as the consistent through-line accent.
+     House rule for this deck: no em dashes.
+     =================================================================== */
+
+  .slide { padding: 60px 72px 78px; }
+  .slide h2 { font-size: 44px; margin-bottom: 20px; }
+  .slide .lede { font-size: 21px; max-width: 68ch; }
+  .eyebrow, .eyebrow-xl { font-family: var(--mono); font-size: 14px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+  .kicker { font-size: 18px; bottom: 66px; }
+  .subcopy { font-size: 18px; line-height: 1.5; max-width: 96ch; color: var(--ink); margin-bottom: 24px; }
+
+  /* --- Cover --------------------------------------------------------- */
+  .cover { padding: 0; }
+  .cover .hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 72% 38%; }
+  .cover .scrim {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(90deg, rgba(15,22,20,0.97) 26%, rgba(15,22,20,0.72) 60%, rgba(15,22,20,0.58) 100%),
+      linear-gradient(0deg, rgba(15,22,20,0.82) 0%, rgba(15,22,20,0.12) 55%),
+      rgba(15,22,20,0.30);
+  }
+  .cover .cover-in { position: absolute; inset: 0; padding: 50px 72px 54px; display: flex; flex-direction: column; justify-content: space-between; }
+  .cover-top { display: flex; justify-content: space-between; align-items: center; }
+  .cover .wm-lg { font-size: 40px; font-weight: 700; letter-spacing: -0.04em; color: var(--bg); }
+  .cover .wm-lg b { color: var(--accent); }
+  .cover-url { font-family: var(--mono); font-size: 15px; letter-spacing: 0.04em; color: rgba(242,242,237,0.85); }
+  .cover h1 { font-size: 66px; max-width: 16ch; color: var(--bg); }
+  .cover .lede { color: rgba(242,242,237,0.82); max-width: 50ch; margin-top: 22px; }
+  .cover .meta { font-family: var(--mono); font-size: 12px; color: rgba(242,242,237,0.66); }
+
+  /* --- The idea in one sentence (ink setup) -------------------------- */
+  .setup h2 { font-size: 40px; max-width: 30ch; color: var(--bg); line-height: 1.14; margin-bottom: 42px; }
+  .setup h2 .hl { color: var(--accent); }
+  .idea-cards { display: flex; gap: 22px; }
+  .idea-cards .ic { flex: 1; background: rgba(242,242,237,0.055); border: 1px solid rgba(242,242,237,0.16); border-radius: 14px; padding: 26px 24px; }
+  .ic-ico { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; background: var(--accent); margin-bottom: 18px; }
+  .ic-ico svg { width: 24px; height: 24px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .setup .ic h3 { font-size: 20px; color: var(--bg); margin-bottom: 8px; }
+  .setup .ic p { font-size: 14px; color: rgba(242,242,237,0.72); line-height: 1.5; }
+
+  /* --- Why-now: vertical numbered flow -------------------------------- */
+  .flowdown { display: flex; flex-direction: column; margin-top: 6px; max-width: 1000px; }
+  .flowdown .row { display: flex; align-items: baseline; gap: 22px; padding: 16px 0; border-top: 1px solid var(--line); }
+  .flowdown .row:first-child { border-top: none; }
+  .flowdown .n { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--accent); flex: 0 0 34px; }
+  .flowdown .row h3 { font-size: 22px; flex: 0 0 300px; }
+  .flowdown .row p { font-size: 15px; color: var(--muted); flex: 1; line-height: 1.45; }
+
+  /* --- Recognize: five problems + probing questions ------------------ */
+  .probs { display: flex; flex-direction: column; margin-top: 4px; }
+  .probs .p { display: flex; gap: 28px; align-items: baseline; padding: 15px 0; border-top: 1px solid var(--line); }
+  .probs .p:first-child { border-top: none; }
+  .probs .p .mk { flex: 0 0 12px; height: 12px; border-radius: 50%; background: var(--accent); transform: translateY(3px); }
+  .probs .p h3 { flex: 0 0 320px; font-size: 20px; }
+  .probs .p .q { flex: 1; font-size: 15px; color: var(--muted); line-height: 1.5; }
+  .sum { margin-top: 22px; padding: 16px 22px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; font-size: 15.5px; line-height: 1.5; }
+  .sum b { color: var(--accent); }
+
+  /* --- 2x2 card grid (transition slide, acceptance slide) ------------ */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px; }
+  .grid2 .card h3 { font-size: 19px; margin-bottom: 6px; }
+  .grid2 .card p { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+
+  /* --- Platform: CCE circle + big legend ----------------------------- */
+  .plat { display: flex; gap: 44px; align-items: center; margin-top: 10px; }
+  .plat .txt { flex: 1; }
+  .plat .loop { flex: 0 0 500px; text-align: center; }
+  .plat .loop img { width: 500px; max-width: 100%; height: auto; }
+  .cce-legend .cl { display: flex; align-items: flex-start; gap: 15px; padding: 12px 0; }
+  .cce-legend .cl svg { width: 28px; height: 28px; flex: 0 0 28px; margin-top: 2px; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .cce-legend .cl p { font-size: 20px; line-height: 1.4; }
+  .cce-legend .cl b { font-weight: 650; }
+  .cce-note { font-size: 14px; color: var(--muted); margin-top: 12px; }
+
+  /* --- Outcomes (bigger, fuller) ------------------------------------- */
+  .out-list .o { padding: 16px 0; border-top: 1px solid var(--line); }
+  .out-list .o:first-child { border-top: none; }
+  .out-list .o h3 { font-size: 21px; margin-bottom: 5px; }
+  .out-list .o p { font-size: 14.5px; color: var(--muted); line-height: 1.45; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px 22px; }
+  .stat-grid .stat strong { font-size: 48px; }
+  .stat-grid .stat span { font-size: 13.5px; margin-top: 8px; }
+
+  /* --- Evidence quote cards ------------------------------------------ */
+  .quotes { display: flex; gap: 20px; margin-top: 14px; }
+  .quotes .qc { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 26px 24px; display: flex; flex-direction: column; }
+  .quotes .qc .mark { font-family: var(--sans); font-weight: 700; font-size: 46px; line-height: 0.5; color: var(--accent); margin-bottom: 14px; }
+  .quotes .qc blockquote { font-size: 16.5px; line-height: 1.5; margin: 0 0 18px; letter-spacing: -0.01em; }
+  .quotes .qc .did-lbl { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0 0 9px; }
+  .quotes .qc ul { list-style: none; padding: 0; margin: 0 0 18px; }
+  .quotes .qc li { position: relative; padding-left: 18px; font-size: 12.5px; line-height: 1.4; margin-bottom: 7px; }
+  .quotes .qc li::before { content: ""; position: absolute; left: 0; top: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .quotes .qc .att { margin-top: auto; font-family: var(--mono); font-size: 11px; color: var(--accent); line-height: 1.55; letter-spacing: 0.02em; }
+
+  /* --- Engagement ascending ladder + need strip ---------------------- */
+  .rungs { display: flex; gap: 20px; align-items: flex-end; margin-top: 18px; }
+  .rung { flex: 1; border-radius: 12px 12px 0 0; padding: 20px 22px; color: var(--bg); display: flex; flex-direction: column; }
+  .rung.s1 { background: #c98a6f; height: 216px; }
+  .rung.s2 { background: var(--accent); height: 262px; }
+  .rung.s3 { background: #7d3a24; height: 308px; }
+  .rung .rn { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.9; margin-bottom: 10px; }
+  .rung h3 { font-size: 23px; color: var(--bg); margin-bottom: 8px; }
+  .rung .rp { font-family: var(--mono); font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  .rung .rp small { display: block; font-size: 11px; font-weight: 400; opacity: 0.85; letter-spacing: 0; margin-top: 3px; }
+  .rung p { font-size: 12.5px; line-height: 1.4; opacity: 0.92; margin-top: auto; padding-top: 12px; }
+  .need-strip { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 18px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .need-strip .ns-lbl { color: var(--accent); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .need-strip span:not(.ns-lbl)::before { content: "· "; color: var(--accent); }
+
+  /* --- Step-detail slides: thick colored header band ----------------- */
+  .step { padding-top: 80px; }
+  .stepband { position: absolute; left: 0; top: 0; width: 100%; height: 48px; display: flex; align-items: center;
+    padding: 0 72px; font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #fff; }
+  .sb1 { background: #b57150; } .sb2 { background: var(--accent); } .sb3 { background: #7d3a24; }
+
+  /* --- Stacked rows (steps · scale · running) ------------------------ */
+  .stack { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
+  .stack .card { display: flex; align-items: flex-start; gap: 26px; padding: 16px 24px; }
+  .stack .card .lead { flex: 0 0 250px; }
+  .stack .card .lead h3 { font-size: 19px; margin-top: 2px; }
+  .stack .card > p { flex: 1; font-size: 14px; color: var(--muted); line-height: 1.5; margin: 0; align-self: center; }
+  .facts-line { margin-top: 16px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em; color: var(--muted); }
+  .facts-line b { color: var(--ink); font-weight: 600; }
+
+  /* --- Who is Oppr --------------------------------------------------- */
+  .who { display: flex; gap: 40px; margin-top: 6px; }
+  .who .kv { flex: 0 0 360px; display: flex; flex-direction: column; justify-content: center; }
+  .who .kv .row { display: flex; gap: 14px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .who .kv .row:first-child { border-top: none; }
+  .who .kv .k { flex: 0 0 84px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); padding-top: 3px; }
+  .who .kv .v { flex: 1; font-size: 14px; line-height: 1.4; }
+  .who .princ { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .who .princ .card { flex: 1; padding: 13px 22px; display: flex; flex-direction: column; justify-content: center; }
+  .who .princ .card h3 { font-size: 18px; margin-bottom: 4px; }
+  .who .princ .card p { font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+  .founder { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13.5px; font-style: italic; color: var(--muted); line-height: 1.45; }
+  .founder b { font-style: normal; color: var(--ink); }
+
+  .kpi-tbl { font-size: 15px; }
+
+  /* --- Step-detail slides: equal-size info boxes --------------------- */
+  .step .stack { display: grid; grid-template-rows: repeat(3, 1fr); gap: 12px; height: 336px; margin-top: 14px; }
+  .step .stack .card { align-items: center; }
+
+  /* --- Product-flow slides (screenshots) ----------------------------- */
+  .flowsteps { display: flex; gap: 22px; margin-top: 18px; }
+  .flowsteps .fs { flex: 1; display: flex; flex-direction: column; }
+  .flowsteps .fnum { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.12em; margin-bottom: 9px; }
+  .flowsteps .frame { background: #e8e8e2; border: 1px solid var(--line); border-radius: 10px; height: 258px; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 10px; }
+  .flowsteps .frame img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .flowsteps h3 { font-size: 18px; margin: 15px 0 4px; }
+  .flowsteps p { font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+
+  /* --- KPIs & payback rework ----------------------------------------- */
+  .levers { display: flex; gap: 16px; margin-top: 6px; }
+  .levers .card { flex: 1; }
+  .levers .lv-val { font-family: var(--mono); font-size: 30px; font-weight: 600; color: var(--accent); letter-spacing: -0.02em; }
+  .levers .lv-name { font-size: 15px; font-weight: 650; margin: 8px 0 4px; }
+  .levers .lv-note { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+  .multiply { display: flex; align-items: center; gap: 18px; margin-top: 16px; padding: 16px 24px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; }
+  .multiply .big { font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+  .multiply .op { font-family: var(--mono); font-size: 18px; color: var(--muted); }
+  .multiply .mtxt { font-size: 14.5px; line-height: 1.4; }
+
+  /* --- Running projects: industry icons ------------------------------ */
+  .proj .card .lead { flex: 0 0 300px; display: flex; gap: 15px; align-items: flex-start; }
+  .proj-ico { flex: 0 0 42px; width: 42px; height: 42px; border-radius: 50%; background: var(--accent); display: inline-flex; align-items: center; justify-content: center; }
+  .proj-ico svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .proj .card .lead .lt { flex: 1; }
+  .proj .card .lead h3 { margin-top: 4px; }
+
+  /* --- CTA left-to-right timeline ------------------------------------ */
+  .ctatl { position: relative; margin-top: 40px; max-width: 1080px; }
+  .ctatl .line { position: absolute; top: 22px; left: 24px; right: 24px; height: 2px; background: rgba(242,242,237,0.28); }
+  .ctatl .row { display: flex; position: relative; }
+  .ctatl .cstep { flex: 1; padding-right: 26px; }
+  .ctatl .dot { width: 46px; height: 46px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 16px; position: relative; z-index: 1; }
+  .ctatl .cstep h3 { margin-top: 20px; color: var(--bg); font-size: 21px; }
+  .ctatl .cstep p { margin-top: 8px; color: rgba(242,242,237,0.65); font-size: 14px; max-width: 30ch; }
+
+  /* --- Icon chip for 2x2 grid cards --------------------------------- */
+  .g2ico { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: var(--accent); margin-bottom: 14px; }
+  .g2ico svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

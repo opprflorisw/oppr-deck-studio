@@ -1,0 +1,241 @@
+/* ==========================================================================
+   Oppr deck system — shared stylesheet
+   16:9 slides (1280×720 px) authored in HTML, printed to PDF via headless
+   Chrome/Edge (tools/build-pdf.ps1). Design tokens mirror the oppr.ai site
+   ("Engineered Calm"): warm paper, ink, one terracotta accent, mono labels.
+   ========================================================================== */
+
+/* --- Fonts (local, variable) ---------------------------------------------- */
+
+@font-face {
+  font-family: "Archivo";
+  src: url("../brand/fonts/Archivo-var.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../brand/fonts/JetBrainsMono-var.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+}
+
+/* --- Tokens ---------------------------------------------------------------- */
+
+:root {
+  --bg: #f2f2ed;        /* warm paper */
+  --surface: #fcfbf7;   /* raised card */
+  --ink: #15201e;       /* near-black */
+  --muted: #5f6965;
+  --line: #c8ceca;
+  --accent: #a65032;    /* terracotta — the human voice */
+  --machine: #3e6874;   /* teal — the machine voice */
+  --verified: #55745e;  /* green — a verified result */
+  --sans: "Archivo", Arial, sans-serif;
+  --mono: "JetBrains Mono", Consolas, monospace;
+}
+
+/* --- Page / screen shell ---------------------------------------------------- */
+
+* { box-sizing: border-box; margin: 0; }
+
+@page { size: 13.333in 7.5in; margin: 0; }
+
+body {
+  background: #dededa;
+  font-family: var(--sans);
+  color: var(--ink);
+}
+
+.deck { counter-reset: slide; }
+
+.slide {
+  counter-increment: slide;
+  position: relative;
+  width: 1280px;
+  height: 720px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  padding: 56px 64px 74px;
+  font-size: 15px;
+  line-height: 1.5;
+  /* the quiet ruled baseline from the site */
+  background-image: linear-gradient(rgba(21, 32, 30, 0.025) 1px, transparent 1px);
+  background-size: 100% 32px;
+}
+
+/* screen preview: stacked, spaced, shadowed */
+@media screen {
+  .deck { display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 28px 0; }
+  .slide { box-shadow: 0 2px 18px rgba(21, 32, 30, 0.18); }
+}
+
+@media print {
+  body { background: none; }
+  .slide { page-break-after: always; break-after: page; }
+  .slide:last-child { page-break-after: auto; break-after: auto; }
+}
+
+/* --- Dark (ink) slides: cover & closer -------------------------------------- */
+
+.slide--ink {
+  background-color: var(--ink);
+  background-image: linear-gradient(rgba(242, 242, 237, 0.035) 1px, transparent 1px);
+  background-size: 100% 32px;
+  color: var(--bg);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.slide--ink .eyebrow, .slide--ink .slide-foot { color: rgba(242, 242, 237, 0.6); }
+.slide--ink .slide-foot { border-color: rgba(242, 242, 237, 0.22); }
+
+/* --- Footer: deck meta + page counter --------------------------------------- */
+
+.slide-foot {
+  position: absolute;
+  left: 64px;
+  right: 64px;
+  bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+.slide-foot .wm { font-family: var(--sans); font-weight: 700; font-size: 13px; letter-spacing: -0.04em; color: inherit; }
+.slide-foot .wm b { color: var(--accent); }
+
+.pageno::after { content: counter(slide, decimal-leading-zero) " / " attr(data-total); }
+
+/* --- Typography -------------------------------------------------------------- */
+
+h1, h2, h3 { font-weight: 650; line-height: 1.05; letter-spacing: -0.038em; }
+h1 { font-size: 60px; }
+h2 { font-size: 36px; margin-bottom: 18px; }
+h3 { font-size: 18px; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
+.lede { font-size: 18px; line-height: 1.55; max-width: 62ch; }
+.small { font-size: 12px; color: var(--muted); }
+.mono { font-family: var(--mono); }
+
+/* two-voice keywords, used sparingly */
+.k-h { color: var(--accent); font-weight: 600; }
+.k-m { color: var(--machine); font-weight: 600; }
+.k-v { color: var(--verified); font-weight: 600; }
+
+/* closing line at the bottom of a content slide */
+.kicker {
+  position: absolute;
+  left: 64px;
+  right: 64px;
+  bottom: 62px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* --- Building blocks ----------------------------------------------------------
+   .cols        flex row of equal columns (.cols-3 / .cols-4 via child count)
+   .card        raised surface tile
+   .tag         small mono chip label
+   .stat        big figure + label
+   .steps       numbered horizontal phases
+   ------------------------------------------------------------------------------ */
+
+.cols { display: flex; gap: 20px; }
+.cols > * { flex: 1; min-width: 0; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+
+.card h3 { margin-bottom: 6px; }
+
+.tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  color: var(--muted);
+  margin-bottom: 10px;
+  background: var(--bg);
+}
+
+.tag--h { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.tag--m { color: var(--machine); border-color: color-mix(in srgb, var(--machine) 45%, transparent); }
+.tag--v { color: var(--verified); border-color: color-mix(in srgb, var(--verified) 45%, transparent); }
+
+.stat strong {
+  display: block;
+  font-size: 40px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat span { display: block; margin-top: 6px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+
+.steps { display: flex; gap: 16px; counter-reset: step; }
+.steps > li { flex: 1; list-style: none; counter-increment: step; }
+.steps > li::before {
+  content: counter(step, decimal-leading-zero);
+  display: block;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.steps h3 { margin-bottom: 6px; }
+.steps p { font-size: 13.5px; color: var(--muted); }
+
+/* simple data table */
+table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th {
+  font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted); text-align: left;
+  padding: 8px 12px; border-bottom: 1px solid var(--ink);
+}
+.tbl td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+
+/* fact strip — mono separated facts */
+.fact-strip {
+  display: flex; gap: 26px;
+  font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+}
+.fact-strip span::before { content: "· "; color: var(--accent); }
+
+img.ph { width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }
