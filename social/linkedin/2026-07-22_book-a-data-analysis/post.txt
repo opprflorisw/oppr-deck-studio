@@ -1,13 +1,15 @@
-Your floor already knows where the € 100k is. Your dashboards don't.
+There is roughly € 100k hiding in one of your production lines. I will tell you exactly where it hides.
 
-The stop you always just fix. The off-spec batch quietly written off as normal. The workaround only the night shift knows about. None of it reaches a report, so none of it reaches the improvement it would unlock.
+Not in a dashboard. Dashboards show you what happened, never why. The € 100k lives in the things your floor knows and your systems never record:
 
-There is a way to close that gap: capture what your operators see, connect it to your machine data on one timeline, and execute the improvement as standard practice. A hunch on the floor becomes a change you can prove, and then repeat on the next line and the next site.
+the stop you always just fix and never log. The off-spec batch everyone has written off as normal. The workaround only the night shift knows. The line that quietly stopped following the standard.
 
-One verified improvement is worth roughly € 50–100k per line each year, on deliberately conservative assumptions. Then multiply by your lines and sites.
+Your operators see every one of these. Your systems see 𝗻𝗼𝗻𝗲 of them. That gap is the money.
 
-We start with a data analysis 𝗼𝗻 𝗼𝗻𝗲 𝗹𝗶𝗻𝗲: ten weeks, one clear question, answered against your own numbers. You know your payback before the proof starts, and the entry fee is credited in full.
+Close it in three moves: capture what operators see, connect it to machine data on one timeline, execute the fix as standard practice. One verified improvement is worth roughly € 50–100k per line each year, on deliberately conservative assumptions. Then multiply by your lines and sites.
 
-Want to see your own floor's blind spots? Book a data analysis with us.
+We start with one line, one question, ten weeks, answered against your own numbers. Entry fee credited in full. No rip-and-replace, no new hardware.
+
+The carousel walks through exactly where the € 100k hides. Find yours.
 
 #manufacturing #operationalexcellence #continuousimprovement

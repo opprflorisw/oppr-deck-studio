@@ -86,15 +86,20 @@ export function openDeckViewer(pages, { title = "", pdf = null } = {}) {
 export async function assembledViewer(indexPath, title, pdf = null) {
   const html = await (await fetch(`/repo/${indexPath}`)).text();
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const links = [...doc.head.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.outerHTML).join("");
+  const headTags = [...doc.head.querySelectorAll('link[rel="stylesheet"], style')].map((l) => l.outerHTML).join("");
   const dir = indexPath.replace(/[^/]+$/, "");
-  const head = `<base href="/repo/${dir}">${links}`;
-  const container = doc.querySelector(".carousel") ? "carousel" : "deck";
-  const sections = [...doc.querySelectorAll(`.${container} > section`)];
-  const [w, h] = container === "carousel" ? [1080, 1350] : [1280, 720];
+  const head = `<base href="/repo/${dir}">${headTags}`;
+  // Use the container's actual class list so a carousel--square (or any modifier)
+  // survives; fall back to the deck frame.
+  const containerEl = doc.querySelector(".carousel") || doc.querySelector(".deck");
+  const containerClass = containerEl ? containerEl.getAttribute("class") : "deck";
+  const isCarousel = !!containerEl && containerEl.classList.contains("carousel");
+  const isSquare = !!containerEl && containerEl.classList.contains("carousel--square");
+  const sections = containerEl ? [...containerEl.children].filter((c) => c.tagName === "SECTION") : [];
+  const [w, h] = isSquare ? [1080, 1080] : isCarousel ? [1080, 1350] : [1280, 720];
   const pages = sections.map((sec, i) => ({
     label: sec.id || String(i + 1),
-    render: () => scaledDoc(head, `<div class="${container}">${sec.outerHTML}</div>`, w, h),
+    render: () => scaledDoc(head, `<div class="${containerClass}">${sec.outerHTML}</div>`, w, h),
   }));
   openDeckViewer(pages, { title, pdf });
 }

@@ -83,3 +83,50 @@ body { font-family: var(--sans); color: var(--ink); }
 /* callout image band */
 .lband { border-radius: 18px; overflow: hidden; border: 1px solid var(--line); margin: 12px 0 28px; }
 .lband img { display: block; width: 100%; height: 420px; object-fit: cover; }
+
+/* ---------- square carousel (1:1 1080x1080) ---------- */
+.carousel--square .lpage { height: 1080px; padding: 84px 84px; }
+.carousel--square .lpage--hook h1 { font-size: 90px; }
+.carousel--square .lpage h2 { font-size: 60px; margin-bottom: 22px; }
+.carousel--square .lpage p { font-size: 36px; }
+
+/* recognition checklist (a mirror the reader ticks in their head) */
+.lcheck { display: flex; flex-direction: column; gap: 26px; margin: 18px 0 10px; }
+.lcheck .row { display: flex; align-items: flex-start; gap: 22px; }
+.lcheck .tick { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 13px; background: rgba(166,80,50,.12); color: var(--accent); display: flex; align-items: center; justify-content: center; }
+.lcheck .tick svg { width: 26px; height: 26px; }
+.lcheck .body-txt { display: flex; flex-direction: column; gap: 8px; }
+.lcheck .t { font-size: 33px; line-height: 1.22; }
+
+/* lean-waste tag (ties the symptom to the site's positioning) */
+.wtag { align-self: flex-start; font-family: var(--mono); font-size: 19px; text-transform: uppercase; letter-spacing: .06em; color: var(--machine); background: rgba(62,104,116,.1); border-radius: 999px; padding: 4px 14px; }
+
+/* open-loop line pinned to the bottom (earns the swipe) */
+.loop { font-size: 34px; font-weight: 800; color: var(--accent); margin-top: auto; }
+
+/* two-column contrast: operators see / systems see */
+.lcontrast { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 26px; }
+.lcontrast .col { border-radius: 20px; padding: 40px 34px; }
+.lcontrast .col.see { background: rgba(166,80,50,.1); }
+.lcontrast .col.blind { background: rgba(95,105,101,.09); }
+.lcontrast .col .lbl { font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; font-size: 23px; font-weight: 700; margin-bottom: 22px; }
+.lcontrast .col.see .lbl { color: var(--accent); }
+.lcontrast .col.blind .lbl { color: var(--muted); }
+.lcontrast .col .mk { font-size: 44px; line-height: 1.5; font-weight: 700; }
+.lcontrast .col.see .mk { color: var(--ink); }
+.lcontrast .col.blind .mk { color: var(--muted); }
+
+/* Capture / Connect / Execute ladder */
+.lcce { display: flex; flex-direction: column; gap: 18px; margin: 26px 0 8px; }
+.lcce .step { border-left: 5px solid var(--accent); padding: 10px 0 10px 26px; }
+.lcce .step .n { font-family: var(--mono); color: var(--machine); font-weight: 700; font-size: 23px; letter-spacing: .04em; }
+.lcce .step .t { font-size: 38px; font-weight: 800; line-height: 1.1; }
+.lcce .step .d { font-size: 28px; color: var(--muted); margin-top: 2px; }
+
+/* risk-reversal chips (the trust builder, right before the ask) */
+.lchips { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 30px; }
+.lchip { font-size: 27px; font-weight: 700; padding: 14px 22px; border-radius: 14px; background: rgba(85,116,94,.12); color: var(--verified); display: inline-flex; align-items: center; gap: 12px; }
+.lchip svg { width: 24px; height: 24px; flex: 0 0 auto; }
+
+/* small kicker under a hook headline */
+.lpage--hook .kicker { font-family: var(--mono); font-size: 30px; color: var(--muted); margin-top: 30px; }
