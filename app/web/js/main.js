@@ -13,6 +13,7 @@ import * as graphics from "./views/graphics.js";
 import * as social from "./views/social.js";
 import * as knowledge from "./views/knowledge.js";
 import * as designsystem from "./views/design-system.js";
+import * as iconsView from "./views/icons-view.js";
 import * as draft from "./views/draft.js";
 import { renderTray, toggleCompose } from "./compose.js";
 
@@ -65,6 +66,7 @@ async function boot() {
   route("/graphics", () => mount(graphics.renderList()));
   route("/graphics/:file", (f) => mount(graphics.renderDetail(f)));
   route("/design-system", () => mount(designsystem.render()));
+  route("/icons", () => mount(iconsView.render()));
   route("/decks", () => mount(decks.renderList()));
   route("/draft", () => mount(draft.render()));
   route("/social", () => mount(social.renderStudio()));

@@ -38,6 +38,14 @@ MEANING, honoring `entitlement`. Reuse the chosen image's `description` as its
 `alt`. Regenerate the contact sheet + drift check with
 `tools/build-asset-index.ps1`.
 
+## icons/
+
+`library/icons/` is the **reusable line-icon set** (24×24, stroke-only,
+`currentColor`). Never paste a one-off `<svg>` into a new slide: use the
+**`{{icon:NAME}}`** token (assembly inlines it) and colour it with a brand role
+via the `.di` helper. Add a new icon there first if one is missing. Full rules
+in `library/icons/CLAUDE.md`.
+
 ## design-system/
 
 Block specimens (one small HTML page per token/block/pattern, rendered from the

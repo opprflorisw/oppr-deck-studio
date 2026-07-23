@@ -7,6 +7,7 @@ const NAV = [
   { group: "Library", items: [
     { path: "/slides", label: "Slides" },
     { path: "/graphics", label: "Graphics" },
+    { path: "/icons", label: "Icons" },
     { path: "/design-system", label: "Design system" },
   ]},
   { group: "Create", items: [

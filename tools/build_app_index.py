@@ -204,6 +204,25 @@ def build_social() -> list[dict]:
     return out
 
 
+def build_icons() -> list[dict]:
+    """The reusable icon set: manifest entries + the inline SVG for each, so the
+    app can render them and offer the {{icon:NAME}} token."""
+    idir = REPO_ROOT / "library" / "icons"
+    mf = idir / "icons.json"
+    if not mf.exists():
+        return []
+    data = json.loads(mf.read_text(encoding="utf-8"))
+    out = []
+    for m in data.get("icons", []):
+        svg_path = idir / f"{m['name']}.svg"
+        out.append({
+            **m,
+            "path": rel(svg_path) if svg_path.exists() else None,
+            "svg": svg_path.read_text(encoding="utf-8").strip() if svg_path.exists() else "",
+        })
+    return out
+
+
 def build_design_system() -> list[dict]:
     """Every design-system specimen, grouped, so the app can stack them inline."""
     out = []
@@ -236,6 +255,7 @@ def build_index() -> dict:
         "sections": [{"name": n, "desc": d, "roles": r} for n, d, r in SECTIONS],
         "social": build_social(),
         "design_system": build_design_system(),
+        "icons": build_icons(),
         "recipes": build_recipes(),
     }
 

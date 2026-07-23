@@ -1,0 +1,211 @@
+{
+  "_schema": {
+    "purpose": "Reusable Oppr line-icon set. All icons are 24x24, stroke-only, fill:none, stroke=currentColor so they take the color you set. Use in a slide with the {{icon:NAME}} token (assemble-deck inlines the SVG). See library/icons/CLAUDE.md.",
+    "fields": {
+      "name": "file stem, used as {{icon:name}}",
+      "category": "cce | outcome | context",
+      "description": "what it depicts",
+      "keywords": "retrieval keywords",
+      "suggested_use": "Oppr-vocabulary phrases"
+    }
+  },
+  "icons": [
+    {
+      "name": "mic",
+      "category": "cce",
+      "description": "Microphone: the operator capturing what they see.",
+      "keywords": [
+        "capture",
+        "operator",
+        "voice",
+        "observe",
+        "input"
+      ],
+      "suggested_use": "Capture step of Capture -> Connect -> Execute; operators are the sensor"
+    },
+    {
+      "name": "connect",
+      "category": "cce",
+      "description": "Two nodes on one timeline: machine data meeting operator context.",
+      "keywords": [
+        "connect",
+        "timeline",
+        "link",
+        "join",
+        "data"
+      ],
+      "suggested_use": "Connect step; one timeline for machine and operator signal"
+    },
+    {
+      "name": "execute",
+      "category": "cce",
+      "description": "Bold check: the improvement executed as standard practice.",
+      "keywords": [
+        "execute",
+        "done",
+        "action",
+        "standard",
+        "apply"
+      ],
+      "suggested_use": "Execute step; closing the loop on the floor"
+    },
+    {
+      "name": "loop",
+      "category": "cce",
+      "description": "Continuous-improvement loop of arrows.",
+      "keywords": [
+        "loop",
+        "cycle",
+        "continuous",
+        "improvement",
+        "repeat",
+        "refresh"
+      ],
+      "suggested_use": "the Capture -> Connect -> Execute loop; continuous improvement"
+    },
+    {
+      "name": "check",
+      "category": "outcome",
+      "description": "A clean checkmark.",
+      "keywords": [
+        "check",
+        "tick",
+        "yes",
+        "confirmed",
+        "verified"
+      ],
+      "suggested_use": "a confirmed item; a recognition-checklist tick; a risk-reversal point"
+    },
+    {
+      "name": "check-circle",
+      "category": "outcome",
+      "description": "Checkmark inside a circle: a verified result.",
+      "keywords": [
+        "verified",
+        "approved",
+        "validated",
+        "result",
+        "accepted"
+      ],
+      "suggested_use": "a verified improvement; operator acceptance"
+    },
+    {
+      "name": "target",
+      "category": "outcome",
+      "description": "Concentric circles: focus on one line, one question.",
+      "keywords": [
+        "target",
+        "focus",
+        "goal",
+        "aim",
+        "one-line"
+      ],
+      "suggested_use": "start on one line; one clear question; the proof target"
+    },
+    {
+      "name": "bars",
+      "category": "outcome",
+      "description": "Rising bar chart: measured improvement.",
+      "keywords": [
+        "chart",
+        "bars",
+        "growth",
+        "measure",
+        "kpi",
+        "payback"
+      ],
+      "suggested_use": "measured, repeatable improvement; KPIs and payback"
+    },
+    {
+      "name": "clock",
+      "category": "context",
+      "description": "A clock face: time, the ten-week proof.",
+      "keywords": [
+        "clock",
+        "time",
+        "duration",
+        "weeks",
+        "when"
+      ],
+      "suggested_use": "when time matters; the ten-week proof; time to a verified improvement"
+    },
+    {
+      "name": "card",
+      "category": "context",
+      "description": "An ID / batch card.",
+      "keywords": [
+        "card",
+        "id",
+        "batch",
+        "record",
+        "label"
+      ],
+      "suggested_use": "a batch record; a log entry; identity"
+    },
+    {
+      "name": "globe",
+      "category": "context",
+      "description": "A globe: sites and scale across the group.",
+      "keywords": [
+        "globe",
+        "world",
+        "sites",
+        "scale",
+        "global"
+      ],
+      "suggested_use": "scale across lines and sites; the group"
+    },
+    {
+      "name": "layers",
+      "category": "context",
+      "description": "Stacked layers: data layers on one timeline.",
+      "keywords": [
+        "layers",
+        "stack",
+        "data",
+        "levels",
+        "layered"
+      ],
+      "suggested_use": "machine data and operator context, layered on one timeline"
+    },
+    {
+      "name": "shield",
+      "category": "context",
+      "description": "A shield: trust, safety, no rip-and-replace.",
+      "keywords": [
+        "shield",
+        "trust",
+        "safe",
+        "protect",
+        "secure"
+      ],
+      "suggested_use": "trust and safety; no rip-and-replace; built with operators"
+    },
+    {
+      "name": "flame",
+      "category": "context",
+      "description": "A flame: energy-intensive process heat.",
+      "keywords": [
+        "flame",
+        "heat",
+        "energy",
+        "furnace",
+        "process"
+      ],
+      "suggested_use": "process heat; energy-intensive manufacturing"
+    },
+    {
+      "name": "spark",
+      "category": "context",
+      "description": "A small flame / droplet: a spark of insight.",
+      "keywords": [
+        "spark",
+        "insight",
+        "idea",
+        "droplet",
+        "signal"
+      ],
+      "suggested_use": "a spark of insight from the floor"
+    }
+  ]
+}

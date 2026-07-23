@@ -16,7 +16,9 @@ should be able to build a deck from these docs alone.
    (the 4:5 carousel format), and `brand/`. See `brand/BRAND.md`.
 2. **Element library** — `library/slides/<id>/` : every slide as a portable
    `slide.html` fragment + `meta.yaml`. `brand/img/library.json` : every image
-   described so it can be retrieved by meaning. See `library/CLAUDE.md`.
+   described so it can be retrieved by meaning. `library/icons/` : the reusable
+   line-icon set (used via the `{{icon:NAME}}` token, never re-drawn per slide).
+   See `library/CLAUDE.md`.
 3. **Deck types (recipes / the "living brain")** — `types/<type>/recipe.md` : the
    reusable brief per presentation type (goal, audience, skeleton, learnings).
    See `types/CLAUDE.md`.
@@ -139,7 +141,7 @@ manual regeneration.
 - `templates/` — `deck.css` (system), `showcase.css` (shared deck-local styles),
   `linkedin.css` (4:5 carousel format), `deck-starter.html` (legacy skeleton)
 - `library/` — `slides/<id>/` (fragments + meta + thumb) and generated `catalog.html`;
-  `design-system/` (block specimens)
+  `design-system/` (block specimens); `icons/` (reusable icon set + `icons.json`)
 - `types/` — `<type>/recipe.md` per presentation type
 - `decks/` — `canonical/<type>/` (masters), `variants/<slug>/` (frozen), and
   `drafts/<slug>/` (pending drafts from the app; normally empty)

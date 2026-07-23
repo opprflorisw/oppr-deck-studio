@@ -185,3 +185,14 @@
   /* --- Icon chip for 2x2 grid cards --------------------------------- */
   .g2ico { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: var(--accent); margin-bottom: 14px; }
   .g2ico svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* --- Reusable icon helper (library/icons/ via {{icon:NAME}}) ---------
+     Stroke-only 24x24 icons; colour comes from `color` (currentColor),
+     size from width/height. Set color to a brand role on the wrapper. */
+  .di { display: inline-flex; color: var(--accent); }
+  .di svg { width: 24px; height: 24px; fill: none; stroke: currentColor;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .di.machine { color: var(--machine); }
+  .di.verified { color: var(--verified); }
+  .di.sm svg { width: 18px; height: 18px; }
+  .di.lg svg { width: 36px; height: 36px; }

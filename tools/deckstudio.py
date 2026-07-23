@@ -31,8 +31,10 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SLIDES_DIR = REPO_ROOT / "library" / "slides"
+ICONS_DIR = REPO_ROOT / "library" / "icons"
 
 _PLACEHOLDER_RE = re.compile(r"\{\{\s*([\w\-]+)\s*\}\}")
+_ICON_RE = re.compile(r"\{\{\s*icon:([\w\-]+)\s*\}\}")
 _SECTION_RE = re.compile(r"<section\b.*?</section>", re.DOTALL)
 _COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 _ASSET_RUN_RE = re.compile(r"(?:\.\./)+")
@@ -72,6 +74,21 @@ def fill(text: str, variables: dict) -> str:
 
 def unfilled(text: str) -> list[str]:
     return sorted(set(_PLACEHOLDER_RE.findall(text)))
+
+
+def inline_icons(text: str) -> str:
+    """Replace every {{icon:NAME}} with the inline SVG from library/icons/NAME.svg
+    so new slides reuse the shared icon set instead of recreating icons. The SVG
+    uses stroke=currentColor, so the surrounding CSS `color` sets the icon color.
+    A missing icon is a hard error (like an unfilled variable)."""
+    def repl(m: re.Match) -> str:
+        name = m.group(1)
+        p = ICONS_DIR / f"{name}.svg"
+        if not p.exists():
+            raise SystemExit(f"ERROR: unknown icon '{name}' ({{{{icon:{name}}}}}); "
+                             f"see library/icons/ for the available set.")
+        return p.read_text(encoding="utf-8").strip()
+    return _ICON_RE.sub(repl, text)
 
 
 def slide_path(slide_id: str, deckdir: Path | None = None) -> Path:
@@ -127,6 +144,7 @@ def assemble(deckdir: Path, write: bool = True) -> str:
         blocks.append(block)
 
     document = _WRAPPER.replace("{body}", "\n\n".join(blocks))
+    document = inline_icons(document)
     document = fill(document, variables)
 
     missing = unfilled(document)
