@@ -1,5 +1,6 @@
-// Deck draft: the composer (intent + ordered strip with comments / new-slide
-// inserts / drag-reorder) and the handoff (save + CLI prompt + existing drafts).
+// Deck draft — a clear three-part page:
+//   toolbar (switcher + actions) · slide strip (the composition, the focus) ·
+//   a collapsible right Intent rail. Handoff is a modal, not an always-on panel.
 
 import { $, $$, el, esc, decodeEntities, slugify, toast, todayISO } from "../util.js";
 import { state, saveDraftLocal, setDraft, blankDraft, slideById, slideExceedsClearance } from "../state.js";
@@ -7,33 +8,77 @@ import * as api from "../api.js";
 import { go } from "../router.js";
 import { renderTray, toggleCompose } from "../compose.js";
 import { draftViewer } from "./viewer.js";
+import { icon, ibtn } from "../icons.js";
+
+let intentOpen = localStorage.getItem("oppr.intentOpen") !== "false";
 
 export function render() {
-  const wrap = el(`<div></div>`);
-  wrap.append(el(`<div class="subbar"><h1 class="page-title">Deck draft</h1>
-    <button class="ghost" id="preview-draft" style="margin-left:auto">Preview</button>
-    <button class="ghost" id="new-draft">New draft</button></div>`));
-  $("#preview-draft", wrap).addEventListener("click", () => {
-    if (!state.draft.slides.length) { toast("Add slides first."); return; }
-    draftViewer(state.draft, state.draft.title || "Draft preview");
+  const d = state.draft;
+  const newCount = d.slides.filter((s) => s.source === "new").length;
+  const warnCount = d.slides.filter((s) => s.source !== "new" && slideExceedsClearance((slideById(s.id) || {}).entitlement || "public")).length;
+
+  const page = el(`
+    <div class="draft-page ${intentOpen ? "" : "rail-collapsed"}">
+      <div class="draft-toolbar">
+        <div class="dt-left">
+          <select id="dt-switch" class="dt-switch" title="Switch draft"></select>
+          <span class="dt-stats note">${d.slides.length} slides${newCount ? ` · ${newCount} new` : ""}${warnCount ? ` · <span class="warn-text">${warnCount} over clearance</span>` : ""}</span>
+        </div>
+        <div class="dt-right">
+          <button class="ghost" id="dt-preview" ${d.slides.length ? "" : "disabled"}>${ibtn("preview", "Preview")}</button>
+          <button class="ghost" id="dt-new">${ibtn("newfile", "New")}</button>
+          <button class="primary" id="dt-handoff" ${d.slides.length ? "" : "disabled"}>${ibtn("save", "Hand off")}</button>
+          <button class="ghost ${intentOpen ? "on" : ""}" id="dt-intent" title="Show/hide the intent panel">${ibtn("info", "Intent")}</button>
+        </div>
+      </div>
+      <div class="draft-main">
+        <div class="draft-strip-col" id="strip-col"></div>
+        <aside class="draft-rail" id="rail"></aside>
+      </div>
+    </div>`);
+
+  $("#strip-col", page).append(stripEl());
+  $("#rail", page).append(intentRail());
+
+  $("#dt-preview", page).addEventListener("click", () => { if (d.slides.length) draftViewer(d, d.title || "Draft preview"); });
+  $("#dt-new", page).addEventListener("click", () => {
+    if (!d.slides.length || confirm("Start a new draft? Save the current one first if you want to keep it.")) { setDraft(blankDraft()); go("/draft"); }
   });
-  const comp = el(`<div class="composer"></div>`);
-  comp.append(metaPanel(), stripCol());
-  wrap.append(comp);
-  wrap.append(handoff());
-  $("#new-draft", wrap).addEventListener("click", () => {
-    if (!state.draft.slides.length || confirm("Start a new draft? The current one stays saved if you saved it.")) {
-      setDraft(blankDraft()); go("/draft");
-    }
+  $("#dt-handoff", page).addEventListener("click", () => { if (d.slides.length) openHandoff(); });
+  $("#dt-intent", page).addEventListener("click", () => {
+    intentOpen = !intentOpen;
+    localStorage.setItem("oppr.intentOpen", intentOpen);
+    page.classList.toggle("rail-collapsed", !intentOpen);
+    $("#dt-intent", page).classList.toggle("on", intentOpen);
   });
-  return wrap;
+
+  populateSwitcher($("#dt-switch", page));
+  return page;
 }
 
-function metaPanel() {
+// ---- switcher ---------------------------------------------------------------
+async function populateSwitcher(sel) {
+  let drafts = [];
+  try { drafts = (await api.listDrafts()).drafts; } catch {}
+  const cur = state.draft.title || state.draft.slug || "current draft";
+  sel.innerHTML =
+    `<option value="__current">${esc(cur)} (working)</option>` +
+    drafts.map((dr) => `<option value="${esc(dr.slug)}">${esc(dr.title)} · ${dr.slides} slides</option>`).join("") +
+    `<option value="__new">+ New draft</option>`;
+  sel.onchange = async () => {
+    const v = sel.value;
+    if (v === "__current") return;
+    if (v === "__new") { if (!state.draft.slides.length || confirm("Start a new draft?")) { setDraft(blankDraft()); go("/draft"); } else sel.value = "__current"; return; }
+    try { setDraft(await api.getDraft(v)); go("/draft"); toast("Loaded " + v); } catch { toast("Could not load draft"); }
+  };
+}
+
+// ---- intent rail ------------------------------------------------------------
+function intentRail() {
   const d = state.draft;
   const recipeOpts = ["", ...state.index.recipes.map((r) => r.type)];
   const p = el(`
-    <div class="panel">
+    <div class="panel rail-panel">
       <h2>Deck intent</h2>
       <div class="field"><label>Working title</label><input id="d-title" value="${esc(d.title)}"></div>
       <div class="field"><label>Type / recipe</label>
@@ -65,20 +110,24 @@ function metaPanel() {
   return p;
 }
 
-function stripCol() {
-  const col = el(`<div class="strip-col"></div>`);
-  col.append(stripEl());
-  return col;
-}
+// ---- slide strip ------------------------------------------------------------
 function redrawStrip() {
-  const old = $(".strip-col > .strip-wrap");
+  const old = $("#strip-col > .strip-wrap");
   if (old) old.replaceWith(stripEl());
+  // refresh toolbar stats
+  const stats = $(".dt-stats");
+  if (stats) {
+    const d = state.draft;
+    const nc = d.slides.filter((s) => s.source === "new").length;
+    const wc = d.slides.filter((s) => s.source !== "new" && slideExceedsClearance((slideById(s.id) || {}).entitlement || "public")).length;
+    stats.innerHTML = `${d.slides.length} slides${nc ? ` · ${nc} new` : ""}${wc ? ` · <span class="warn-text">${wc} over clearance</span>` : ""}`;
+  }
 }
 
 function stripEl() {
   const box = el(`<div class="strip-wrap"></div>`);
   if (!state.draft.slides.length) {
-    box.innerHTML = `<div class="empty-draft">Empty draft. Turn on <b>Compose</b> and add slides from the library, or start from a deck.</div>`;
+    box.innerHTML = `<div class="empty-draft">Empty draft. Turn on <b>Compose</b> (top right) and add slides from the Library, or open a deck and choose <b>Start draft</b>.</div>`;
     return box;
   }
   const strip = el(`<div class="strip"></div>`);
@@ -89,7 +138,7 @@ function stripEl() {
 }
 
 function insertRow(i) {
-  const row = el(`<div class="insert-row"><button>+ Insert new slide here</button></div>`);
+  const row = el(`<div class="insert-row"><button>${ibtn("add", "Insert new slide")}</button></div>`);
   $("button", row).addEventListener("click", () => {
     state.draft.slides.splice(i, 0, { source: "new", id: "", role: "", title: "", brief: "" });
     saveDraftLocal(); redrawStrip();
@@ -112,7 +161,7 @@ function slotEl(slot, i) {
         </div>
         <textarea class="brief" placeholder="Describe the new slide: what it shows, the message, any numbers.">${esc(slot.brief || "")}</textarea>
       </div>
-      <button class="rm" title="remove">✕</button>`;
+      <button class="rm" title="remove">${icon("close", 18)}</button>`;
     $(".new-id", el_).addEventListener("input", (e) => { slot.id = e.target.value; saveDraftLocal(); });
     $(".new-role", el_).addEventListener("change", (e) => { slot.role = e.target.value; saveDraftLocal(); });
     $(".brief", el_).addEventListener("input", (e) => { slot.brief = e.target.value; saveDraftLocal(); });
@@ -124,7 +173,7 @@ function slotEl(slot, i) {
         <div class="title">${esc(decodeEntities(slot.title || slot.id))} ${warn ? `<span class="warn-text">· exceeds clearance</span>` : ""}</div>
         <textarea class="comment" placeholder="Comment: what to change here (blank = reuse as-is).">${esc(slot.comment || "")}</textarea>
       </div>
-      <button class="rm" title="remove">✕</button>`;
+      <button class="rm" title="remove">${icon("close", 18)}</button>`;
     $(".comment", el_).addEventListener("input", (e) => { slot.comment = e.target.value; saveDraftLocal(); });
   }
   $(".rm", el_).addEventListener("click", () => { state.draft.slides.splice(i, 1); saveDraftLocal(); redrawStrip(); renderTray(); });
@@ -144,57 +193,59 @@ function slotEl(slot, i) {
   return el_;
 }
 
-function handoff() {
+// ---- handoff modal ----------------------------------------------------------
+function openHandoff() {
   const d = state.draft;
   const defaultSlug = d.slug || `${todayISO()}_${slugify(d.intent.client || d.title || "draft")}`;
   const newCount = d.slides.filter((s) => s.source === "new").length;
   const warnCount = d.slides.filter((s) => s.source !== "new" && slideExceedsClearance((slideById(s.id) || {}).entitlement || "public")).length;
-  const box = el(`
-    <div class="panel handoff-panel">
-      <h2>Hand off to the CLI</h2>
-      <p class="note">Saves the draft under <span class="mono">decks/drafts/</span>. It does not build — run one line in the Claude CLI, which shows a plan, waits for approval, then assembles + builds + verifies.</p>
-      <div class="field inline"><label>Draft slug</label><input id="h-slug" value="${esc(defaultSlug)}"></div>
-      <p class="note">${d.slides.length} slides · ${d.slides.length - newCount} reused · ${newCount} new${warnCount ? ` · <span class="warn-text">${warnCount} above clearance</span>` : ""}</p>
-      ${warnCount ? `<p class="note warn-text">Some slides exceed the draft's clearance. Raise it in the intent panel or remove them.</p>` : ""}
-      <button class="primary" id="h-save" ${d.slides.length ? "" : "disabled"}>Save draft to repo</button>
-      <div id="h-result" style="margin-top:14px"></div>
-      <h2 style="margin-top:22px">Existing drafts</h2>
-      <ul class="draft-list" id="h-list"><li class="note">Loading…</li></ul>
+  const m = el(`
+    <div class="modal">
+      <div class="box handoff-modal">
+        <header><b>Hand off to the CLI</b><div class="spacer"></div><button class="ghost icon-only close">${icon("close")}</button></header>
+        <div class="handoff-inner">
+          <p class="note">Saves the draft under <span class="mono">decks/drafts/</span>. It does not build — run one line in the Claude CLI, which shows a plan, waits for approval, then assembles + builds + verifies.</p>
+          <div class="field inline"><label>Draft slug</label><input id="h-slug" value="${esc(defaultSlug)}"></div>
+          <p class="note">${d.slides.length} slides · ${d.slides.length - newCount} reused · ${newCount} new${warnCount ? ` · <span class="warn-text">${warnCount} above clearance</span>` : ""}</p>
+          ${warnCount ? `<p class="note warn-text">Some slides exceed the draft's clearance. Raise it in the Intent panel or remove them.</p>` : ""}
+          <button class="primary" id="h-save">${ibtn("save", "Save draft to repo")}</button>
+          <div id="h-result" style="margin-top:14px"></div>
+          <h3 style="margin-top:22px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">Existing drafts</h3>
+          <ul class="draft-list" id="h-list"><li class="note">Loading…</li></ul>
+        </div>
+      </div>
     </div>`);
-  $("#h-save", box).addEventListener("click", async () => {
-    const slug = slugify($("#h-slug", box).value);
+  const close = () => m.remove();
+  $(".close", m).addEventListener("click", close);
+  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  $("#h-save", m).addEventListener("click", async () => {
+    const slug = slugify($("#h-slug", m).value);
     d.slug = slug; saveDraftLocal();
     try {
       const out = await api.putDraft(slug, d);
-      $("#h-result", box).innerHTML = `
+      $("#h-result", m).innerHTML = `
         <p class="note">Saved to <span class="mono">decks/drafts/${esc(slug)}/draft.json</span>. Run in the CLI:</p>
-        <div class="prompt-box"><code>${esc(out.prompt)}</code><button id="h-copy">Copy</button></div>`;
-      $("#h-copy", box).addEventListener("click", () => { navigator.clipboard.writeText(out.prompt); toast("Copied."); });
-      loadList(box);
+        <div class="prompt-box"><code>${esc(out.prompt)}</code><button id="h-copy">${ibtn("copy", "Copy")}</button></div>`;
+      $("#h-copy", m).addEventListener("click", () => { navigator.clipboard.writeText(out.prompt); toast("Copied."); });
+      loadList(m);
       toast("Draft saved.");
     } catch (err) { toast(err.message || "save failed"); }
   });
-  loadList(box);
-  return box;
+  loadList(m);
+  document.body.append(m);
 }
 
-async function loadList(box) {
-  const ul = $("#h-list", box);
+async function loadList(root) {
+  const ul = $("#h-list", root);
   try {
     const { drafts } = await api.listDrafts();
     if (!drafts.length) { ul.innerHTML = `<li class="note">No saved drafts yet.</li>`; return; }
     ul.innerHTML = "";
     for (const dr of drafts) {
       const li = el(`<li><span class="grow"><b>${esc(dr.title)}</b> <span class="slug mono">${esc(dr.slug)}</span> · ${dr.slides} slides</span>
-        <button class="ghost load">Load</button><button class="ghost del">Delete</button></li>`);
-      $(".load", li).addEventListener("click", async () => {
-        const d2 = await api.getDraft(dr.slug);
-        setDraft(d2); toggleCompose(true); go("/draft"); toast("Loaded " + dr.slug);
-      });
-      $(".del", li).addEventListener("click", async () => {
-        if (!confirm(`Delete draft "${dr.slug}"?`)) return;
-        await api.deleteDraft(dr.slug); loadList(box); toast("Deleted.");
-      });
+        <button class="ghost load">${ibtn("open", "Load")}</button><button class="ghost del">${ibtn("trash", "Delete")}</button></li>`);
+      $(".load", li).addEventListener("click", async () => { setDraft(await api.getDraft(dr.slug)); root.remove(); go("/draft"); toast("Loaded " + dr.slug); });
+      $(".del", li).addEventListener("click", async () => { if (!confirm(`Delete draft "${dr.slug}"?`)) return; await api.deleteDraft(dr.slug); loadList(root); toast("Deleted."); });
       ul.append(li);
     }
   } catch { ul.innerHTML = `<li class="note">Could not load drafts.</li>`; }

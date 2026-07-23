@@ -5,6 +5,7 @@ import { state, blankDraft, setDraft, slideById } from "../state.js";
 import { go } from "../router.js";
 import { toggleCompose } from "../compose.js";
 import { assembledViewer } from "./viewer.js";
+import { ibtn } from "../icons.js";
 
 export function renderList() {
   const box = el(`<div></div>`);
@@ -31,9 +32,9 @@ function deckRow(d) {
         <span class="badge">${esc(d.type || "—")}</span>
         <span class="tags">${d.slides.length} slides</span>
         <div class="spacer">
-          ${d.index ? `<button class="ghost prev">Preview</button>` : ""}
-          ${d.pdf ? `<a class="ghost" href="/repo/${esc(d.pdf)}" download>Download PDF</a>` : ""}
-          <button class="ghost clone">Start draft from this</button>
+          ${d.index ? `<button class="ghost prev">${ibtn("preview", "Preview")}</button>` : ""}
+          ${d.pdf ? `<a class="ghost" href="/repo/${esc(d.pdf)}" download>${ibtn("download", "PDF")}</a>` : ""}
+          <button class="ghost clone">${ibtn("clone", "Start draft")}</button>
         </div>
       </div>
       <div class="filmstrip">

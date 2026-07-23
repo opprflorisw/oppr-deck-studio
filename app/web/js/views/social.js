@@ -7,6 +7,7 @@ import * as api from "../api.js";
 import { go } from "../router.js";
 import { assembledViewer, carouselComposerViewer } from "./viewer.js";
 import { PATTERNS, blankPage } from "./carousel-build.js";
+import { icon, ibtn } from "../icons.js";
 
 const KINDS = [
   { kind: "carousel", label: "LinkedIn carousel", desc: "4:5 document post, 6–10 pages", ready: true },
@@ -197,9 +198,9 @@ export function renderOutputs() {
           <span class="badge">${esc(o.channel)}</span>
           <span class="tags">${esc(o.kind || "")}</span>
           <div class="spacer">
-            ${o.index ? `<button class="ghost prev">Preview</button>` : ""}
-            ${o.pdf ? `<a class="ghost" href="/repo/${esc(o.pdf)}" download>Download PDF</a>` : ""}
-            ${o.post ? `<button class="ghost post">Post text</button>` : ""}
+            ${o.index ? `<button class="ghost prev">${ibtn("preview", "Preview")}</button>` : ""}
+            ${o.pdf ? `<a class="ghost" href="/repo/${esc(o.pdf)}" download>${ibtn("download", "PDF")}</a>` : ""}
+            ${o.post ? `<button class="ghost post">${ibtn("text", "Post text")}</button>` : ""}
           </div>
         </div>
       </div>`);

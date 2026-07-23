@@ -2,6 +2,7 @@
 // routes, start the router.
 
 import { $, toast } from "./util.js";
+import { ibtn } from "./icons.js";
 import * as api from "./api.js";
 import { state, updateDraftCount, setDraft, blankDraft } from "./state.js";
 import { route, setNotFound, startRouter, dispatch, go } from "./router.js";
@@ -37,6 +38,9 @@ async function boot() {
   updateDraftCount();
   renderTray();
 
+  $("#refresh-btn").innerHTML = ibtn("refresh", "Refresh");
+  $("#compose-toggle").innerHTML = ibtn("compose", "Compose");
+
   $("#refresh-btn").addEventListener("click", async () => {
     toast("Re-scanning…");
     await api.refresh();
@@ -66,14 +70,17 @@ async function boot() {
   route("/social", () => mount(social.renderStudio()));
   route("/social/new/:kind", (kind) => mount(social.renderComposer(kind)));
   route("/social-out", () => mount(social.renderOutputs()));
-  route("/knowledge/design", () => mount(knowledge.renderDesign()));
-  route("/knowledge/best-practices", () => mount(knowledge.renderBestPractices()));
-  route("/knowledge/best-practices/:type", (t) => mount(knowledge.renderBestPractice(t)));
-  route("/knowledge/recipes", () => mount(knowledge.renderRecipes()));
-  route("/config", () => mount(knowledge.renderConfig()));
+  route("/knowledge", () => mount(knowledge.renderKnowledge("philosophy")));
+  route("/knowledge/design", () => mount(knowledge.renderKnowledge("philosophy")));
+  route("/knowledge/philosophy", () => mount(knowledge.renderKnowledge("philosophy")));
+  route("/knowledge/best-practices", () => mount(knowledge.renderKnowledge("best-practices")));
+  route("/knowledge/best-practices/:type", (t) => mount(knowledge.renderKnowledge("best-practices", t)));
+  route("/knowledge/recipes", () => mount(knowledge.renderKnowledge("recipes")));
+  route("/knowledge/config", () => mount(knowledge.renderKnowledge("config")));
+  route("/config", () => go("/knowledge/config"));
   setNotFound(() => go("/slides"));
 
-  window.addEventListener("hashchange", () => { renderSidebar(); });
+  window.addEventListener("hashchange", () => { renderSidebar(); renderTray(); });
   startRouter();
 }
 

@@ -18,12 +18,7 @@ const NAV = [
     { path: "/social-out", label: "Social output" },
   ]},
   { group: "Knowledge", items: [
-    { path: "/knowledge/design", label: "Design philosophy" },
-    { path: "/knowledge/best-practices", label: "Best practices" },
-    { path: "/knowledge/recipes", label: "Recipes" },
-  ]},
-  { group: "", items: [
-    { path: "/config", label: "⚙ Config" },
+    { path: "/knowledge", label: "Knowledge" },
   ]},
 ];
 

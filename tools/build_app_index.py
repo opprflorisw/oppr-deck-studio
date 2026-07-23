@@ -204,6 +204,19 @@ def build_social() -> list[dict]:
     return out
 
 
+def build_design_system() -> list[dict]:
+    """Every design-system specimen, grouped, so the app can stack them inline."""
+    out = []
+    root = REPO_ROOT / "library" / "design-system"
+    for group in ("foundations", "blocks", "patterns"):
+        gdir = root / group
+        if not gdir.exists():
+            continue
+        for f in sorted(gdir.glob("*.html")):
+            out.append({"group": group, "name": f.stem, "path": rel(f)})
+    return out
+
+
 def build_recipes() -> list[dict]:
     out = []
     types = REPO_ROOT / "types"
@@ -222,6 +235,7 @@ def build_index() -> dict:
         "roles": ROLE_ORDER,
         "sections": [{"name": n, "desc": d, "roles": r} for n, d, r in SECTIONS],
         "social": build_social(),
+        "design_system": build_design_system(),
         "recipes": build_recipes(),
     }
 

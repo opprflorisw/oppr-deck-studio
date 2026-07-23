@@ -1,0 +1,83 @@
+{
+  "slug": "2026-07-23_duinrell",
+  "title": "this is a test",
+  "type": "",
+  "intent": {
+    "audience": "Everyone",
+    "client": "Duinrell",
+    "language": "nl",
+    "entitlement": "named-customer",
+    "goal": "to convert the shareholders to believers",
+    "presenter": "Floris"
+  },
+  "vars": {
+    "deck_footer": "",
+    "cover_meta": ""
+  },
+  "slides": [
+    {
+      "source": "library",
+      "id": "cover",
+      "role": "cover",
+      "title": "Find the improvements your machines can&rsquo;t see.",
+      "thumb": "library/slides/cover/thumb.png",
+      "comment": ""
+    },
+    {
+      "source": "new",
+      "id": "",
+      "role": "",
+      "title": "",
+      "brief": ""
+    },
+    {
+      "source": "new",
+      "id": "",
+      "role": "",
+      "title": "",
+      "brief": ""
+    },
+    {
+      "source": "library",
+      "id": "idea-one-sentence",
+      "role": "idea",
+      "title": "Capture what your operators see, the moment it happens, and connect it to your machine data so you can see what actually drives performance on the floor.",
+      "thumb": "library/slides/idea-one-sentence/thumb.png",
+      "comment": ""
+    },
+    {
+      "source": "library",
+      "id": "why-now",
+      "role": "why-now",
+      "title": "Your dashboards say what happened. Not why.",
+      "thumb": "library/slides/why-now/thumb.png",
+      "comment": ""
+    },
+    {
+      "source": "library",
+      "id": "why-now",
+      "role": "why-now",
+      "title": "Your dashboards say what happened. Not why.",
+      "thumb": "library/slides/why-now/thumb.png",
+      "comment": ""
+    },
+    {
+      "source": "library",
+      "id": "product-flow-insight",
+      "role": "product-flow",
+      "title": "From the field, to insight, to standard practice.",
+      "thumb": "library/slides/product-flow-insight/thumb.png",
+      "comment": ""
+    },
+    {
+      "source": "library",
+      "id": "platform-cce",
+      "role": "platform",
+      "title": "Capture. Connect. Execute.",
+      "thumb": "library/slides/platform-cce/thumb.png",
+      "comment": ""
+    }
+  ],
+  "source_deck": null,
+  "status": "draft"
+}

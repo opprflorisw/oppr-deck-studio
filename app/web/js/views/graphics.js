@@ -6,6 +6,7 @@ import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
 import { state } from "../state.js";
 import { go } from "../router.js";
 import * as api from "../api.js";
+import { icon, ibtn } from "../icons.js";
 
 const norm = (p) => String(p).replace(/^.*brand\/img\//, "");
 
@@ -18,33 +19,40 @@ function usageOf(file) {
 }
 
 let gFilter = { q: "", ent: "", unused: false };
+let gView = localStorage.getItem("oppr.gView") || "cards"; // cards | categories | table
+
+const TYPE_ORDER = ["photo", "diagram", "product-screenshot", "logo"];
 
 export function renderList() {
   const wrap = el(`<div></div>`);
-  wrap.append(el(`
+  const bar = el(`
     <div class="subbar">
-      <h1 class="page-title">Graphics</h1>
+      <div class="viewswitch">
+        ${[["cards", "Cards"], ["categories", "Categories"], ["table", "Table"]].map(([v, l]) => `<button data-gview="${v}" class="${gView === v ? "active" : ""}">${icon(v, 15)}<span>${l}</span></button>`).join("")}
+      </div>
       <div class="filters">
         <input type="search" id="gq" placeholder="Filter…" value="${esc(gFilter.q)}">
         <select id="gent"><option value="">Any clearance</option>${["public", "named-customer", "mutares-family"].map((r) => `<option ${gFilter.ent === r ? "selected" : ""}>${esc(r)}</option>`).join("")}</select>
         <label class="chk"><input type="checkbox" id="gun" ${gFilter.unused ? "checked" : ""}> unused only</label>
-        <button class="ghost" id="gimport">Import graphics</button>
+        <button class="ghost" id="gimport">${ibtn("add", "Import graphics")}</button>
       </div>
-    </div>`));
+    </div>`);
+  wrap.append(bar);
   const body = el(`<div id="gbody"></div>`);
   wrap.append(body);
-  const upd = () => renderGrid(body);
+  const upd = () => renderBody(body);
+  $$("[data-gview]", bar).forEach((b) => b.addEventListener("click", () => { gView = b.dataset.gview; localStorage.setItem("oppr.gView", gView); go("/graphics"); }));
   $("#gq", wrap).addEventListener("input", (e) => { gFilter.q = e.target.value; upd(); });
   $("#gent", wrap).addEventListener("change", (e) => { gFilter.ent = e.target.value; upd(); });
   $("#gun", wrap).addEventListener("change", (e) => { gFilter.unused = e.target.checked; upd(); });
   $("#gimport", wrap).addEventListener("click", () => openImport());
-  renderGrid(body);
+  renderBody(body);
   return wrap;
 }
 
-function renderGrid(container) {
+function filteredImgs() {
   const q = gFilter.q.trim().toLowerCase();
-  const imgs = state.index.images.filter((im) => {
+  return state.index.images.filter((im) => {
     if (gFilter.ent && (im.entitlement || "public") !== gFilter.ent) return false;
     if (gFilter.unused && usageOf(im.file).slides.length) return false;
     if (q) {
@@ -53,11 +61,66 @@ function renderGrid(container) {
     }
     return true;
   });
+}
+
+function renderBody(container) {
+  const imgs = filteredImgs();
   container.innerHTML = "";
   if (!imgs.length) { container.innerHTML = `<div class="loading">No graphics match.</div>`; return; }
+  if (gView === "cards") container.append(cardsGrid(imgs));
+  else if (gView === "categories") container.append(categoriesView(imgs));
+  else container.append(tableView(imgs));
+}
+
+function wireOpen(root) {
+  $$("[data-gopen]", root).forEach((c) => c.addEventListener("click", () => go("/graphics/" + encodeURIComponent(c.dataset.gopen))));
+}
+
+function cardsGrid(imgs) {
   const grid = el(`<div class="grid">${imgs.map(gcard).join("")}</div>`);
-  $$("[data-gopen]", grid).forEach((c) => c.addEventListener("click", () => go("/graphics/" + encodeURIComponent(c.dataset.gopen))));
-  container.append(grid);
+  wireOpen(grid);
+  return grid;
+}
+
+function categoriesView(imgs) {
+  const box = el(`<div></div>`);
+  const types = [...new Set(imgs.map((im) => im.type || "other"))]
+    .sort((a, b) => (TYPE_ORDER.indexOf(a) + 1 || 99) - (TYPE_ORDER.indexOf(b) + 1 || 99));
+  for (const t of types) {
+    const inType = imgs.filter((im) => (im.type || "other") === t);
+    box.append(el(`<div class="section-head"><h2>${esc(t)}</h2><span class="section-count">${inType.length}</span></div>`));
+    const grid = el(`<div class="grid">${inType.map(gcard).join("")}</div>`);
+    wireOpen(grid);
+    box.append(grid);
+  }
+  return box;
+}
+
+function tableView(imgs) {
+  const rows = imgs.map((im) => {
+    const u = usageOf(im.file);
+    const usedCell = u.slides.length
+      ? `<span class="tip"><span class="count-pill">${u.slides.length}</span><span class="tip-body">${u.slides.map((s) => esc(decodeEntities(s.title))).join("<br>")}</span></span>`
+      : `<span class="count-pill zero">0</span>`;
+    return `
+      <tr data-gopen="${esc(im.file)}">
+        <td class="tcell-thumb"><img src="/repo/${esc(im.src)}" alt=""></td>
+        <td class="tcell-title"><div class="tt-title">${esc(im.description || im.file)}</div><div class="tt-id mono">${esc(im.file)}</div></td>
+        <td>${esc(im.type || "—")}</td>
+        <td><span class="badge ${esc(im.entitlement || "public")}">${esc(im.entitlement || "public")}</span></td>
+        <td class="tcell-num">${usedCell}</td>
+        <td class="tcell-num mono">${u.decks.length}</td>
+      </tr>`;
+  }).join("");
+  const t = el(`
+    <div class="table-wrap">
+      <table class="slide-table">
+        <thead><tr><th></th><th>Description</th><th>Type</th><th>Clearance</th><th class="tcell-num">Slides</th><th class="tcell-num">Decks</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`);
+  wireOpen(t);
+  return t;
 }
 
 function gcard(im) {

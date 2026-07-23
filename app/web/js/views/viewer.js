@@ -8,6 +8,7 @@
 import { $, $$, el, esc } from "../util.js";
 import { fillPreviewVars, fetchFragment } from "../preview.js";
 import { pageHtmlFor } from "./carousel-build.js";
+import { icon, ibtn } from "../icons.js";
 
 // Wrap body content in a shell that scales its slide/section to fit the iframe.
 export function scaledDoc(headExtra, bodyInner, w, h) {
@@ -38,13 +39,13 @@ export function openDeckViewer(pages, { title = "", pdf = null } = {}) {
           <b>${esc(title)}</b>
           <span class="viewer-count mono"></span>
           <div class="spacer"></div>
-          ${pdf ? `<a class="ghost" href="/repo/${esc(pdf)}" download>Download PDF</a>` : ""}
-          <button class="ghost close">Close</button>
+          ${pdf ? `<a class="ghost" href="/repo/${esc(pdf)}" download>${ibtn("download", "PDF")}</a>` : ""}
+          <button class="ghost icon-only close" title="Close (Esc)">${icon("close")}</button>
         </header>
         <div class="viewer-body">
-          <button class="navbtn prev" title="Previous (left arrow)" aria-label="Previous">&#8249;</button>
+          <button class="navbtn prev" title="Previous (left arrow)" aria-label="Previous">${icon("prev", 30)}</button>
           <div class="viewer-stage"><iframe class="viewer-frame" scrolling="no"></iframe></div>
-          <button class="navbtn next" title="Next (right arrow)" aria-label="Next">&#8250;</button>
+          <button class="navbtn next" title="Next (right arrow)" aria-label="Next">${icon("next", 30)}</button>
         </div>
         <div class="viewer-strip">${pages.map((p, k) => `<button class="vdot" data-i="${k}" title="${esc(p.label || "")}">${k + 1}</button>`).join("")}</div>
       </div>

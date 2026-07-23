@@ -3,12 +3,13 @@
 import { $, $$, el, esc, decodeEntities, toast } from "./util.js";
 import { state, saveDraftLocal, setDraft, blankDraft, slideExceedsClearance, slideById } from "./state.js";
 import { go, dispatch } from "./router.js";
+import { icon, ibtn } from "./icons.js";
 import * as api from "./api.js";
 
 export function toggleCompose(force) {
   state.composeMode = force === undefined ? !state.composeMode : force;
   $("#compose-toggle").classList.toggle("on", state.composeMode);
-  $("#compose-toggle").textContent = state.composeMode ? "Composing" : "Compose";
+  $("#compose-toggle").innerHTML = ibtn("compose", state.composeMode ? "Composing" : "Compose");
   document.getElementById("app").classList.toggle("composing", state.composeMode);
   renderTray();
   dispatch();
@@ -16,7 +17,9 @@ export function toggleCompose(force) {
 
 export function renderTray() {
   const tray = $("#tray");
-  if (!state.composeMode) { tray.hidden = true; tray.innerHTML = ""; return; }
+  // The tray is redundant on the deck-draft page (the whole draft is shown there).
+  const onDraftPage = location.hash.replace(/^#/, "").startsWith("/draft");
+  if (!state.composeMode || onDraftPage) { tray.hidden = true; tray.innerHTML = ""; return; }
   const d = state.draft;
   const warn = d.slides.filter((s) => s.source !== "new" && slideExceedsClearance((slideById(s.id) || {}).entitlement || "public")).length;
   tray.hidden = false;
@@ -34,8 +37,8 @@ export function renderTray() {
       <div class="tray-actions">
         ${warn ? `<span class="warn-text">${warn} above clearance</span>` : ""}
         <span class="tray-count"><b data-draft-count>${d.slides.length}</b> slides</span>
-        <button class="ghost" id="tray-open">Open draft</button>
-        <button class="ghost" id="tray-clear">Clear</button>
+        <button class="ghost" id="tray-open">${ibtn("open", "Open draft")}</button>
+        <button class="ghost" id="tray-clear">${ibtn("trash", "Clear")}</button>
       </div>
     </div>`;
   $("#tray-open", tray).addEventListener("click", () => go("/draft"));

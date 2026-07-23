@@ -6,6 +6,7 @@ import { go } from "../router.js";
 import { previewFrame, fetchFragment } from "../preview.js";
 import { renderTray } from "../compose.js";
 import { historySection } from "./history.js";
+import { icon, ibtn } from "../icons.js";
 
 function filtered() {
   const q = state.filter.q.trim().toLowerCase();
@@ -48,19 +49,13 @@ export function renderList() {
   return wrap;
 }
 
-const VIEW_ICON = {
-  cards: `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1.2"/><rect x="9" y="1" width="6" height="6" rx="1.2"/><rect x="1" y="9" width="6" height="6" rx="1.2"/><rect x="9" y="9" width="6" height="6" rx="1.2"/></svg>`,
-  sections: `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="1.5" y="1.8" width="13" height="2.6" rx="1"/><rect x="1.5" y="6.6" width="9" height="1.7" rx=".85" opacity=".55"/><rect x="1.5" y="9.5" width="9" height="1.7" rx=".85" opacity=".55"/><rect x="1.5" y="12.4" width="9" height="1.7" rx=".85" opacity=".55"/></svg>`,
-  table: `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1.5" y="2.5" width="13" height="11" rx="1.2"/><line x1="1.5" y1="6" x2="14.5" y2="6"/><line x1="6" y1="6" x2="6" y2="13.5"/><line x1="10.5" y1="6" x2="10.5" y2="13.5"/></svg>`,
-};
-
 function toolbar() {
   const roles = [...new Set(state.index.slides.map((s) => s.role).filter(Boolean))];
   const sections = state.index.sections.map((s) => s.name);
   const bar = el(`
     <div class="subbar">
       <div class="viewswitch">
-        ${["cards", "sections", "table"].map((v) => `<button data-view="${v}" class="${state.slideView === v ? "active" : ""}">${VIEW_ICON[v]}<span>${v[0].toUpperCase() + v.slice(1)}</span></button>`).join("")}
+        ${["cards", "sections", "table"].map((v) => `<button data-view="${v}" class="${state.slideView === v ? "active" : ""}">${icon(v, 15)}<span>${v[0].toUpperCase() + v.slice(1)}</span></button>`).join("")}
       </div>
       <div class="filters">
         <input type="search" id="q" placeholder="Filter…" value="${esc(state.filter.q)}">
@@ -138,23 +133,25 @@ function decksUsing(id) {
 function tableView(list) {
   const rows = list.map((s) => {
     const decks = decksUsing(s.id);
+    const usedCell = decks.length
+      ? `<span class="tip"><span class="count-pill">${decks.length}</span><span class="tip-body">${decks.map((d) => esc(d)).join("<br>")}</span></span>`
+      : `<span class="count-pill zero">0</span>`;
     return `
       <tr data-open="${esc(s.id)}">
         <td class="tcell-thumb">${s.thumb ? `<img src="/repo/${esc(s.thumb)}" alt="">` : ""}</td>
-        <td class="mono">${esc(s.id)}</td>
-        <td>${esc(decodeEntities(s.title))}</td>
+        <td class="tcell-title"><div class="tt-title">${esc(decodeEntities(s.title))}</div><div class="tt-id mono">${esc(s.id)}</div></td>
         <td>${esc(s.role)}</td>
         <td>${esc(s.section)}</td>
         <td><span class="badge ${esc(s.entitlement)}">${esc(s.entitlement)}</span></td>
-        <td>${decks.map((d) => `<span class="chip sm">${esc(d)}</span>`).join(" ") || "<span class='tmuted'>—</span>"}</td>
-        <td class="mono">${(s.images || []).length}</td>
-        <td class="mono">${s.versions ?? "·"}</td>
+        <td class="tcell-num">${usedCell}</td>
+        <td class="tcell-num mono">${(s.images || []).length}</td>
+        <td class="tcell-num mono">${s.versions ?? "·"}</td>
       </tr>`;
   }).join("");
   const t = el(`
     <div class="table-wrap">
       <table class="slide-table">
-        <thead><tr><th></th><th>id</th><th>title</th><th>role</th><th>section</th><th>clearance</th><th>used in</th><th>imgs</th><th>vers</th></tr></thead>
+        <thead><tr><th></th><th>Title</th><th>Role</th><th>Section</th><th>Clearance</th><th class="tcell-num">Used in</th><th class="tcell-num">Imgs</th><th class="tcell-num">Vers</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`);
