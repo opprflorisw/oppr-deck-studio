@@ -1,67 +1,54 @@
-// Decks output: canonicals + frozen variants as filmstrips, preview, clone.
+// Output → Masters (Deck Studio v3): the master-tagged decks, plus "Company
+// decks" (non-master decks that belong to no customer: teasers, investor
+// updates, event one-offs). Customer decks live under Customers only. All read
+// from the backend (state.backend).
 
-import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
-import { state, blankDraft, setDraft, slideById } from "../state.js";
+import { $, el, esc, decodeEntities } from "../util.js";
+import { state } from "../state.js";
 import { go } from "../router.js";
-import { toggleCompose } from "../compose.js";
-import { assembledViewer } from "./viewer.js";
-import { ibtn } from "../icons.js";
+import { icon } from "../icons.js";
+import { offlinePanel } from "./deck.js";
 
-export function renderList() {
+export function renderMasters() {
+  if (!state.backend.ok) return offlinePanel("Output");
   const box = el(`<div></div>`);
-  box.append(el(`<div class="subbar"><h1 class="page-title">Decks</h1></div>`));
-  section(box, "Canonical masters", state.index.decks.canonical);
-  section(box, "Frozen variants", state.index.decks.variants);
-  if (!state.index.decks.canonical.length && !state.index.decks.variants.length)
-    box.append(el(`<div class="loading">No decks yet.</div>`));
+  const all = state.backend.decks || [];
+  const masters = all.filter((d) => d.is_master);
+  const company = all.filter((d) => !d.is_master && d.audience_kind !== "customer");
+
+  if (!masters.length && !company.length) {
+    box.append(el(`<div class="empty"><p>No decks yet.</p><p class="note">Build one in the CLI and publish it, then it appears here.</p></div>`));
+    return box;
+  }
+
+  if (masters.length) {
+    box.append(el(`<div class="section-head"><h2>Masters</h2><span class="section-count">${masters.length}</span></div>`));
+    box.append(el(`<p class="note">The reusable master decks. Personalize one for a customer from its page; customer decks live under <a href="#/customers">Customers</a>.</p>`));
+    for (const d of masters) box.append(deckRow(d, true));
+  }
+
+  if (company.length) {
+    box.append(el(`<div class="section-head"><h2>Company decks</h2><span class="section-count">${company.length}</span></div>`));
+    box.append(el(`<p class="note">Decks that are not for a single customer: teasers, investor updates, event one-offs.</p>`));
+    for (const d of company) box.append(deckRow(d, false));
+  }
   return box;
 }
 
-function section(box, label, decks) {
-  if (!decks.length) return;
-  box.append(el(`<div class="section-head"><h2>${esc(label)}</h2><span class="section-count">${decks.length}</span></div>`));
-  for (const d of decks) box.append(deckRow(d));
-}
-
-function deckRow(d) {
-  const thumbFor = (id) => { const s = slideById(id); return s && s.thumb ? `/repo/${s.thumb}` : ""; };
+function deckRow(d, isMaster) {
   const row = el(`
     <div class="deck-row">
       <div class="head">
+        ${d.thumb ? `<img class="deck-thumb" src="${esc(d.thumb)}" alt="">` : ""}
         <h3>${esc(decodeEntities(d.title))}</h3>
+        ${isMaster ? `<span class="badge badge--master">MASTER</span>` : ""}
         <span class="badge">${esc(d.type || "—")}</span>
-        <span class="tags">${d.slides.length} slides</span>
-        <div class="spacer">
-          ${d.index ? `<button class="ghost prev">${ibtn("preview", "Preview")}</button>` : ""}
-          ${d.pdf ? `<a class="ghost" href="/repo/${esc(d.pdf)}" download>${ibtn("download", "PDF")}</a>` : ""}
-          <button class="ghost clone">${ibtn("clone", "Start draft")}</button>
-        </div>
-      </div>
-      <div class="filmstrip">
-        ${d.slides.map((id) => `<div class="frame" data-open="${esc(id)}"><img src="${thumbFor(id)}" alt=""><div class="cap">${esc(id)}</div></div>`).join("")}
+        <span class="tags mono">v${d.current_version_n}</span>
+        ${d.status === "needs_cli" ? `<span class="pill-status draft">needs CLI</span>` : ""}
+        <div class="spacer"><button class="ghost icon-only open" title="Open">${icon("open")}</button></div>
       </div>
     </div>`);
-  if (d.index) $(".prev", row).addEventListener("click", () => assembledViewer(d.index, decodeEntities(d.title), d.pdf));
-  $(".clone", row).addEventListener("click", () => cloneToDraft(d));
-  $$("[data-open]", row).forEach((f) => f.addEventListener("click", () => go("/slides/" + f.dataset.open)));
+  row.querySelector(".open").addEventListener("click", (e) => { e.stopPropagation(); go("/deck/" + d.id); });
+  row.addEventListener("click", () => go("/deck/" + d.id));
   return row;
-}
-
-function cloneToDraft(d) {
-  if (state.draft.slides.length && !confirm("Replace the current draft with this deck's slides?")) return;
-  const draft = blankDraft();
-  draft.title = decodeEntities(d.title) + " (variant)";
-  draft.type = d.type;
-  draft.vars = { ...d.vars };
-  const ae = d.allowed_entitlements || ["public"];
-  draft.intent.entitlement = ae.includes("mutares-family") ? "mutares-family" : ae.includes("named-customer") ? "named-customer" : "public";
-  draft.source_deck = d.path;
-  for (const id of d.slides) {
-    const s = slideById(id);
-    draft.slides.push({ source: "library", id, role: s ? s.role : "", title: s ? s.title : id, thumb: s ? s.thumb : null, comment: "" });
-  }
-  setDraft(draft);
-  toggleCompose(true);
-  go("/draft");
-  toast("Draft started from " + decodeEntities(d.title));
 }

@@ -9,10 +9,25 @@ Everything Oppr publishes on a social channel lives here, made through
 - `social/x/…`, future channels beside these.
 - `social/drafts/<slug>/draft.json` — a social draft staged by the app, built by
   the CLI, then cleared (same staging discipline as `decks/drafts/` and `dump/`).
+- `social/_status.json` — the app-owned **publish log**: per built output slug, its
+  status (`draft`/`posted`), the posted date, and the post link. Written by the
+  Deck Studio App's Output → Social output view (the gear on each row); it is
+  tracking metadata, never a built artifact. The app's Output view filters on it
+  (All / Draft / Posted) and turns the link into "open the post".
 
 Each built output carries `oppr` in its filename (see the naming rule in the root
 `CLAUDE.md`). Best-practice facts and Oppr's own usage rules for each format live
 in `knowledge/best-practices/<type>.md` and are the source the workflow reads.
+
+## Category (the app's Social output tabs)
+
+An optional `social/<channel>/<date>_<slug>/meta.yaml` with a `category:` field
+tells the app which Social output tab the piece belongs under (carousel,
+job-description, post, ...). The artifact shape cannot tell a job ad from a quote
+card (both are a PNG), so the category is declared, not inferred. When the file is
+absent the app falls back to the artifact shape, so existing carousels need no
+back-fill. Keep the value kebab-case and matching a tab id in `app/web/js/areas.js`
+(add a tab there when introducing a new category).
 
 ## Non-negotiable: social is public
 
@@ -49,9 +64,22 @@ illustrative and conservative, Capture → Connect → Execute framing.
 - Post from **Floris's personal profile** (far more reach than the Page); mirror
   on the Oppr Page if useful.
 
+## Single social image (announcements)
+
+- One **1080×1080 PNG**: a hire, a round, a date. It has to say its whole thing
+  unswiped, so it is one card, not a carousel.
+- Composed from `templates/linkedin.css` with
+  `.carousel carousel--square carousel--single` + one `.lpage`. No page number,
+  no open loop. Build:
+  ```
+  .\tools\build-social-image.ps1 -Image social\linkedin\<date>_<slug>
+  ```
+- See `knowledge/best-practices/social-image.md` and the worked example in
+  `social/linkedin/2026-07-23_hiring-senior-developer/`.
+
 ## Other formats
 
-Articles, social images (1080×1080 / 1200×627 link images) and YouTube
+Articles, 1200×627 link images and YouTube
 thumbnails (1280×720) follow the same shape: a template in `templates/`, blocks
 composed only from the documented set, built by a tool, named with `oppr`,
 verified, human-approved. See `knowledge/best-practices/` for each.

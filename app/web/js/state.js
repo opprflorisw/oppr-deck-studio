@@ -4,11 +4,28 @@ import { ENTITLEMENT_RANK } from "./util.js";
 
 export const state = {
   index: null,
+  // Deck Studio v3: decks + customers come from the backend (Supabase via the
+  // agent), not from index.json. `ok:false` means the backend is unreachable.
+  backend: { decks: [], customers: [], ok: true },
   composeMode: false,
   slideView: localStorage.getItem("oppr.slideView") || "cards", // cards | sections | table
   filter: { role: "", entitlement: "", section: "", q: "" },
   draft: loadDraft(),
 };
+
+export const deckById = (id) => state.backend.decks.find((d) => d.id === id);
+export const customerById = (id) => state.backend.customers.find((c) => c.id === id);
+
+// Refresh the backend slice; sets ok=false if the agent/back end is offline.
+export async function loadBackend(api) {
+  try {
+    const [decks, customers] = await Promise.all([api.getDecks(), api.getCustomers2()]);
+    state.backend = { decks: decks.decks || [], customers: customers.customers || [], ok: true };
+  } catch {
+    state.backend = { decks: [], customers: [], ok: false };
+  }
+  return state.backend;
+}
 
 export function blankDraft() {
   return {

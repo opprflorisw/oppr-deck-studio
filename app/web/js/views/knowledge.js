@@ -1,5 +1,6 @@
-// Knowledge: one page, four tabs — Design philosophy / Best practices / Recipes
-// / Config. (Design system stays in the Library.)
+// Knowledge bodies — Design philosophy / Best practices / Recipes / Config. The
+// area frame (views/area.js) supplies the title and the tabbar; here we only
+// render the body for the active tab. (Design system stays in the Library.)
 
 import { $, $$, el, esc } from "../util.js";
 import { state } from "../state.js";
@@ -7,33 +8,14 @@ import * as api from "../api.js";
 import { renderMarkdown } from "../md.js";
 import { go } from "../router.js";
 
-const TABS = [
-  { id: "philosophy", label: "Design philosophy" },
-  { id: "best-practices", label: "Best practices" },
-  { id: "recipes", label: "Recipes" },
-  { id: "config", label: "Config" },
-];
 const BP_TYPES = ["deck", "linkedin-carousel", "linkedin-post", "linkedin-article", "social-image", "youtube-thumbnail"];
 
-// entry point used by all /knowledge routes
-export function renderKnowledge(tab = "philosophy", sub = "") {
-  const wrap = el(`
-    <div>
-      <div class="subbar">
-        <h1 class="page-title">Knowledge</h1>
-        <div class="tabbar" style="margin-left:auto">
-          ${TABS.map((t) => `<button data-tab="${t.id}" class="${t.id === tab ? "active" : ""}">${esc(t.label)}</button>`).join("")}
-        </div>
-      </div>
-      <div id="k-body"></div>
-    </div>`);
-  $$("[data-tab]", wrap).forEach((b) => b.addEventListener("click", () => go("/knowledge/" + b.dataset.tab)));
-  const body = $("#k-body", wrap);
-  if (tab === "philosophy") body.append(philosophy());
-  else if (tab === "best-practices") body.append(bestPractices(sub));
-  else if (tab === "recipes") body.append(recipes());
-  else body.append(config());
-  return wrap;
+// body for the active Knowledge tab
+export function renderBody(tab = "philosophy", sub = "") {
+  if (tab === "best-practices") return bestPractices(sub);
+  if (tab === "recipes") return recipes();
+  if (tab === "config") return config();
+  return philosophy();
 }
 
 // renders a markdown doc into a target, with a Raw toggle

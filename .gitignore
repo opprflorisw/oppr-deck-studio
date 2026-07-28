@@ -25,3 +25,28 @@ Desktop.ini
 
 # NOTE: PDFs are intentionally NOT ignored. Canonical and variant PDFs are the
 # shipped artifact and the historical record, and are committed (see SPEC.md §6).
+
+# Local deck materialization cache (agent): never committed
+app/.deck-cache/
+
+# --- v3: CONTENT lives in Supabase, not the repo ---------------------------
+# Decks, social outputs and references were migrated to the backend (Supabase
+# Postgres + Storage). The repo is the TOOL only. These dirs stay as working
+# areas (the CLI builds into them, then publishes), but their contents are never
+# committed — only each folder's CLAUDE.md is kept as documentation.
+/decks/*
+!/decks/CLAUDE.md
+/social/*
+!/social/CLAUDE.md
+/dump/*
+!/dump/CLAUDE.md
+/references/
+/screenshots/
+
+# --- Local dev / agent tooling (not the deck studio, not content) ----------
+/.agents/
+/.impeccable/
+/skills-lock.json
+# Installed Claude skills (e.g. impeccable) — keep the deck workflows in
+# .claude/commands/, but not general skills bundled into this repo.
+/.claude/skills/

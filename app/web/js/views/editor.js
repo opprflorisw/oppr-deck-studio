@@ -1,0 +1,355 @@
+// The fine-tuning editor (Deck Studio v3, §6.3). Loads a deck version into a
+// SAME-ORIGIN iframe (served from the local cache) and edits the final DOM with
+// three bounded verbs — text in place, layout nudges, image swaps. Every save
+// is a new version; the server re-validates that the change is structure-
+// preserving (text/attribute only) and rejects anything else with a CLI prompt.
+//
+// One authoritative document lives in the iframe. Slides are shown one at a time
+// by scaling the whole deck and scrolling to the active section. Saving
+// serializes the entire document, so every slide's edits are captured.
+
+import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
+import { state, loadBackend } from "../state.js";
+import * as api from "../api.js";
+import { go } from "../router.js";
+import { icon, ibtn } from "../icons.js";
+
+const SLIDE_W = 1280, SLIDE_H = 720;
+const NUDGE = ["margin-top", "margin-bottom", "margin-left", "margin-right", "padding-top", "padding-bottom", "gap", "font-size", "line-height", "max-width"];
+
+export async function render(id, mount) {
+  mount(el(`<div class="loading">Opening editor…</div>`));
+  let data;
+  try { data = await api.getDeck(id); }
+  catch { return mount(el(`<div class="loading">Backend not reachable. <a href="#/output/masters">Back</a></div>`)); }
+  const deck = data.deck;
+  const n = deck.current_version_n;
+
+  const wrap = el(`
+    <div class="editor">
+      <div class="editor-bar">
+        <button class="ghost icon-only" id="back" title="Back">${icon("prev")}</button>
+        <b class="editor-title">${esc(decodeEntities(deck.title))}</b>
+        <span class="tags mono">v${n}</span>
+        <span class="editor-dirty" id="dirty" hidden>unsaved changes</span>
+        <div class="spacer"></div>
+        <span class="editor-hint note">Click text to edit · select an element to nudge or swap</span>
+        <button class="ghost" id="discard">${ibtn("close", "Discard")}</button>
+        <button class="ghost" id="regen" disabled title="Save first">${ibtn("refresh", "Regenerate")}</button>
+        <button class="primary" id="save" disabled>${ibtn("save", "Save version")}</button>
+      </div>
+      <div class="editor-strip" id="strip"></div>
+      <div class="editor-main">
+        <div class="editor-stage" id="stage">
+          <iframe id="frame" class="editor-frame"></iframe>
+        </div>
+        <aside class="editor-inspect" id="inspect">
+          <p class="note">Select an element in the slide to edit it.</p>
+        </aside>
+      </div>
+    </div>`);
+
+  const st = { dirty: false, active: 0, sections: [], selected: null, edits: { text: 0, nudge: 0, image: 0 } };
+  const frame = $("#frame", wrap);
+  const stage = $("#stage", wrap);
+  const inspect = $("#inspect", wrap);
+
+  const markDirty = () => {
+    st.dirty = true;
+    $("#dirty", wrap).hidden = false;
+    $("#save", wrap).disabled = false;
+  };
+
+  $("#back", wrap).addEventListener("click", () => leave(() => go("/deck/" + id)));
+  $("#discard", wrap).addEventListener("click", () => leave(() => render(id, mount), true));
+  $("#save", wrap).addEventListener("click", () => save());
+  $("#regen", wrap).addEventListener("click", () => go("/deck/" + id));
+
+  function leave(then, force) {
+    if (st.dirty && !force && !confirm("Discard unsaved changes?")) return;
+    then();
+  }
+
+  // Load the materialized version (the /view URL materializes then redirects to
+  // the same-origin cache index.html).
+  frame.src = api.deckViewUrl(id, n);
+  frame.addEventListener("load", () => setup());
+
+  function idoc() { return frame.contentDocument; }
+
+  function setup() {
+    const doc = idoc();
+    if (!doc) return;
+    const deckEl = doc.querySelector(".deck");
+    if (!deckEl) { inspect.innerHTML = `<p class="note">Could not read this deck.</p>`; return; }
+    st.sections = [...deckEl.children].filter((c) => c.tagName === "SECTION");
+
+    // scale the whole deck so one slide fills the stage; scroll to the active one
+    injectEditorStyle(doc);
+    layout();
+    buildStrip();
+    wireSelection(doc);
+    showSlide(0);
+    window.addEventListener("resize", layout);
+  }
+
+  function layout() {
+    const doc = idoc(); if (!doc) return;
+    const deckEl = doc.querySelector(".deck");
+    const scale = Math.min(1, (stage.clientWidth - 40) / SLIDE_W);
+    deckEl.style.transformOrigin = "top left";
+    deckEl.style.transform = `scale(${scale})`;
+    doc.body.style.height = `${SLIDE_H * st.sections.length * scale}px`;
+    doc.__scale = scale;
+    scrollToActive();
+  }
+
+  function scrollToActive() {
+    const doc = idoc(); if (!doc || !doc.__scale) return;
+    doc.documentElement.scrollTop = st.active * SLIDE_H * doc.__scale;
+  }
+
+  function buildStrip() {
+    const strip = $("#strip", wrap);
+    strip.innerHTML = st.sections.map((s, i) =>
+      `<button class="ed-dot ${i === 0 ? "active" : ""}" data-i="${i}" title="${esc(s.getAttribute("data-slide-id") || i + 1)}">${i + 1}<span class="ed-of" data-of="${i}" hidden>!</span></button>`).join("");
+    $$(".ed-dot", strip).forEach((b) => b.addEventListener("click", () => showSlide(+b.dataset.i)));
+  }
+
+  function showSlide(i) {
+    st.active = i;
+    $$(".ed-dot", wrap).forEach((d, k) => d.classList.toggle("active", k === i));
+    scrollToActive();
+    checkOverflow();
+  }
+
+  function wireSelection(doc) {
+    doc.addEventListener("click", (e) => {
+      const target = e.target.closest("*");
+      if (!target || target === doc.body || target.classList.contains("deck")) return;
+      select(target);
+    }, true);
+  }
+
+  function select(node) {
+    const doc = idoc();
+    if (st.selected) st.selected.classList.remove("__ed-sel");
+    st.selected = node;
+    node.classList.add("__ed-sel");
+    renderInspector(node);
+  }
+
+  function renderInspector(node) {
+    const tag = node.tagName.toLowerCase();
+    const slot = node.getAttribute("data-slot");
+    const isImg = tag === "img";
+    const isText = isTextEditable(node);
+    inspect.innerHTML = `
+      <div class="insp-crumb mono">${esc(breadcrumb(node))}</div>
+      ${slot ? `<div class="insp-slot">slot: ${esc(slot)}</div>` : ""}
+      ${isText ? `<button class="ghost full" id="edit-text">${ibtn("compose", "Edit text")}</button>` : ""}
+      ${isImg ? `<button class="ghost full" id="swap-img">${ibtn("image", "Swap image")}</button>` : ""}
+      <div class="section-head"><h3>Nudge</h3></div>
+      <div class="insp-nudge" id="nudge"></div>
+    `;
+    if (isText) $("#edit-text", inspect).addEventListener("click", () => beginTextEdit(node));
+    if (isImg) $("#swap-img", inspect).addEventListener("click", () => swapImage(node));
+    const nb = $("#nudge", inspect);
+    for (const prop of NUDGE) nb.append(nudgeControl(node, prop));
+  }
+
+  function nudgeControl(node, prop) {
+    const cur = node.style.getPropertyValue(prop) || "";
+    const c = el(`<div class="nudge-row"><label>${esc(prop)}</label>
+      <button class="ghost icon-only dn">−</button><span class="nudge-val mono">${esc(cur || "·")}</span><button class="ghost icon-only up">+</button></div>`);
+    const step = (dir, big) => {
+      const unit = prop === "line-height" ? "" : "px";
+      let val = parseFloat(node.style.getPropertyValue(prop));
+      if (isNaN(val)) {
+        const cs = frame.contentWindow.getComputedStyle(node);
+        val = parseFloat(cs.getPropertyValue(prop)) || 0;
+      }
+      const inc = prop === "line-height" ? 0.05 : (big ? 12 : 4);
+      val = clampProp(prop, val + dir * inc);
+      node.style.setProperty(prop, prop === "line-height" ? String(val) : val + "px");
+      $(".nudge-val", c).textContent = node.style.getPropertyValue(prop);
+      st.edits.nudge++; markDirty(); checkOverflow();
+    };
+    $(".up", c).addEventListener("click", (e) => step(1, e.shiftKey));
+    $(".dn", c).addEventListener("click", (e) => step(-1, e.shiftKey));
+    return c;
+  }
+
+  function beginTextEdit(node) {
+    node.setAttribute("contenteditable", "true");
+    node.classList.add("__ed-editing");
+    node.focus();
+    // place caret at end
+    const doc = idoc();
+    const range = doc.createRange();
+    range.selectNodeContents(node);
+    range.collapse(false);
+    const sel = frame.contentWindow.getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+
+    const onKey = (e) => { if (e.key === "Enter") e.preventDefault(); }; // no newlines -> no injected tags
+    const onPaste = (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || frame.contentWindow.clipboardData).getData("text").replace(/[\r\n]+/g, " ");
+      doc.execCommand("insertText", false, text.replace(/—/g, "–"));
+    };
+    const onInput = () => {
+      if (node.textContent.includes("—")) {
+        node.textContent = node.textContent.replace(/—/g, "–");
+        toast("em dash replaced (brand rule)");
+      }
+      st.edits.text++; markDirty();
+    };
+    const finish = () => {
+      node.removeAttribute("contenteditable");
+      node.classList.remove("__ed-editing");
+      node.removeEventListener("keydown", onKey);
+      node.removeEventListener("paste", onPaste);
+      node.removeEventListener("input", onInput);
+      node.removeEventListener("blur", finish);
+      checkOverflow();
+    };
+    node.addEventListener("keydown", onKey);
+    node.addEventListener("paste", onPaste);
+    node.addEventListener("input", onInput);
+    node.addEventListener("blur", finish);
+  }
+
+  async function swapImage(node) {
+    const allowed = new Set([...(deck.allowed_entitlements || []), "public"]);
+    const pick = await imagePicker(allowed);
+    if (!pick) return;
+    try {
+      const out = await api.registerDeckAsset(id, "brand/img/" + pick, n);
+      // out.filename is "assets/<file>"; the agent dropped it into this version's cache
+      node.setAttribute("src", out.filename);
+      st.edits.image++; markDirty(); checkOverflow();
+      toast("Image swapped.");
+    } catch (e) { toast(e.message || "swap failed"); }
+  }
+
+  function imagePicker(allowed) {
+    return new Promise((resolve) => {
+      const imgs = (state.index.images || []).filter((im) => allowed.has(im.entitlement || "public"));
+      const m = el(`<div class="modal"><div class="modal-box">
+        <header><b>Swap image</b><button class="ghost icon-only close" title="Close">${icon("close")}</button></header>
+        <div class="modal-body"><div class="img-picker">${imgs.map((im) =>
+          `<button class="img-pick" data-file="${esc(im.file)}"><img src="/repo/brand/img/${esc(im.file)}" alt="" loading="lazy"><span class="note">${esc(im.file.split("/").pop())}</span></button>`).join("")}</div></div>
+      </div></div>`);
+      const done = (v) => { m.remove(); resolve(v); };
+      $(".close", m).addEventListener("click", () => done(null));
+      m.addEventListener("click", (e) => { if (e.target === m) done(null); });
+      $$(".img-pick", m).forEach((b) => b.addEventListener("click", () => done(b.dataset.file)));
+      document.body.append(m);
+    });
+  }
+
+  function checkOverflow() {
+    const doc = idoc(); if (!doc) return;
+    st.sections.forEach((sec, i) => {
+      const over = sec.scrollHeight > sec.clientHeight + 2 || sec.scrollWidth > sec.clientWidth + 2;
+      const badge = $(`.ed-of[data-of="${i}"]`, wrap);
+      if (badge) badge.hidden = !over;
+    });
+    const overAny = st.sections.some((s) => s.scrollHeight > s.clientHeight + 2);
+    $(".editor-hint", wrap).classList.toggle("warn", overAny);
+  }
+
+  async function save() {
+    const doc = idoc();
+    // strip every editor-only artefact before serializing, so the saved document
+    // is structurally identical to the stored version (the server enforces this).
+    doc.querySelectorAll("[contenteditable]").forEach((n) => n.removeAttribute("contenteditable"));
+    doc.querySelectorAll(".__ed-sel, .__ed-editing").forEach((n) => n.classList.remove("__ed-sel", "__ed-editing"));
+    // an element that had no class but got a selection class now has class="" —
+    // drop it, or the fingerprint would see an added `class` attribute.
+    doc.querySelectorAll("[class]").forEach((n) => { if (!n.getAttribute("class").trim()) n.removeAttribute("class"); });
+    const styleTag = doc.getElementById("__ed-style");
+    if (styleTag) styleTag.remove();
+    const deckEl = doc.querySelector(".deck");
+    const savedTransform = deckEl.style.transform; deckEl.style.transform = "";
+    const savedH = doc.body.style.height; doc.body.style.height = "";
+    st.selected = null;
+
+    const html = "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+
+    // restore live view styles
+    injectEditorStyle(doc);
+    deckEl.style.transform = savedTransform; doc.body.style.height = savedH;
+
+    const parts = [];
+    if (st.edits.text) parts.push(`text ×${st.edits.text}`);
+    if (st.edits.nudge) parts.push(`nudge ×${st.edits.nudge}`);
+    if (st.edits.image) parts.push(`image ×${st.edits.image}`);
+    const note = parts.join(", ") || "fine-tune";
+    try {
+      const out = await api.saveDeckVersion(id, html, note);
+      st.dirty = false; $("#dirty", wrap).hidden = true;
+      $("#save", wrap).disabled = true; $("#regen", wrap).disabled = false; $("#regen", wrap).title = "";
+      toast(`Saved v${out.n}.`);
+      await loadBackend(api);
+    } catch (e) {
+      if (e.message && /structural/i.test(e.message)) return structuralModal();
+      toast(e.message || "save failed");
+    }
+  }
+
+  function structuralModal() {
+    const m = el(`<div class="modal"><div class="modal-box">
+      <header><b>This change needs the CLI</b><button class="ghost icon-only close">${icon("close")}</button></header>
+      <div class="modal-body">
+        <p>The edit changed the slide's structure (an element was added, removed, or restyled beyond a nudge). Fine-tuning covers text, spacing and image swaps; a structural change is rebuilt in the CLI.</p>
+        <div class="prompt-box"><code>/deckbuilder edit ${esc(deck.slug)} — describe the structural change</code></div>
+        <p class="note">Discard here, then make the change via the CLI, or undo it and save just the text/spacing edits.</p>
+      </div>
+    </div></div>`);
+    const close = () => m.remove();
+    $(".close", m).addEventListener("click", close);
+    m.addEventListener("click", (e) => { if (e.target === m) close(); });
+    document.body.append(m);
+  }
+
+  mount(wrap);
+}
+
+// ---- helpers ----------------------------------------------------------------
+
+function injectEditorStyle(doc) {
+  if (doc.getElementById("__ed-style")) return;
+  const s = doc.createElement("style");
+  s.id = "__ed-style";
+  s.textContent = `
+    .__ed-sel { outline: 2px solid #a65032 !important; outline-offset: 1px; cursor: text; }
+    .__ed-editing { outline: 2px dashed #a65032 !important; }
+    * { cursor: default; }
+    p,h1,h2,h3,h4,span,li,td,th,div { cursor: pointer; }`;
+  doc.head.appendChild(s);
+}
+
+function isTextEditable(node) {
+  const tag = node.tagName.toLowerCase();
+  if (["img", "svg", "section", "html", "body"].includes(tag)) return false;
+  const kids = [...node.children];
+  return kids.every((c) => ["b", "i", "em", "strong", "span", "br"].includes(c.tagName.toLowerCase()));
+}
+
+function breadcrumb(node) {
+  const parts = [];
+  let n = node;
+  while (n && !n.classList.contains("deck") && parts.length < 4) {
+    parts.unshift(n.tagName.toLowerCase());
+    n = n.parentElement;
+  }
+  return parts.join(" › ");
+}
+
+function clampProp(prop, v) {
+  if (prop === "font-size") return Math.max(9, Math.min(120, v));
+  if (prop === "line-height") return Math.max(0.9, Math.min(2, v));
+  return Math.max(-200, Math.min(2000, v));
+}

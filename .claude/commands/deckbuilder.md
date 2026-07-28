@@ -57,6 +57,11 @@ for the schema. Then:
    design-system blocks. Then `python tools/assemble-deck.py decks/variants/<slug>`.
 4. **Build + verify** as `/new-deck` Step 5: `build-pdf.ps1`, then
    `verify-deck.py`, fix any FAIL, then the human visual pass.
+4b. **Publish (v3):** `python tools/publish-deck.py decks/variants/<slug>`
+   (+`--customer`/`--derived-from`/`--master` as fitting). Masters are resolved by
+   TAG, not the `canonical/` folder — to build "the <type> presentation" grab the
+   `is_master` deck for that type (query the backend or `GET /api/decks`). Building
+   from an existing deck: `python tools/fetch-deck.py <slug>` first.
 5. **Freeze, clear the draft, learn.** Copy `draft.json` into the variant as
    `draft.source.json` (provenance), write `manifest.yaml`, then remove
    `decks/drafts/<slug>/` so drafts stays clean. Commit the variant. Finally ask

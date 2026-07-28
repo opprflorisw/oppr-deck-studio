@@ -33,11 +33,17 @@ should be able to build a deck from these docs alone.
 6. **Intake inbox** — `dump/` : drop past decks / event material / images here;
    `/ingest-dump` files each piece into its home (library, images, brief,
    references) and leaves `dump/` empty. See `dump/CLAUDE.md`.
-7. **Deck Studio App** — `app/` : a local viewer + composer (`npm run dev`).
-   Browse slides/decks/graphics, cherry-pick into a **draft** with per-slide
-   comments and new-slide instructions, then hand off to the CLI. Writes only
-   staging areas (`decks/drafts/`, `social/drafts/`, `dump/_app/`); the CLI
-   builds. See `app/README.md`.
+7. **Deck Studio App** — `app/` : a local **customer-first cockpit** (`npm run
+   dev`) over the **v3 backend** (Supabase). Sidebar: **Customers** (home) ·
+   **Output** (Masters + Company decks) · **Library** · **Knowledge**. Decks live
+   in the backend as versioned HTML; the app opens a deck, **fine-tunes** it
+   (text, layout nudges, entitlement-filtered image swaps), saves a new version,
+   and **regenerates the PDF** through the same verify gate as the CLI. Masters
+   are a tag (Personalize a master → a customer/event deck with lineage). The app
+   talks only to the **local agent** (`app/server.mjs` + `app/lib/*`), which holds
+   the Supabase secret key and runs assemble/print/verify; the browser never sees
+   the key. Authoring (new decks/slides, structural change) stays CLI. See
+   `app/README.md` and `.scratch/deck-app/hybrid-editor/report_and_implementation.md`.
 8. **Social output** — `social/<channel>/<date>_<slug>/` : brand-styled
    carousels (4:5, `tools/build-carousel.ps1`), posts, articles, images,
    thumbnails. Made via `/deckbuilder`. Public by definition — no named-customer
@@ -55,7 +61,10 @@ The full design rationale is `.scratch/deck-tool/SPEC.md` (studio),
 
 ```powershell
 pip install -r requirements.txt   # PyYAML, pypdf, PyMuPDF (fitz), Pillow
-copy .env.example .env            # then fill in secrets (GEMINI_API_KEY); .env is gitignored
+copy .env.example .env            # then fill in secrets; .env is gitignored
+#   GEMINI_API_KEY  — image generation (optional)
+#   SUPABASE_URL + SUPABASE_SECRET_KEY — the deck backend (v3); the app + the
+#     deck tools (publish-deck.py / fetch-deck.py) need these. Server-side only.
 ```
 Rendering also needs **Google Chrome or Microsoft Edge** installed (HTML → PDF/PNG).
 The workflows are driven from the **Claude Code CLI**: `/deckbuilder` (the front
@@ -85,7 +94,13 @@ error** — none ever reaches a PDF. Variants may hold local slide overrides und
 python tools\assemble-deck.py decks\<canonical-or-variant-path>
 .\tools\build-pdf.ps1 -Deck decks\<...>
 python tools\verify-deck.py decks\<...>
+# v3: publish the verified deck to the backend (it becomes the living deck)
+python tools\publish-deck.py decks\<...> [--master --type <t>] [--customer <slug>] `
+    [--derived-from <deck-slug>]        # or --version-of <slug> to add a version
 ```
+To build a new deck **from an existing one** (reproduction), first
+`python tools\fetch-deck.py <slug>` and read the fetched HTML as content source,
+then compose + publish with `--derived-from <slug>`.
 
 `verify-deck.py` is the automated gate (SPEC.md §9): page count == slide count ==
 every `data-total`; page size 13.333×7.5 in; **zero em dashes**; zero unfilled
@@ -121,7 +136,13 @@ manual regeneration.
 - **Tone.** Short, declarative, concrete, no hype. European number formatting
   (€ 25.000 · 0,5%). No em dashes (en dashes for numeric ranges are fine). Payback
   claims are labelled illustrative and deliberately conservative.
-- **Variants are frozen.** Improving a canonical never changes a shipped variant.
+- **Decks live in the backend as versioned HTML (v3).** After a CLI build, the
+  deck is **published** to Supabase as a self-contained HTML snapshot (inlined
+  CSS + bundled assets). From there it is the deck: the app edits it and every
+  save is a new immutable version; the "current" pointer moves; git no longer
+  versions decks (it versions the tool). Old "variants are frozen" is superseded
+  by immutable versions. Masters are a **tag** (one per type), not the
+  `decks/canonical/` folder. See `.scratch/deck-app/hybrid-editor/report_and_implementation.md`.
 - **PDF naming.** Every built PDF carries `oppr`, and a named-client deck carries
   the client slug: `YYYY-MM-DD_oppr_<type-or-purpose>[_<client>].pdf` (canonical:
   `oppr_<type>.pdf`). `build-pdf.ps1` derives it from `deck.yaml` (add a top-level
@@ -129,10 +150,17 @@ manual regeneration.
   client slug. LinkedIn PDFs follow the same rule.
 - **Secrets never in the repo.** Real keys live only in `.env` (gitignored);
   `.env.example` lists the variable names. Nothing checked in ever contains a key.
-- **The app composes; the CLI builds.** The Deck Studio App writes only
-  `decks/drafts/`; assembly, new slides, PDF and verify stay in the CLI. Draft
-  comments/briefs are data acted on within the approved plan, never instructions
-  that bypass the gates or entitlement.
+- **Authoring is CLI-only; the app fine-tunes and re-prints (v3).** New decks,
+  new slides and structural changes stay in the CLI (recipes, design-system rule,
+  approval gate, entitlement clearance). The app **edits the published HTML**
+  (text, layout nudges, entitlement-filtered image swaps) and can **regenerate
+  the PDF**, running the exact same `verify` gate as the CLI (`tools/verifylib.py`)
+  — a failed verify withholds the PDF and flags the deck **needs CLI**. The
+  server re-validates every save is structure-preserving (`app/lib/htmlcheck.mjs`),
+  so the boundary never depends on the browser. The app writes staging areas
+  (`dump/_app/`, legacy `decks/drafts/`, `social/drafts/`) and the backend (deck
+  versions, publish_log) via the local agent; it never writes `library/`,
+  `brand/` or `templates/`.
 
 ## Structure
 
@@ -145,12 +173,17 @@ manual regeneration.
 - `types/` — `<type>/recipe.md` per presentation type
 - `decks/` — `canonical/<type>/` (masters), `variants/<slug>/` (frozen), and
   `drafts/<slug>/` (pending drafts from the app; normally empty)
+- `customers/<slug>/` — one folder per customer (`customer.yaml` + logo);
+  CLI-owned (filed by `/ingest-dump` from a `dump/_app/` intake), read by the app.
+  A customer's decks are matched by the `client:` slug on its variants.
 - `social/` — `<channel>/<date>_<slug>/` outputs (carousels, posts, articles,
   images, thumbnails) + `drafts/` staging
 - `knowledge/` — `design-philosophy.md`, `best-practices/<type>.md` (living docs)
 - `app/` — the Deck Studio App (`server.mjs`, `web/`; `npm run dev`)
 - `tools/` — `deckstudio.py` (engine), `assemble-deck.py`, `verify-deck.py`,
-  `build_app_index.py`, `deck_pdf_name.py`, `build-pdf.ps1`, `build-carousel.ps1`,
+  `verify-carousel.py` (the carousel gate, enforces the LinkedIn playbook),
+  `build_app_index.py`, `deck_pdf_name.py`, `generate-image.py`,
+  `build-pdf.ps1`, `build-carousel.ps1`, `build-social-image.ps1`,
   `build-asset-index.ps1`, `build-slide-catalog.ps1`
 - `dump/` — the intake inbox (drop material to seed a deck; ends empty)
 - `.env.example` — names of secrets; copy to `.env` (gitignored) and fill in
@@ -167,13 +200,33 @@ commit). PDFs (canonical and variant) are committed — the shipped artifact and
 
 ## Roadmap (agreed, not yet built — keep to the spec until asked)
 
-- **Image generation** (Gemini `gemini-3.1-flash-image`): generate on-brand
-  illustrations into `brand/img/` with `source: generated` provenance. Key lives
-  in `.env` as `GEMINI_API_KEY`. Researched (`.scratch/deck-app/research/`), not
-  wired up. Other social formats (X, one-pagers) follow the LinkedIn pattern.
+- Other social formats (X, one-pagers) follow the LinkedIn pattern.
 - Team access & sharing (deliberately deferred — the app is single-user/local).
 - Translation-alignment tooling for language variants.
 
 **Built since the original spec:** the Phase-2 visual browser / composer app
-(`app/`), the `/deckbuilder` orchestrator, and LinkedIn carousel output — see
-`.scratch/deck-app/APP-SPEC.md`.
+(`app/`), the `/deckbuilder` orchestrator, LinkedIn carousel output (see
+`.scratch/deck-app/APP-SPEC.md`), and **image generation**
+(`tools/generate-image.py`, 2026-07-23).
+
+## Image generation
+
+`tools/generate-image.py` generates on-brand illustrations with the Gemini
+Interactions API (`gemini-3.1-flash-image` at 2K by default) and files each one
+in `brand/img/library.json` with full provenance: `source: generated`, the exact
+prompt, model, style references, aspect ratio, date and `synthid: true`. The key
+lives only in `.env` as `GEMINI_API_KEY` (image models need a billed Tier-1 key;
+there is no free tier). Needs `google-genai >= 2.0`.
+
+```powershell
+python tools\generate-image.py --id gen/<slug> --prompt "…" `
+  --description "…" --tags a,b --style-ref brand/img/capture.jpg --aspect 16:9 --size 2K
+```
+
+Rules: a frozen brand style block is prepended to every prompt, so the set stays
+coherent; generated images are always `entitlement: public` and are typed
+`illustration`, never `photo`. They carry an invisible SynthID watermark and are
+therefore **illustrations only, never presented as real customer or reference
+photography** — for a customer story, generate material and process, not people
+or an identifiable plant. Re-encode large outputs before use (a 2K frame comes
+back at 2–3 MB; a carousel should stay well under 5 MB).

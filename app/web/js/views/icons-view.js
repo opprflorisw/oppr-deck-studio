@@ -18,7 +18,6 @@ export function render() {
   const wrap = el(`
     <div>
       <div class="subbar">
-        <h1 class="page-title">Icons</h1>
         <div class="filters">
           <input type="search" id="iq" placeholder="Filter…" value="${esc(iQ)}">
           <div class="colorswitch">${COLORS.map((c) => `<button data-color="${c.id}" class="${c.id === iColor ? "active" : ""}" title="${c.label}"><span style="background:${c.css}"></span></button>`).join("")}</div>

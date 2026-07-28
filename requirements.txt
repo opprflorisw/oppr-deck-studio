@@ -7,3 +7,5 @@ PyYAML>=6.0        # deck.yaml / meta.yaml / recipe parsing
 pypdf>=4.0         # PDF page-count / mediabox checks
 PyMuPDF>=1.24      # imported as 'fitz' — PDF -> PNG rasterization (verify, catalog)
 Pillow>=10.0       # thumbnail / image inspection
+google-genai>=2.0  # tools/generate-image.py (Gemini Interactions API; needs GEMINI_API_KEY in .env)
+requests>=2.31    # tools/supa.py — Supabase REST + Storage (deck backend, v3)

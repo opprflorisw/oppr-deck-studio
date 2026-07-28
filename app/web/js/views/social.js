@@ -5,9 +5,10 @@ import { $, $$, el, esc, decodeEntities, slugify, toast, todayISO } from "../uti
 import { state } from "../state.js";
 import * as api from "../api.js";
 import { go } from "../router.js";
-import { assembledViewer, carouselComposerViewer } from "./viewer.js";
+import { assembledViewer, assembledPages, carouselComposerViewer } from "./viewer.js";
 import { PATTERNS, blankPage } from "./carousel-build.js";
-import { icon, ibtn } from "../icons.js";
+import { icon } from "../icons.js";
+import { openPostEditor } from "../postedit.js";
 
 const KINDS = [
   { kind: "carousel", label: "LinkedIn carousel", desc: "4:5 document post, 6–10 pages", ready: true },
@@ -20,9 +21,7 @@ const KINDS = [
 export function renderStudio() {
   const wrap = el(`
     <div>
-      <div class="subbar"><h1 class="page-title">Social studio</h1>
-        <a class="ghost" href="#/social-out" style="margin-left:auto">Built outputs →</a></div>
-      <p class="note">Everything here is <b>public</b> by definition — no named-customer material. Pick what to make; the CLI builds it via <span class="mono">/deckbuilder</span>.</p>
+      <p class="note">Everything here is <b>public</b> by definition — no named-customer material. Pick what to make; the CLI builds it via <span class="mono">/deckbuilder</span>. Built outputs live under <a href="#/output/social">Output → Social output</a>.</p>
       <div class="grid">
         ${KINDS.map((k) => `
           <div class="card kind-card" data-kind="${esc(k.kind)}">
@@ -186,37 +185,270 @@ function wireSave(wrap, getD, valid) {
   });
 }
 
-export function renderOutputs() {
-  const outs = (state.index.social || []);
-  const wrap = el(`<div><div class="subbar"><h1 class="page-title">Social output</h1></div></div>`);
-  if (!outs.length) { wrap.append(el(`<div class="loading">No social outputs indexed yet.</div>`)); return wrap; }
-  for (const o of outs) {
-    const row = el(`
-      <div class="deck-row">
-        <div class="head">
-          <h3>${esc(o.slug)}</h3>
-          <span class="badge">${esc(o.channel)}</span>
-          <span class="tags">${esc(o.kind || "")}</span>
-          <div class="spacer">
-            ${o.index ? `<button class="ghost prev">${ibtn("preview", "Preview")}</button>` : ""}
-            ${o.pdf ? `<a class="ghost" href="/repo/${esc(o.pdf)}" download>${ibtn("download", "PDF")}</a>` : ""}
-            ${o.post ? `<button class="ghost post">${ibtn("text", "Post text")}</button>` : ""}
-          </div>
-        </div>
-      </div>`);
-    if (o.index) $(".prev", row).addEventListener("click", () => assembledViewer(o.index, o.slug, o.pdf));
-    if (o.post) $(".post", row).addEventListener("click", async () => {
-      const t = await (await fetch(`/repo/${o.post}`)).text();
-      openPreviewText(o.slug + " — post text", t);
-    });
-    wrap.append(row);
-  }
+let outFilter = localStorage.getItem("oppr.outFilter") || "all"; // all | draft | posted
+let outCategory = "all"; // the active Social output tab, set by the router
+let statusCache = {};
+
+export function renderOutputs(category = "all") {
+  outCategory = category;
+  const wrap = el(`
+    <div class="social-out">
+      <div class="subbar">
+        <div class="viewswitch" id="out-filter"></div>
+      </div>
+      <div id="out-body"><div class="loading">Loading…</div></div>
+    </div>`);
+  hydrateOutputs(wrap);
   return wrap;
 }
 
-function openPreviewText(title, text) {
-  const m = el(`<div class="modal"><div class="box"><header><b>${esc(title)}</b><div class="spacer"></div><button class="ghost close">Close</button></header><pre class="posttext">${esc(text)}</pre></div></div>`);
-  $(".close", m).addEventListener("click", () => m.remove());
-  m.addEventListener("click", (e) => { if (e.target === m) m.remove(); });
-  document.body.append(m);
+async function hydrateOutputs(wrap) {
+  try { statusCache = await api.getSocialStatus(); } catch { statusCache = {}; }
+  const body = $("#out-body", wrap);
+  renderFilterBar(wrap);
+  if (!items().length) {
+    body.innerHTML = `<div class="loading">Nothing in this category yet.</div>`;
+    return;
+  }
+  paintList(body, items(), wrap);
 }
+
+// Outputs in the ACTIVE CATEGORY, with their publish status attached (default
+// draft). An output with no declared category falls back to its artifact shape,
+// so an un-tagged piece still lands somewhere sensible.
+const items = () => (state.index.social || [])
+  .filter((o) => outCategory === "all" || (o.category || o.kind) === outCategory)
+  .map((o) => ({ ...o, _st: normStatus(statusCache[o.slug]) }));
+const isPosted = (i) => i._st.status === "posted";
+
+function normStatus(s) {
+  if (!s) return { status: "draft", posted_date: "", url: "", archived: false };
+  return { status: s.status === "posted" ? "posted" : "draft", posted_date: s.posted_date || "", url: s.url || "", archived: s.archived === true };
+}
+const isArchived = (i) => i._st.archived;
+const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "#");
+
+// Archived items are out of the working views entirely; that is the point of
+// archiving. They stay reachable under their own tab.
+function counts() {
+  const live = items().filter((i) => !isArchived(i));
+  return {
+    all: live.length,
+    posted: live.filter(isPosted).length,
+    draft: live.filter((i) => !isPosted(i)).length,
+    archived: items().filter(isArchived).length,
+  };
+}
+
+function renderFilterBar(wrap) {
+  const bar = $("#out-filter", wrap);
+  const c = counts();
+  bar.innerHTML = [["all", "All"], ["draft", "Draft"], ["posted", "Posted"], ["archived", "Archived"]]
+    .map(([v, l]) => `<button data-of="${v}" class="${outFilter === v ? "active" : ""}">${l}<span class="of-count">${c[v]}</span></button>`).join("");
+  $$("[data-of]", bar).forEach((b) => b.addEventListener("click", () => {
+    outFilter = b.dataset.of; localStorage.setItem("oppr.outFilter", outFilter);
+    $$("[data-of]", bar).forEach((x) => x.classList.toggle("active", x === b));
+    paintList($("#out-body", wrap), items(), wrap);
+  }));
+}
+
+function paintList(body, list, wrap) {
+  const filtered = list.filter((i) =>
+    outFilter === "archived" ? isArchived(i)
+    : isArchived(i) ? false
+    : outFilter === "posted" ? isPosted(i)
+    : outFilter === "draft" ? !isPosted(i)
+    : true);
+  body.innerHTML = "";
+  if (!filtered.length) {
+    // The status filter is sticky (localStorage), so a piece can be perfectly
+    // present and still invisible because "Posted" or "Archived" is selected.
+    // Say so, and offer the one click back rather than leaving a dead end.
+    const total = list.length;
+    if (total && outFilter !== "all") {
+      const msg = el(`<div class="empty"><p>Nothing here under <b>${esc(outFilter)}</b>, but this category has ${total} item${total > 1 ? "s" : ""}.</p><button class="ghost" id="show-all">Show all</button></div>`);
+      $("#show-all", msg).addEventListener("click", () => {
+        outFilter = "all"; localStorage.setItem("oppr.outFilter", "all");
+        renderFilterBar(wrap); paintList(body, items(), wrap);
+      });
+      body.append(msg);
+    } else {
+      body.innerHTML = `<div class="loading">Nothing in this category yet.</div>`;
+    }
+    return;
+  }
+  for (const o of filtered) body.append(outputRow(o, wrap));
+}
+
+// Same shape as a deck row: title + status + icon actions + a filmstrip.
+function outputRow(o, wrap) {
+  const row = el(`
+    <div class="deck-row" data-slug="${esc(o.slug)}">
+      <div class="head">
+        <h3>${esc(o.slug)}</h3>
+        <span class="badge">${esc(o.channel)}</span>
+        <span class="tags">${esc(o.kind || "")}</span>
+        <span class="status-wrap"></span>
+        <div class="spacer">
+          ${o.index ? `<button class="ghost icon-only prev" title="Preview">${icon("preview")}</button>` : ""}
+          ${o.pdf ? `<a class="ghost icon-only" href="/repo/${esc(o.pdf)}" download title="Download PDF">${icon("download")}</a>` : ""}
+          ${o.image ? `<a class="ghost icon-only" href="/repo/${esc(o.image)}" download title="Download PNG">${icon("download")}</a>` : ""}
+          ${o.post ? `<button class="ghost icon-only post" title="Post text">${icon("text")}</button>` : ""}
+          <button class="ghost icon-only cfg" title="Post status &amp; link">${icon("settings")}</button>
+          ${o._st.archived
+            ? `<button class="ghost arch restore" title="Put this back in the working list">${icon("clone", 14)} Restore</button>`
+            : `<button class="ghost icon-only arch" title="Archive">${icon("layers")}</button>`}
+          <button class="ghost icon-only danger del" title="Delete output">${icon("trash")}</button>
+        </div>
+      </div>
+      ${o.index ? `<div class="filmstrip live" data-strip><span class="note">Loading preview…</span></div>` : ""}
+    </div>`);
+  renderStatusBadge($(".status-wrap", row), o._st);
+  if (o.index) {
+    $(".prev", row).addEventListener("click", () => assembledViewer(o.index, o.slug, o.pdf, o.image));
+    hydrateStrip($("[data-strip]", row), o);
+  }
+  if (o.post) $(".post", row).addEventListener("click", async () => {
+    const t = await (await fetch(`/repo/${o.post}`)).text();
+    openPostEditor(o.slug + " — post text", t);
+  });
+  $(".cfg", row).addEventListener("click", () => toggleStatusEditor(o, row, wrap));
+
+  $(".arch", row).addEventListener("click", async () => {
+    const next = !o._st.archived;
+    try {
+      const r = await api.putSocialStatus(o.slug, { ...o._st, archived: next });
+      statusCache[o.slug] = r.entry;
+      toast(next ? "Archived." : "Restored.");
+      renderFilterBar(wrap);
+      paintList($("#out-body", wrap), items(), wrap);
+    } catch (err) { toast(err.message || "could not archive"); }
+  });
+
+  $(".del", row).addEventListener("click", () => confirmDelete(o, wrap));
+  return row;
+}
+
+// Deleting a built output removes the folder, the PDF and the post text from
+// disk for good. Archive is the reversible option, so the dialog offers it right
+// there and makes the destructive path the deliberate one: the slug has to be
+// typed before the button turns on.
+function confirmDelete(o, wrap) {
+  const m = el(`
+    <div class="modal">
+      <div class="box confirm">
+        <header><b>Delete this output?</b><div class="spacer"></div><button class="ghost close">Close</button></header>
+        <div class="confirm-body">
+          <p>This permanently removes <code>${esc(o.path)}</code> and everything in it: the built ${o.image && !o.pdf ? "PNG" : "PDF"}, <code>index.html</code>, the post text and the brief.</p>
+          <p class="warn-text"><b>This cannot be undone from the app.</b> If the folder was never committed to git, it is not recoverable at all.</p>
+          <p class="note">Want it out of your way instead? <button class="ghost inline-arch">Archive it</button> keeps the files and hides the row.</p>
+          <label class="field"><span>Type the slug to confirm</span>
+            <input type="text" class="confirm-slug" placeholder="${esc(o.slug)}" autocomplete="off" spellcheck="false">
+          </label>
+        </div>
+        <footer class="confirm-foot">
+          <button class="ghost cancel">Cancel</button>
+          <button class="danger go" disabled>Delete permanently</button>
+        </footer>
+      </div>
+    </div>`);
+  const input = $(".confirm-slug", m), go = $(".go", m);
+  input.addEventListener("input", () => { go.disabled = input.value.trim() !== o.slug; });
+  const close = () => m.remove();
+  $(".close", m).addEventListener("click", close);
+  $(".cancel", m).addEventListener("click", close);
+  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  $(".inline-arch", m).addEventListener("click", async () => {
+    try {
+      const r = await api.putSocialStatus(o.slug, { ...o._st, archived: true });
+      statusCache[o.slug] = r.entry;
+      close(); toast("Archived.");
+      renderFilterBar(wrap);
+      paintList($("#out-body", wrap), items(), wrap);
+    } catch (err) { toast(err.message || "could not archive"); }
+  });
+  go.addEventListener("click", async () => {
+    go.disabled = true;
+    try {
+      const r = await api.deleteSocialOutput(o.channel, o.slug);
+      // The server rebuilt app/index.json, so pull it back in. Dropping the row
+      // from the in-memory copy alone is not enough: index.json is a cache, and
+      // a stale entry would put the row straight back on the next reload.
+      try { Object.assign(state.index, await api.getIndex()); }
+      catch { state.index.social = (state.index.social || []).filter((x) => x.slug !== o.slug); }
+      delete statusCache[o.slug];
+      close();
+      toast(r.removed === false ? "Row cleared (folder was already gone)." : "Deleted.");
+      renderFilterBar(wrap);
+      paintList($("#out-body", wrap), items(), wrap);
+    } catch (err) { toast(err.message || "delete failed"); go.disabled = false; }
+  });
+  document.body.append(m);
+  input.focus();
+}
+
+function renderStatusBadge(host, st) {
+  if (st.status === "posted") {
+    const d = st.posted_date ? " · " + st.posted_date : "";
+    host.innerHTML = st.url
+      ? `<a class="pill-status posted" href="${esc(safeUrl(st.url))}" target="_blank" rel="noopener noreferrer" title="Open the post">Posted${esc(d)} ${icon("open", 12)}</a>`
+      : `<span class="pill-status posted">Posted${esc(d)}</span>`;
+  } else {
+    host.innerHTML = `<span class="pill-status draft">Draft</span>`;
+  }
+  if (st.archived) host.insertAdjacentHTML("beforeend", ` <span class="pill-status archived">Archived</span>`);
+}
+
+// A small inline editor: mark posted, set the date, paste the post link.
+function toggleStatusEditor(o, row, wrap) {
+  const open = $(".status-editor", row);
+  if (open) { open.remove(); return; }
+  const st = o._st;
+  const ed = el(`
+    <div class="status-editor">
+      <label class="chk"><input type="checkbox" class="se-posted" ${st.status === "posted" ? "checked" : ""}> Posted</label>
+      <div class="field inline"><label>On</label><input type="date" class="se-date" value="${esc(st.posted_date || "")}"></div>
+      <div class="field inline grow"><label>Link</label><input type="url" class="se-url" placeholder="https://www.linkedin.com/posts/…" value="${esc(st.url || "")}"></div>
+      <button class="primary se-save">Save</button>
+      <button class="ghost se-cancel">Cancel</button>
+      <span class="se-msg note"></span>
+    </div>`);
+  $(".head", row).after(ed);
+  const chk = $(".se-posted", ed), date = $(".se-date", ed);
+  chk.addEventListener("change", () => { if (chk.checked && !date.value) date.value = todayISO(); });
+  $(".se-cancel", ed).addEventListener("click", () => ed.remove());
+  $(".se-save", ed).addEventListener("click", async () => {
+    const url = ($(".se-url", ed).value || "").trim();
+    if (url && !/^https?:\/\//i.test(url)) { $(".se-msg", ed).textContent = "Link must start with http:// or https://"; return; }
+    const payload = { status: chk.checked ? "posted" : "draft", posted_date: date.value || "", url };
+    try {
+      const r = await api.putSocialStatus(o.slug, payload);
+      statusCache[o.slug] = r.entry;
+      o._st = normStatus(r.entry);
+      renderStatusBadge($(".status-wrap", row), o._st);
+      ed.remove();
+      renderFilterBar(wrap); // counts changed
+      // drop the row if it no longer matches the active filter
+      if (!(outFilter === "all" || (outFilter === "posted") === isPosted(o))) row.remove();
+      toast("Saved.");
+    } catch (err) { $(".se-msg", ed).textContent = err.message || "save failed"; }
+  });
+}
+
+// Build a live filmstrip: each page as a small self-scaling iframe. Clicking any
+// frame opens the paged viewer at that output.
+async function hydrateStrip(host, o) {
+  try {
+    const { pages, w, h } = await assembledPages(o.index);
+    if (!pages.length) { host.innerHTML = `<span class="note">No pages.</span>`; return; }
+    host.innerHTML = "";
+    const fw = Math.round(112 * (w / h)); // frame width from the page aspect ratio
+    pages.forEach((pg, i) => {
+      const frame = el(`<button class="frame live" style="width:${fw}px" title="Open — page ${i + 1}"><iframe scrolling="no" tabindex="-1"></iframe><div class="cap">${i + 1}</div></button>`);
+      frame.querySelector("iframe").srcdoc = pg.render();
+      frame.addEventListener("click", () => assembledViewer(o.index, o.slug, o.pdf, o.image));
+      host.append(frame);
+    });
+  } catch { host.innerHTML = `<span class="note">Preview unavailable.</span>`; }
+}
+

@@ -79,9 +79,21 @@ Fix any FAIL and rebuild. Then do the visual pass CLAUDE.md requires: render eac
 page and actually look — overflow, footers, images, page numbers. A WARN about a
 verbatim euro quote is fine.
 
-## Step 6 — Freeze + learn
-The variant is a **frozen snapshot**: its `index.html` is standalone; improving a
-canonical later never changes it. Commit it:
+## Step 5b — Publish to the backend (v3)
+The deck's living home is the backend, not this folder. Publish the verified deck:
+```
+python tools/publish-deck.py decks/variants/YYYY-MM-DD_<slug> `
+    [--customer <slug>] [--derived-from <deck-slug> [--derived-from-version N]]
+```
+Use `--customer` for a named-client deck (it links/creates the customer row),
+`--derived-from` when this deck was built from an existing deck/master. After
+publish the deck appears in the app, where Floris fine-tunes and re-prints it.
+Building **from an existing deck** (reproduction): first
+`python tools/fetch-deck.py <slug>` and read the fetched HTML as content source.
+
+## Step 6 — Record + learn
+The published version is an immutable snapshot (the old "frozen variant" rule is
+now versions). The repo `decks/` copy is a working artifact; commit it if you like:
 ```
 git add decks/variants/YYYY-MM-DD_<slug> && git commit -m "variant: <slug> from <type>@<tag>"
 ```

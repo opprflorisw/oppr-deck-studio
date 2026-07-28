@@ -18,7 +18,8 @@ export function toggleCompose(force) {
 export function renderTray() {
   const tray = $("#tray");
   // The tray is redundant on the deck-draft page (the whole draft is shown there).
-  const onDraftPage = location.hash.replace(/^#/, "").startsWith("/draft");
+  const h = location.hash.replace(/^#/, "");
+  const onDraftPage = h.startsWith("/draft") || h.startsWith("/create/drafts");
   if (!state.composeMode || onDraftPage) { tray.hidden = true; tray.innerHTML = ""; return; }
   const d = state.draft;
   const warn = d.slides.filter((s) => s.source !== "new" && slideExceedsClearance((slideById(s.id) || {}).entitlement || "public")).length;

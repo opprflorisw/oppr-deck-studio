@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -173,7 +174,28 @@ def build_images() -> list[dict]:
 
 
 def build_social() -> list[dict]:
-    """Scan social/<channel>/<date>_<slug>/ for built outputs."""
+    """Built social outputs. v3: these live in the backend (social_outputs table +
+    Storage), so read them from there in the same shape the app expects; the
+    agent's /repo fallback serves the files. Falls back to a local scan if the
+    backend is unreachable or empty (e.g. a fresh dev with files still on disk)."""
+    try:
+        from supa import Supa
+        rows = Supa().select("social_outputs", {"select": "*", "order": "slug.desc"})
+        if rows:
+            return [{
+                "channel": r["channel"], "slug": r["slug"], "path": r["path"],
+                "kind": r["kind"], "category": r.get("category") or r["kind"],
+                "index": r.get("idx_path"), "pdf": r.get("pdf_path"),
+                "image": r.get("image_path"), "post": r.get("post_path"),
+                "article": r.get("article_path"),
+            } for r in rows]
+    except Exception:
+        pass
+    return _build_social_local()
+
+
+def _build_social_local() -> list[dict]:
+    """Scan social/<channel>/<date>_<slug>/ for built outputs (legacy/offline)."""
     out = []
     root = REPO_ROOT / "social"
     if not root.exists():
@@ -185,19 +207,39 @@ def build_social() -> list[dict]:
             if not d.is_dir():
                 continue
             index = d / "index.html"
-            pdfs = list(d.glob("*.pdf"))
+            pdfs = sorted(d.glob("*.pdf"))
+            # A single social image ships as a PNG instead of a PDF. Only the
+            # built artifact counts, and it is the one carrying 'oppr' in its
+            # name (the naming rule), so a stray screenshot in the folder is
+            # never offered as the download.
+            pngs = [p for p in sorted(d.glob("*.png")) if "oppr" in p.name]
             post = d / "post.txt"
             article = d / "article.md"
-            if not (index.exists() or pdfs or post.exists() or article.exists()):
+            if not (index.exists() or pdfs or pngs or post.exists() or article.exists()):
                 continue
-            kind = "carousel" if index.exists() and pdfs else ("article" if article.exists() else "post")
+            if index.exists() and pdfs:
+                kind = "carousel"
+            elif index.exists() and pngs:
+                kind = "image"
+            elif article.exists():
+                kind = "article"
+            else:
+                kind = "post"
+            # `kind` is the artifact shape (what file ships). `category` is what the
+            # piece IS editorially, which the shape cannot always tell you: a hiring
+            # announcement and a quote card are both a PNG. An output declares its
+            # own category in an optional meta.yaml; otherwise it falls back to the
+            # shape, so nothing has to be back-filled.
+            category = (_yaml(d / "meta.yaml").get("category") or kind).strip()
             out.append({
                 "channel": channel.name,
                 "slug": d.name,
                 "path": rel(d),
                 "kind": kind,
+                "category": category,
                 "index": rel(index) if index.exists() else None,
                 "pdf": rel(pdfs[0]) if pdfs else None,
+                "image": rel(pngs[0]) if pngs else None,
                 "post": rel(post) if post.exists() else None,
                 "article": rel(article) if article.exists() else None,
             })
@@ -246,10 +288,84 @@ def build_recipes() -> list[dict]:
     return out
 
 
+def _cust_slugify(s: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", (s or "").strip().lower()).strip("-")
+    return s or "customer"
+
+
+def build_customers(decks: dict) -> list[dict]:
+    """A customer is a `customers/<slug>/` folder (CLI-owned, app-read). We also
+    surface customers derived from a variant's `client:` slug (until the CLI files
+    them) and pending intakes the app staged in `dump/_app/<slug>/`."""
+    IMG = (".svg", ".png", ".jpg", ".jpeg", ".webp")
+    by_slug: dict[str, dict] = {}
+
+    def ensure(slug, name=None):
+        c = by_slug.get(slug)
+        if not c:
+            c = {"slug": slug, "name": name or slug, "logo": None,
+                 "notes": "", "decks": [], "pending": False, "source": "derived"}
+            by_slug[slug] = c
+        if name and c["name"] == c["slug"]:
+            c["name"] = name
+        return c
+
+    def first_img(d: Path):
+        imgs = [p for p in d.iterdir() if p.suffix.lower() in IMG]
+        return imgs[0] if imgs else None
+
+    # 1) filed customers: customers/<slug>/customer.yaml + logo
+    cust_root = REPO_ROOT / "customers"
+    if cust_root.exists():
+        for d in sorted(cust_root.iterdir()):
+            if not d.is_dir():
+                continue
+            meta = _yaml(d / "customer.yaml")
+            c = ensure(meta.get("slug") or d.name, meta.get("name"))
+            c["source"] = "filed"
+            c["notes"] = meta.get("notes", "") or ""
+            logo = d / meta["logo"] if meta.get("logo") else None
+            if not (logo and logo.exists()):
+                logo = first_img(d)
+            c["logo"] = rel(logo) if logo and logo.exists() else None
+
+    # 2) variants grouped by their client slug
+    for v in decks.get("variants", []):
+        client = (v.get("client") or "").strip()
+        if not client:
+            continue
+        c = ensure(_cust_slugify(client), client)
+        c["decks"].append({"slug": v["slug"], "title": v["title"], "path": v["path"],
+                           "index": v.get("index"), "pdf": v.get("pdf")})
+
+    # 3) pending intakes the app staged (dump/_app/<slug>/ with a brief/customer.yaml;
+    #    graphics imports carry note.md instead, so they are skipped)
+    dump_app = REPO_ROOT / "dump" / "_app"
+    if dump_app.exists():
+        for d in sorted(dump_app.iterdir()):
+            if not d.is_dir() or not ((d / "brief.md").exists() or (d / "customer.yaml").exists()):
+                continue
+            meta = _yaml(d / "customer.yaml") if (d / "customer.yaml").exists() else {}
+            c = ensure(meta.get("slug") or d.name, meta.get("name") or d.name)
+            c["pending"] = True
+            if c["source"] == "derived":
+                c["source"] = "pending"
+            if not c["logo"]:
+                img = first_img(d)
+                if img:
+                    c["logo"] = rel(img)
+
+    return sorted(by_slug.values(), key=lambda c: c["name"].lower())
+
+
 def build_index() -> dict:
+    # Deck Studio v3: decks and customers now live in the backend (Supabase) and
+    # are served by the agent, not baked into this index. This index is only the
+    # git-versioned TOOL surfaces: slides, images, social outputs, icons, the
+    # design system, and recipes. (build_deck/build_decks/build_customers remain
+    # in this file as legacy helpers but are intentionally no longer called.)
     return {
         "slides": build_slides(),
-        "decks": build_decks(),
         "images": build_images(),
         "roles": ROLE_ORDER,
         "sections": [{"name": n, "desc": d, "roles": r} for n, d, r in SECTIONS],
@@ -278,10 +394,8 @@ def main() -> int:
         out = REPO_ROOT / "app" / "index.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(payload, encoding="utf-8")
-        print(f"Wrote {rel(out)} — {len(index['slides'])} slides, "
-              f"{len(index['decks']['canonical'])} canonical, "
-              f"{len(index['decks']['variants'])} variants, "
-              f"{len(index['images'])} images.")
+        print(f"Wrote {rel(out)}: {len(index['slides'])} slides, "
+              f"{len(index['images'])} images, {len(index['social'])} social outputs.")
     return 0
 
 

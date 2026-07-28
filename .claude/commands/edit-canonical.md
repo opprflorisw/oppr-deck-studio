@@ -10,6 +10,15 @@ Scope you may change here: `library/slides/`, `library/design-system/`,
 `templates/deck.css` / `templates/showcase.css`. (Personalizing a single deck for
 a situation is `/new-deck`; frozen variants are never touched here.)
 
+> **v3 (edit-master).** A master now lives in the backend as a tagged deck. To
+> change one structurally: `python tools/fetch-deck.py <master-slug>`, make the
+> change in the fetched deck (edit the snapshot HTML, or rebuild affected slides
+> from library fragments), `python tools/verify-deck.py --snapshot <dir>`, then
+> `python tools/publish-deck.py <dir> --version-of <master-slug>`. Editing the
+> repo `canonical/` fragments below still works as the source for a fresh publish;
+> library/design-system rules for NEW slide patterns are unchanged. This is also
+> how a **harvest** lands — lifting an app-side improvement back into the master.
+
 Read `SPEC.md` sections 3, 6, 8, 10b first. Then:
 
 ## 1. Name the change

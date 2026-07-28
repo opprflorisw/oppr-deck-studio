@@ -9,8 +9,7 @@ export function render() {
   const wrap = el(`
     <div>
       <div class="subbar">
-        <h1 class="page-title">Design system</h1>
-        <a class="ghost" href="#/knowledge/design" style="margin-left:auto">Design philosophy</a>
+        <a class="ghost" href="#/knowledge/philosophy" style="margin-left:auto">Design philosophy</a>
       </div>
       <p class="note">Every block specimen, rendered from the real stylesheets. A new slide or carousel composes only from these. Scroll to browse.</p>
       <div class="ds-jump" id="ds-jump"></div>

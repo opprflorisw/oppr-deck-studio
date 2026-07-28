@@ -28,10 +28,13 @@ setTimeout(fit,20);setTimeout(fit,120);fit();})();</script>
 </body></html>`;
 }
 
-export function openDeckViewer(pages, { title = "", pdf = null } = {}) {
+export function openDeckViewer(pages, { title = "", pdf = null, image = null, pdfUrl = null } = {}) {
   if (!pages.length) return;
   let i = 0;
 
+  // `pdf`/`image` are repo-relative (served under /repo/); `pdfUrl` is an already
+  // absolute URL (a backend deck version's PDF endpoint).
+  const pdfHref = pdfUrl ? esc(pdfUrl) : pdf ? `/repo/${esc(pdf)}` : null;
   const m = el(`
     <div class="modal viewer">
       <div class="viewer-box">
@@ -39,7 +42,8 @@ export function openDeckViewer(pages, { title = "", pdf = null } = {}) {
           <b>${esc(title)}</b>
           <span class="viewer-count mono"></span>
           <div class="spacer"></div>
-          ${pdf ? `<a class="ghost" href="/repo/${esc(pdf)}" download>${ibtn("download", "PDF")}</a>` : ""}
+          ${pdfHref ? `<a class="ghost" href="${pdfHref}" download>${ibtn("download", "PDF")}</a>` : ""}
+          ${image ? `<a class="ghost" href="/repo/${esc(image)}" download>${ibtn("download", "PNG")}</a>` : ""}
           <button class="ghost icon-only close" title="Close (Esc)">${icon("close")}</button>
         </header>
         <div class="viewer-body">
@@ -83,15 +87,13 @@ export function openDeckViewer(pages, { title = "", pdf = null } = {}) {
 
 // ---- page builders ----------------------------------------------------------
 
-// Split an assembled deck/carousel index.html into one self-scaling page each.
-export async function assembledViewer(indexPath, title, pdf = null) {
-  const html = await (await fetch(`/repo/${indexPath}`)).text();
+// Split an assembled deck/carousel document into one self-scaling page each,
+// given its HTML and the base href its assets resolve against. Returns
+// { pages, w, h } — pages have { label, render() } and share page size.
+export function pagesFromHtml(html, baseHref) {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const headTags = [...doc.head.querySelectorAll('link[rel="stylesheet"], style')].map((l) => l.outerHTML).join("");
-  const dir = indexPath.replace(/[^/]+$/, "");
-  const head = `<base href="/repo/${dir}">${headTags}`;
-  // Use the container's actual class list so a carousel--square (or any modifier)
-  // survives; fall back to the deck frame.
+  const head = `<base href="${baseHref}">${headTags}`;
   const containerEl = doc.querySelector(".carousel") || doc.querySelector(".deck");
   const containerClass = containerEl ? containerEl.getAttribute("class") : "deck";
   const isCarousel = !!containerEl && containerEl.classList.contains("carousel");
@@ -99,10 +101,30 @@ export async function assembledViewer(indexPath, title, pdf = null) {
   const sections = containerEl ? [...containerEl.children].filter((c) => c.tagName === "SECTION") : [];
   const [w, h] = isSquare ? [1080, 1080] : isCarousel ? [1080, 1350] : [1280, 720];
   const pages = sections.map((sec, i) => ({
-    label: sec.id || String(i + 1),
+    label: sec.getAttribute("data-slide-id") || sec.id || String(i + 1),
     render: () => scaledDoc(head, `<div class="${containerClass}">${sec.outerHTML}</div>`, w, h),
   }));
-  openDeckViewer(pages, { title, pdf });
+  return { pages, w, h };
+}
+
+export async function assembledPages(indexPath) {
+  const html = await (await fetch(`/repo/${indexPath}`)).text();
+  return pagesFromHtml(html, `/repo/${indexPath.replace(/[^/]+$/, "")}`);
+}
+
+// `pdf` for a deck or carousel, `image` for a single social image: whichever the
+// output actually ships is the one the viewer offers to download.
+export async function assembledViewer(indexPath, title, pdf = null, image = null) {
+  const { pages } = await assembledPages(indexPath);
+  openDeckViewer(pages, { title, pdf, image });
+}
+
+// Preview a BACKEND deck version: fetching the /view URL materializes the
+// version into the cache (so assets resolve) and returns its index.html.
+export async function deckVersionViewer(api, deckId, n, title, hasPdf = false) {
+  const html = await fetch(api.deckViewUrl(deckId, n)).then((r) => r.text());
+  const { pages } = pagesFromHtml(html, `/deck-cache/${deckId}/v${n}/`);
+  openDeckViewer(pages, { title, pdfUrl: hasPdf ? api.deckPdfUrl(deckId, n) : null });
 }
 
 // A draft deck: library slides render live; new-slide slots show a placeholder.

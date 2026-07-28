@@ -8,6 +8,14 @@
 // Guardrails:
 //   - GET /repo/<path>  serves any repo file READ-ONLY, with traversal blocked.
 //   - POST/DELETE drafts touch ONLY decks/drafts/<safe-slug>/.
+//   - Writes are confined to app-owned staging: decks/drafts/, social/drafts/,
+//     dump/_app/, and social/_status.json (the publish-status log — posted date +
+//     post link + archived flag per built output; tracking metadata, never a
+//     built artifact).
+//   - ONE exception, and it only ever removes: DELETE /api/social-output/<channel>/<slug>
+//     deletes a built social output folder outright. The app still never *edits*
+//     a built artifact. Archiving is the non-destructive alternative and is just
+//     a flag in the status log.
 //   - Binds to 127.0.0.1 (localhost) only. No other network access.
 
 import http from "node:http";
@@ -17,11 +25,20 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// Deck Studio v3 backend: decks live as HTML versions in Supabase. These modules
+// hold the secret key and never reach the browser (proxy-only).
+import * as db from "./lib/supabase.mjs";
+import { supabaseConfigured } from "./lib/env.mjs";
+import { validateSave, fingerprint } from "./lib/htmlcheck.mjs";
+import * as jobs from "./lib/jobs.mjs";
+import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./lib/deckcache.mjs";
+
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(APP_DIR, "..");
 const WEB_DIR = path.join(APP_DIR, "web");
 const DRAFTS_DIR = path.join(REPO_ROOT, "decks", "drafts");
 const SOCIAL_DRAFTS_DIR = path.join(REPO_ROOT, "social", "drafts");
+const SOCIAL_STATUS_FILE = path.join(REPO_ROOT, "social", "_status.json");
 const DUMP_APP_DIR = path.join(REPO_ROOT, "dump", "_app");
 const INDEX_JSON = path.join(APP_DIR, "index.json");
 
@@ -102,6 +119,12 @@ function regenerateIndex() {
 const SLUG_RE = /^[a-z0-9][a-z0-9._-]{0,80}$/;
 const SLIDE_ID_RE = /^[a-z0-9][a-z0-9-]{0,80}$/;
 const HASH_RE = /^[0-9a-f]{7,40}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Slugify to match tools/deckstudio.slugify (kebab, ascii-ish).
+function slugify(s) {
+  return String(s || "").toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
+}
 
 // Run git in the repo, resolve stdout (or reject). Args are passed as an array
 // (never string-interpolated) so a validated id/hash can't inject flags.
@@ -191,6 +214,12 @@ async function listDraftsIn(baseDir, shape) {
     return [];
   }
 }
+// The social publish-status store (social/_status.json): { slug: {status, posted_date, url} }.
+async function readSocialStatus() {
+  try { return JSON.parse(await fsp.readFile(SOCIAL_STATUS_FILE, "utf-8")) || {}; }
+  catch { return {}; }
+}
+
 const listDrafts = () => listDraftsIn(DRAFTS_DIR, (slug, d) => ({ slug, title: d.title || slug, slides: (d.slides || []).length }));
 const listSocialDrafts = () => listDraftsIn(SOCIAL_DRAFTS_DIR, (slug, d) => ({ slug, title: d.title || slug, kind: d.kind || "carousel", pages: (d.pages || []).length }));
 
@@ -272,6 +301,40 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { ok: true, dir: path.relative(REPO_ROOT, dir).replace(/\\/g, "/"), count: written.length });
   }
 
+  // Company intake: stage a new customer (name + logo + brief) into
+  // dump/_app/<slug>/ for the CLI to file into customers/<slug>/ and build. The
+  // app never writes customers/ itself — that stays CLI-owned.
+  if (req.method === "POST" && p === "/api/customer-intake") {
+    let data; try { data = JSON.parse(await readBody(req, 40_000_000)); } catch { return sendJson(res, 400, { error: "bad json" }); }
+    const name = String(data.name || "").trim().slice(0, 120);
+    if (!name) return sendJson(res, 400, { error: "name is required" });
+    const slug = String(data.slug || name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+    if (!SLUG_RE.test(slug)) return sendJson(res, 400, { error: "invalid slug" });
+    const dir = safeResolve(DUMP_APP_DIR, "/" + slug);
+    if (!dir || dir === DUMP_APP_DIR) return sendJson(res, 400, { error: "invalid slug" });
+    await fsp.mkdir(dir, { recursive: true });
+    let logoName = "";
+    if (typeof data.logo === "string") {
+      const m = /^data:image\/(png|jpe?g|webp|svg\+xml);base64,/.exec(data.logo);
+      if (m) {
+        const ext = m[1] === "svg+xml" ? "svg" : m[1] === "jpeg" ? "jpg" : m[1];
+        logoName = `logo.${ext}`;
+        try { await fsp.writeFile(path.join(dir, logoName), Buffer.from(data.logo.split(",").pop(), "base64")); }
+        catch { logoName = ""; }
+      }
+    }
+    const notes = String(data.notes || "").slice(0, 4000);
+    const brief = String(data.brief || "").slice(0, 8000);
+    const yaml = `name: ${JSON.stringify(name)}\nslug: ${slug}\n`
+      + (logoName ? `logo: ${logoName}\n` : "")
+      + (notes ? `notes: ${JSON.stringify(notes)}\n` : "");
+    await fsp.writeFile(path.join(dir, "customer.yaml"), yaml, "utf-8");
+    const briefMd = `# New customer intake — ${name}\n\n- slug: ${slug}\n- logo: ${logoName || "(none provided)"}\n\n## Brief\n\n${brief || "(no brief yet)"}\n\n---\nRun \`/ingest-dump\` (or \`/deckbuilder new-customer ${slug}\`) to file this into `
+      + `\`customers/${slug}/\` and build the first deck.\n`;
+    await fsp.writeFile(path.join(dir, "brief.md"), briefMd, "utf-8");
+    return sendJson(res, 200, { ok: true, slug, dir: path.relative(REPO_ROOT, dir).replace(/\\/g, "/"), prompt: `/ingest-dump` });
+  }
+
   // Social drafts (Phase 6): staged like deck drafts, built by /deckbuilder.
   const sm = p.match(/^\/api\/social-drafts\/([^/]+)$/);
   if (sm) {
@@ -298,6 +361,72 @@ async function handleApi(req, res, url) {
   }
   if (req.method === "GET" && p === "/api/social-drafts") {
     return sendJson(res, 200, { drafts: await listSocialDrafts() });
+  }
+
+  // Social publish status: an app-owned log of which built outputs are posted,
+  // when, and the post link. Keyed by output slug. This is tracking metadata,
+  // not a build — it never touches the built artifacts under social/<channel>/.
+  if (req.method === "GET" && p === "/api/social-status") {
+    return sendJson(res, 200, await readSocialStatus());
+  }
+  const stm = p.match(/^\/api\/social-status\/([^/]+)$/);
+  if (stm && (req.method === "PUT" || req.method === "POST")) {
+    const slug = stm[1];
+    if (!SLUG_RE.test(slug)) return sendJson(res, 400, { error: "invalid slug" });
+    let d; try { d = JSON.parse(await readBody(req, 200_000)); } catch { return sendJson(res, 400, { error: "bad json" }); }
+    const status = d.status === "posted" ? "posted" : "draft";
+    const date = typeof d.posted_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.posted_date) ? d.posted_date : "";
+    let url = typeof d.url === "string" ? d.url.trim().slice(0, 500) : "";
+    if (url && !/^https?:\/\//i.test(url)) return sendJson(res, 400, { error: "url must start with http:// or https://" });
+    // `archived` hides a finished output from the default lists. It is a flag in
+    // this log, never a file move: the built artifact stays exactly where the CLI
+    // put it, so archiving is reversible and destroys nothing.
+    const archived = d.archived === true;
+    const all = await readSocialStatus();
+    if (status === "draft" && !date && !url && !archived) delete all[slug];
+    else all[slug] = { status, posted_date: date, url, archived };
+    await fsp.writeFile(SOCIAL_STATUS_FILE, JSON.stringify(all, null, 2), "utf-8");
+    return sendJson(res, 200, { ok: true, slug, entry: all[slug] || { status: "draft", posted_date: "", url: "", archived: false } });
+  }
+
+  // Delete a built social output, folder and all.
+  //
+  // This is the ONE place the app removes a built artifact, so it is fenced hard:
+  // channel and slug are pattern-checked, the path is rebuilt from them rather
+  // than taken from the client, and the resolved directory must sit inside
+  // social/<channel>/ before anything is removed. It is genuinely destructive and
+  // irreversible for an output that was never committed, which is why the UI puts
+  // a typed confirmation in front of it and offers Archive as the soft option.
+  const delm = p.match(/^\/api\/social-output\/([a-z0-9-]{1,20})\/([^/]+)$/);
+  if (delm && req.method === "DELETE") {
+    const [, channel, slug] = delm;
+    if (!SLUG_RE.test(slug)) return sendJson(res, 400, { error: "invalid slug" });
+    const socialChannelDir = path.join(REPO_ROOT, "social", channel);
+    const dir = path.resolve(socialChannelDir, slug);
+    if (dir !== path.join(socialChannelDir, slug) || !dir.startsWith(socialChannelDir + path.sep)) {
+      return sendJson(res, 400, { error: "path outside social/<channel>/" });
+    }
+    // Idempotent on purpose. app/index.json is a cache, so a row can outlive the
+    // folder it points at (deleted here, deleted by hand, moved by the CLI).
+    // 404-ing on that left the stale row permanently undeletable: the only thing
+    // that clears it is the index rebuild below, which is exactly what the user
+    // is asking for by clicking delete. So a missing folder is a success that
+    // removed nothing, and the index is regenerated either way.
+    const existed = fs.existsSync(dir);
+    try {
+      if (existed) await fsp.rm(dir, { recursive: true, force: true });
+      // v3: social lives in the backend — remove its registry row and publish
+      // status there too (the storage objects are harmless orphans if left).
+      if (supabaseConfigured()) {
+        try { await db.del("social_outputs", { channel, slug }); } catch {}
+        try { await db.del("publish_log", { slug }); } catch {}
+      }
+      const all = await readSocialStatus();
+      if (all[slug]) { delete all[slug]; await fsp.writeFile(SOCIAL_STATUS_FILE, JSON.stringify(all, null, 2), "utf-8"); }
+      _knowledgeCache = null;
+      await regenerateIndex();
+      return sendJson(res, 200, { ok: true, slug, removed: existed });
+    } catch { return sendJson(res, 500, { error: "delete failed" }); }
   }
 
   // Knowledge whitelist (Phase 7).
@@ -366,7 +495,322 @@ async function handleApi(req, res, url) {
     }
   }
 
+  // === Deck Studio v3 backend (decks/customers/versions/build) =============
+  // handleDeckApi sends its own response when it owns the route (send() returns
+  // undefined, so we can't use its return value — check headersSent instead).
+  await handleDeckApi(req, res, url);
+  if (res.headersSent) return;
+
   return sendJson(res, 404, { error: "unknown endpoint" });
+}
+
+// The backend must be configured for any /api/decks|customers2|publish-log call.
+function requireBackend(res) {
+  if (supabaseConfigured()) return true;
+  sendJson(res, 503, { error: "backend not configured", offline: true,
+    hint: "Set SUPABASE_URL and SUPABASE_SECRET_KEY in .env (see .env.example)." });
+  return false;
+}
+
+// Handlers for the v3 deck backend. Returns a value (the send*) when it owns the
+// route, or undefined to let the caller fall through to 404.
+async function handleDeckApi(req, res, url) {
+  const p = url.pathname;
+  const isDeckRoute = p.startsWith("/api/decks") || p.startsWith("/api/customers2")
+    || p.startsWith("/api/publish-log") || p.startsWith("/api/jobs");
+  if (!isDeckRoute) return undefined;
+  if (!requireBackend(res)) return;
+
+  try {
+    // --- customer logo proxy (private bucket is not browser-readable) ------
+    let clm = p.match(/^\/api\/customers2\/([^/]+)\/logo$/);
+    if (clm && req.method === "GET") {
+      if (!UUID_RE.test(clm[1])) return send(res, 400, "bad id");
+      const rows = await db.select("customers", { id: `eq.${clm[1]}`, select: "logo_object" });
+      const obj = rows[0]?.logo_object;
+      if (!obj) return send(res, 404, "no logo");
+      try { return send(res, 200, await db.download(obj), { "Content-Type": mimeFor(obj) }); }
+      catch { return send(res, 404, "logo unavailable"); }
+    }
+
+    // --- customers ---------------------------------------------------------
+    if (p === "/api/customers2") {
+      if (req.method === "GET") {
+        const rows = await db.select("customers", { select: "*", order: "name.asc" });
+        return sendJson(res, 200, { customers: rows });
+      }
+      if (req.method === "POST") {
+        const d = JSON.parse(await readBody(req, 200_000));
+        const name = String(d.name || "").trim();
+        if (!name) return sendJson(res, 400, { error: "name required" });
+        const slug = slugify(d.slug || name).slice(0, 60);
+        if (!SLUG_RE.test(slug)) return sendJson(res, 400, { error: "invalid slug" });
+        const existing = await db.select("customers", { slug: `eq.${slug}`, select: "id" });
+        if (existing.length) return sendJson(res, 200, { ok: true, id: existing[0].id, existed: true });
+        const row = await db.insert("customers", { slug, name, notes: String(d.notes || "") });
+        return sendJson(res, 200, { ok: true, id: row[0].id });
+      }
+    }
+
+    // --- publish log (table-backed successor of social/_status.json) -------
+    if (p === "/api/publish-log" && req.method === "GET") {
+      const rows = await db.select("publish_log", { select: "*" });
+      const map = {};
+      for (const r of rows) map[r.slug] = { status: r.status, posted_date: r.posted_date, url: r.url, archived: r.archived };
+      return sendJson(res, 200, map);
+    }
+    let plm = p.match(/^\/api\/publish-log\/([^/]+)$/);
+    if (plm && (req.method === "PUT" || req.method === "POST")) {
+      const slug = plm[1];
+      if (!SLUG_RE.test(slug)) return sendJson(res, 400, { error: "invalid slug" });
+      const d = JSON.parse(await readBody(req, 200_000));
+      const status = d.status === "posted" ? "posted" : "draft";
+      const date = typeof d.posted_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.posted_date) ? d.posted_date : "";
+      let link = typeof d.url === "string" ? d.url.trim().slice(0, 500) : "";
+      if (link && !/^https?:\/\//i.test(link)) return sendJson(res, 400, { error: "url must start with http:// or https://" });
+      const archived = d.archived === true;
+      await db.upsert("publish_log", [{ slug, status, posted_date: date, url: link, archived }], "slug");
+      return sendJson(res, 200, { ok: true, slug, entry: { status, posted_date: date, url: link, archived } });
+    }
+
+    // --- jobs --------------------------------------------------------------
+    let jm = p.match(/^\/api\/jobs\/([^/]+)$/);
+    if (jm && req.method === "GET") {
+      const job = jobs.getJob(jm[1]);
+      if (!job) return sendJson(res, 404, { error: "no such job" });
+      return sendJson(res, 200, { state: job.state, verify_report: job.verify_report, pdf: job.pdf, error: job.error });
+    }
+
+    // --- deck list ---------------------------------------------------------
+    if (p === "/api/decks" && req.method === "GET") {
+      const decks = await db.select("decks", { select: "*", order: "updated_at.desc" });
+      for (const d of decks) {
+        const tp = path.join(CACHE_ROOT, d.id, "thumbs", `v${d.current_version_n}`, "p1.png");
+        d.thumb = fs.existsSync(tp) ? `/deck-cache/${d.id}/thumbs/v${d.current_version_n}/p1.png` : null;
+      }
+      return sendJson(res, 200, { decks });
+    }
+
+    // --- deck detail -------------------------------------------------------
+    let dm = p.match(/^\/api\/decks\/([^/]+)$/);
+    if (dm && req.method === "GET") {
+      const id = dm[1];
+      if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const rows = await db.select("decks", { id: `eq.${id}`, select: "*" });
+      if (!rows.length) return sendJson(res, 404, { error: "no such deck" });
+      const deck = rows[0];
+      const versions = await db.select("deck_versions", {
+        deck_id: `eq.${id}`, select: "n,change_note,author,created_at,pdf_object,verify_report", order: "n.desc" });
+      const family = await db.select("decks", {
+        derived_from_deck_id: `eq.${id}`, select: "id,slug,title,audience_kind,audience_label,derived_from_version_n,current_version_n,status", order: "created_at.asc" });
+      return sendJson(res, 200, {
+        deck,
+        versions: versions.map((v) => ({
+          n: v.n, change_note: v.change_note, author: v.author, created_at: v.created_at,
+          has_pdf: Boolean(v.pdf_object),
+          verify_summary: v.verify_report ? { fails: (v.verify_report.fails || []).length, warns: (v.verify_report.warns || []).length } : null,
+        })),
+        family,
+      });
+    }
+
+    // --- version html / view / pdf ----------------------------------------
+    let vm = p.match(/^\/api\/decks\/([^/]+)\/versions\/(\d+)\/(html|view|pdf)$/);
+    if (vm && req.method === "GET") {
+      const [, id, nStr, kind] = vm;
+      if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const n = Number(nStr);
+      if (kind === "html") {
+        const rows = await db.select("deck_versions", { deck_id: `eq.${id}`, n: `eq.${n}`, select: "html" });
+        if (!rows.length) return send(res, 404, "no such version");
+        return send(res, 200, rows[0].html, { "Content-Type": "text/html; charset=utf-8" });
+      }
+      if (kind === "view") {
+        await materialize(id, n);
+        res.writeHead(302, { Location: `/deck-cache/${id}/v${n}/index.html`, "Cache-Control": "no-store" });
+        return res.end();
+      }
+      if (kind === "pdf") {
+        const pdfPath = await materializePdf(id, n);
+        if (!pdfPath) return send(res, 404, "no PDF for this version");
+        return serveFile(res, pdfPath);
+      }
+    }
+
+    // --- save a new version ------------------------------------------------
+    let sv = p.match(/^\/api\/decks\/([^/]+)\/versions$/);
+    if (sv && req.method === "POST") {
+      const id = sv[1];
+      if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const d = JSON.parse(await readBody(req, 4_000_000));
+      const html = String(d.html || "");
+      const decks = await db.select("decks", { id: `eq.${id}`, select: "id,current_version_n" });
+      if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
+      const cur = decks[0].current_version_n;
+      const prevRows = await db.select("deck_versions", { deck_id: `eq.${id}`, n: `eq.${cur}`, select: "html" });
+      const prev = prevRows[0]?.html || "";
+      const assets = await db.select("deck_assets", { deck_id: `eq.${id}`, select: "filename" });
+      const known = new Set(assets.map((a) => `assets/${a.filename}`));
+      const v = validateSave(prev, html, known);
+      if (!v.ok) return sendJson(res, 400, { error: v.error, code: v.code });
+      const n = cur + 1;
+      await db.insert("deck_versions", { deck_id: id, n, html, change_note: String(d.change_note || "").slice(0, 400), author: "floris" });
+      await db.update("decks", { id }, { current_version_n: n });
+      return sendJson(res, 200, { ok: true, n });
+    }
+
+    // --- restore a version -------------------------------------------------
+    let rm = p.match(/^\/api\/decks\/([^/]+)\/restore$/);
+    if (rm && req.method === "POST") {
+      const id = rm[1];
+      if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const d = JSON.parse(await readBody(req, 50_000));
+      const srcN = Number(d.n);
+      const decks = await db.select("decks", { id: `eq.${id}`, select: "current_version_n" });
+      if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
+      const src = await db.select("deck_versions", { deck_id: `eq.${id}`, n: `eq.${srcN}`, select: "html" });
+      if (!src.length) return sendJson(res, 404, { error: "no such version" });
+      const n = decks[0].current_version_n + 1;
+      await db.insert("deck_versions", { deck_id: id, n, html: src[0].html, change_note: `restored from v${srcN}`, author: "floris" });
+      await db.update("decks", { id }, { current_version_n: n });
+      return sendJson(res, 200, { ok: true, n });
+    }
+
+    // --- master toggle -----------------------------------------------------
+    let mm = p.match(/^\/api\/decks\/([^/]+)\/master$/);
+    if (mm && req.method === "POST") {
+      const id = mm[1];
+      if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const d = JSON.parse(await readBody(req, 10_000));
+      const decks = await db.select("decks", { id: `eq.${id}`, select: "id,type" });
+      if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
+      if (d.is_master) {
+        // one master per type: clear the current holder, then set this one
+        await db.update("decks", { type: decks[0].type, is_master: "true" }, { is_master: false });
+        await db.update("decks", { id }, { is_master: true });
+      } else {
+        await db.update("decks", { id }, { is_master: false });
+      }
+      return sendJson(res, 200, { ok: true, is_master: Boolean(d.is_master) });
+    }
+
+    // --- register an asset (image swap / customer logo) --------------------
+    let am = p.match(/^\/api\/decks\/([^/]+)\/assets$/);
+    if (am && req.method === "POST") {
+      const id = am[1];
+      if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const d = JSON.parse(await readBody(req, 200_000));
+      const decks = await db.select("decks", { id: `eq.${id}`, select: "allowed_entitlements" });
+      if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
+      const allowed = new Set([...(decks[0].allowed_entitlements || []), "public"]);
+      // source is a repo image: brand/img/<file>
+      const source = String(d.source || "");
+      if (!source.startsWith("brand/img/")) return sendJson(res, 400, { error: "source must be a brand/img/ file" });
+      const abs = safeResolve(REPO_ROOT, "/" + source);
+      if (!abs || !fs.existsSync(abs)) return sendJson(res, 404, { error: "image not found" });
+      // entitlement from library.json
+      const lib = JSON.parse(await fsp.readFile(path.join(REPO_ROOT, "brand", "img", "library.json"), "utf-8"));
+      const key = source.slice("brand/img/".length);
+      const ent = (lib.images || []).find((m) => m.file === key)?.entitlement || "public";
+      if (!allowed.has(ent)) return sendJson(res, 403, { error: `image entitlement '${ent}' exceeds deck clearance` });
+      const buf = await fsp.readFile(abs);
+      const filename = path.basename(key);
+      const obj = `decks/${id}/assets/${filename}`;
+      await db.upload(obj, buf, mimeFor(filename));
+      const crypto = await import("node:crypto");
+      const sha = crypto.createHash("sha256").update(buf).digest("hex");
+      await db.upsert("deck_assets", [{ deck_id: id, filename, storage_object: obj, entitlement: ent, sha256: sha }], "deck_id,filename");
+      // Also drop it into the editing version's cache so the iframe shows it now.
+      if (Number.isInteger(d.cache_version)) {
+        try {
+          const cdir = path.join(versionDir(id, d.cache_version), "assets");
+          await fsp.mkdir(cdir, { recursive: true });
+          await fsp.writeFile(path.join(cdir, filename), buf);
+        } catch {}
+      }
+      return sendJson(res, 200, { ok: true, filename: `assets/${filename}` });
+    }
+
+    // --- personalize a master into a derived deck --------------------------
+    let pm = p.match(/^\/api\/decks\/([^/]+)\/personalize$/);
+    if (pm && req.method === "POST") {
+      return personalize(req, res, pm[1]);
+    }
+
+    // --- build (regenerate PDF + verify) -----------------------------------
+    let bm = p.match(/^\/api\/decks\/([^/]+)\/build$/);
+    if (bm && req.method === "POST") {
+      const id = bm[1];
+      if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      if (jobs.runningFor(id)) return sendJson(res, 409, { error: "a build is already running", job_id: jobs.runningFor(id) });
+      const decks = await db.select("decks", { id: `eq.${id}`, select: "*" });
+      if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
+      const { jobId } = jobs.startBuild(decks[0]);
+      return sendJson(res, 200, { ok: true, job_id: jobId });
+    }
+  } catch (e) {
+    return sendJson(res, 500, { error: String(e.message || e) });
+  }
+
+  return undefined;
+}
+
+// Create a derived deck from a master: the client sends the personalized HTML
+// (slot text/logo already filled); the server checks it is fingerprint-identical
+// to the master's current version, copies the master's assets, and inserts a new
+// deck + version 1 with lineage. (§5.3)
+async function personalize(req, res, masterId) {
+  if (!UUID_RE.test(masterId)) return sendJson(res, 400, { error: "bad id" });
+  const d = JSON.parse(await readBody(req, 4_000_000));
+  const masters = await db.select("decks", { id: `eq.${masterId}`, select: "*" });
+  if (!masters.length) return sendJson(res, 404, { error: "no such master" });
+  const master = masters[0];
+  const cur = master.current_version_n;
+  const prevRows = await db.select("deck_versions", { deck_id: `eq.${masterId}`, n: `eq.${cur}`, select: "html" });
+  const prev = prevRows[0]?.html || "";
+  const html = String(d.html || "");
+
+  const masterAssets = await db.select("deck_assets", { deck_id: `eq.${masterId}`, select: "*" });
+  const known = new Set(masterAssets.map((a) => `assets/${a.filename}`));
+  const v = validateSave(prev, html, known);
+  if (!v.ok) return sendJson(res, 400, { error: v.error, code: v.code });
+
+  const title = String(d.title || `${master.title} — ${d.audience?.label || "customer"}`).replace(/—/g, "-").slice(0, 200);
+  const date = new Date().toISOString().slice(0, 10);
+  let slug = `${date}_${slugify(title)}`.slice(0, 80);
+  // ensure unique slug
+  let n = 1, base = slug;
+  while ((await db.select("decks", { slug: `eq.${slug}`, select: "id" })).length) slug = `${base}-${++n}`;
+
+  let customerId = null, audienceKind = "person", audienceLabel = String(d.audience?.label || "");
+  let clientSlug = "";
+  if (d.customer_id && UUID_RE.test(d.customer_id)) {
+    customerId = d.customer_id; audienceKind = "customer";
+    const c = await db.select("customers", { id: `eq.${customerId}`, select: "name,slug" });
+    if (c.length) { audienceLabel = c[0].name; clientSlug = c[0].slug; }
+  } else if (d.audience?.kind) {
+    audienceKind = d.audience.kind === "event" ? "event" : "person";
+  }
+
+  const row = await db.insert("decks", {
+    slug, title, type: master.type, is_master: false,
+    audience_kind: audienceKind, customer_id: customerId, audience_label: audienceLabel,
+    client_slug: clientSlug, allowed_entitlements: master.allowed_entitlements,
+    current_version_n: 1, derived_from_deck_id: masterId, derived_from_version_n: cur,
+    created_by: "floris",
+  });
+  const newId = row[0].id;
+
+  // copy the master's assets into the new deck (server-side storage copy)
+  for (const a of masterAssets) {
+    const dst = `decks/${newId}/assets/${a.filename}`;
+    try { await db.copyObject(a.storage_object, dst); }
+    catch { /* fall back: re-upload from cache if present */ }
+    await db.upsert("deck_assets", [{ deck_id: newId, filename: a.filename, storage_object: dst, entitlement: a.entitlement, sha256: a.sha256 }], "deck_id,filename");
+  }
+  await db.insert("deck_versions", { deck_id: newId, n: 1, html, change_note: `personalized from ${master.slug} v${cur}`, author: "floris" });
+
+  return sendJson(res, 200, { ok: true, deck: { id: newId, slug, title } });
 }
 
 const server = http.createServer(async (req, res) => {
@@ -377,9 +821,27 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith("/api/")) return handleApi(req, res, url);
 
     // Read-only window onto the repo (thumbs, images, assembled deck previews).
+    // v3 cleanup: content (social/, references/, decks/) now lives in Supabase
+    // Storage at an object path equal to its old repo-relative path. When such a
+    // file is not on local disk, fall back to Storage so the app is unchanged.
     if (p.startsWith("/repo/")) {
       if (req.method !== "GET") return send(res, 405, "method not allowed");
       const abs = safeResolve(REPO_ROOT, p.slice("/repo".length));
+      if (!abs) return send(res, 403, "forbidden");
+      if (fs.existsSync(abs)) return serveFile(res, abs);
+      const rel = decodeURIComponent(p.slice("/repo/".length));
+      if (supabaseConfigured() && /^(social|references|decks)\//.test(rel)) {
+        try { return send(res, 200, await db.download(rel), { "Content-Type": mimeFor(rel) }); }
+        catch { /* fall through to 404 */ }
+      }
+      return send(res, 404, "Not found");
+    }
+
+    // Read-only window onto the materialized deck cache (viewer + editor iframes
+    // load a version's index.html + assets from here; the agent writes it).
+    if (p.startsWith("/deck-cache/")) {
+      if (req.method !== "GET") return send(res, 405, "method not allowed");
+      const abs = safeResolve(CACHE_ROOT, p.slice("/deck-cache".length));
       if (!abs) return send(res, 403, "forbidden");
       return serveFile(res, abs);
     }

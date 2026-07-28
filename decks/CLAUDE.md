@@ -1,5 +1,16 @@
 # decks/ — canonical masters and frozen variants
 
+> **v3 note (2026-07-27).** Decks now live in the **backend** (Supabase) as
+> versioned, self-contained HTML — see
+> `.scratch/deck-app/hybrid-editor/report_and_implementation.md`. A CLI build
+> still assembles + verifies here, then **publishes** the deck with
+> `tools/publish-deck.py` (canonicals → a `master` tag; variants → lineage).
+> After migration (`tools/migrate-decks.py`) this folder is **legacy/read-only**:
+> the source of truth for a deck's content is its backend version, and "frozen
+> variants" is superseded by immutable versions. The build/verify commands below
+> still work; add the publish step. `canonical/<type>@vN` git tags are replaced
+> by the movable master tag + version history.
+
 ## canonical/<type>/
 
 The master for a deck type. Contents:

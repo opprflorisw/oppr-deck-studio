@@ -73,7 +73,20 @@ body { font-family: var(--sans); color: var(--ink); }
 .lpage--cta .wm b { color: var(--accent); }
 .lpage--cta h2 { color: var(--bg); }
 .lpage--cta p { color: #d7dbd6; }
+.lpage--cta .lead { color: #b3bdb9; }
 .lpage--cta .handle { font-family: var(--mono); font-size: 34px; color: var(--accent); margin-top: 24px; }
+/* signature block: wrap .handle + .handle-sub in `.sig` to pin them to the same
+   baseline the .loop uses on a content page, so the last line of the document
+   always lands where every previous last line landed, and the ask above it sits
+   optically centred instead of floating in the upper half. Optional and
+   backward compatible: without the wrapper both stay in flow as before. */
+.lpage--cta:has(.sig) { padding-bottom: 232px; }
+.lpage--cta .sig { position: absolute; left: 88px; right: 88px; bottom: 132px; }
+.lpage--cta .sig .handle { margin-top: 0; }
+.carousel--square .lpage--cta:has(.sig) { padding-bottom: 208px; }
+.carousel--square .lpage--cta .sig { left: 84px; right: 84px; bottom: 120px; }
+/* the line under the handle: what Oppr is, for a reader who has only just met us */
+.lpage--cta .handle-sub { font-family: var(--mono); font-size: 28px; color: #a8b2ae; letter-spacing: .04em; margin-top: 12px; }
 .lpage--cta .pagedot { color: #7f8b86; }
 
 /* a big number / stat block */
@@ -98,21 +111,64 @@ body { font-family: var(--sans); color: var(--ink); }
 .lcheck .body-txt { display: flex; flex-direction: column; gap: 8px; }
 .lcheck .t { font-size: 33px; line-height: 1.22; }
 
-/* lean-waste tag (ties the symptom to the site's positioning) */
-.wtag { align-self: flex-start; font-family: var(--mono); font-size: 19px; text-transform: uppercase; letter-spacing: .06em; color: var(--machine); background: rgba(62,104,116,.1); border-radius: 999px; padding: 4px 14px; }
+/* lean-waste tag (ties the symptom to the site's positioning).
+   Type floor: this tag carries meaning, so it obeys the same legibility rule as
+   body copy. Below ~26px it is unreadable at feed thumbnail size and the
+   qualification work it does is thrown away. */
+.wtag { align-self: flex-start; font-family: var(--mono); font-size: 26px; text-transform: uppercase; letter-spacing: .06em; color: var(--machine); background: rgba(62,104,116,.1); border-radius: 999px; padding: 6px 18px; }
 
-/* open-loop line pinned to the bottom (earns the swipe) */
-.loop { font-size: 34px; font-weight: 800; color: var(--accent); margin-top: auto; }
+/* open-loop line: the last thing read on a page, and the thing that earns the
+   swipe. It is bottom furniture, like the wordmark and the page number, so it is
+   pinned to one baseline and lands identically on every page while the page's own
+   content stays optically centred.
+   It used to be an in-flow item with `margin-top:auto`, which never worked:
+   `.lpage p` (0-1-1) outranks a bare `.loop` (0-1-0), so the shorthand margin
+   there cancelled the auto margin and every page centred its whole stack, leaving
+   a dead band under the line. Raising specificity alone then jammed all content
+   to the top, because one auto margin swallows every pixel of slack. Pinning
+   solves both. `.lpage--point` and `.lpage--mark` reserve the band it sits in.
+   On a full-bleed page it stays in flow inside `.inner`, where the text block
+   already sits on the bottom third and there is no slack to distribute. */
+.lpage .loop { font-size: 34px; font-weight: 800; color: var(--accent); margin: 0; padding-top: 40px; }
+.lpage--point .loop, .lpage--mark .loop {
+  position: absolute; left: 88px; right: 88px; bottom: 132px; padding-top: 0;
+}
+.lpage--point, .lpage--mark { padding-top: 152px; padding-bottom: 232px; }
+/* `safe center`, not `center`: an over-full page must overflow downward from the
+   top padding, never symmetrically. Plain centring pushes the first line up past
+   the padding and straight under the wordmark, which is absolutely positioned and
+   cannot get out of the way. */
+.lpage--point, .lpage--mark { justify-content: safe center; }
+/* square pages are 270px shorter and inset 84px, so they reserve a tighter band.
+   `.carousel--square .lpage` (0-2-0) outranks `.lpage--point` (0-1-0), so this
+   override has to be class-for-class or the square padding wins and centred
+   content collides with the pinned line. The top value clears the wordmark
+   (ink bottom ~101px); the bottom value clears the pinned loop (top ~926px). */
+.carousel--square .lpage--point, .carousel--square .lpage--mark {
+  padding-top: 120px; padding-bottom: 176px;
+}
+.carousel--square .lpage--point .loop, .carousel--square .lpage--mark .loop {
+  left: 84px; right: 84px; bottom: 108px;
+}
 
 /* two-column contrast: operators see / systems see */
 .lcontrast { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; margin-top: 26px; }
+/* stacked variant: two full-width rows instead of two columns, so a second
+   contrast page in the same carousel does not echo the first */
+.lcontrast--stack { grid-template-columns: 1fr; gap: 20px; }
+.lcontrast--stack .col { display: flex; align-items: baseline; gap: 28px; padding: 34px 38px; }
+.lcontrast--stack .col .lbl { margin-bottom: 0; flex: 0 0 340px; }
+.lcontrast--stack .col .mk { font-size: 50px; }
 .lcontrast .col { border-radius: 20px; padding: 40px 34px; }
 .lcontrast .col.see { background: rgba(166,80,50,.1); }
 .lcontrast .col.blind { background: rgba(95,105,101,.09); }
-.lcontrast .col .lbl { font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; font-size: 23px; font-weight: 700; margin-bottom: 22px; }
+.lcontrast .col .lbl { font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; font-size: 26px; font-weight: 700; margin-bottom: 22px; display: flex; align-items: center; gap: 12px; }
+.lcontrast .col .lbl svg { width: 26px; height: 26px; flex: 0 0 auto; }
 .lcontrast .col.see .lbl { color: var(--accent); }
 .lcontrast .col.blind .lbl { color: var(--muted); }
-.lcontrast .col .mk { font-size: 44px; line-height: 1.5; font-weight: 700; }
+/* display weight at 44px: 1.5 leading opens holes between the lines of a
+   two-line mark. Bold short phrases want tight leading, not body leading. */
+.lcontrast .col .mk { font-size: 44px; line-height: 1.2; font-weight: 700; }
 .lcontrast .col.see .mk { color: var(--ink); }
 .lcontrast .col.blind .mk { color: var(--muted); }
 
@@ -128,5 +184,189 @@ body { font-family: var(--sans); color: var(--ink); }
 .lchip { font-size: 27px; font-weight: 700; padding: 14px 22px; border-radius: 14px; background: rgba(85,116,94,.12); color: var(--verified); display: inline-flex; align-items: center; gap: 12px; }
 .lchip svg { width: 24px; height: 24px; flex: 0 0 auto; }
 
+/* ---------- single social image (one 1080x1080 card, no swipe) ----------
+   Not every LinkedIn asset is a document post. An announcement (a hire, a round,
+   a date) is one card: it has to say its whole thing in the feed, unswiped. So
+   the page carries no page number and no open loop, and the screen gutter that
+   spaces a carousel for browsing is removed, because the render is a screenshot
+   cropped to exactly 1080x1080 and any gutter shifts the crop.
+   Built by tools/build-social-image.ps1, not build-carousel.ps1. */
+.carousel--single { gap: 0; padding: 0; }
+@media screen { .carousel--single { gap: 0; padding: 0; } }
+.carousel--single .lpage { page-break-after: auto; }
+/* The card centres its own stack, so it needs no page modifier: the light ground
+   is the default `.lpage` and stays that way. An announcement is read once, in a
+   scroll, by someone who did not ask for it, so it is the one place where the
+   light ground beats ink: it is the higher-contrast, faster read at thumbnail
+   size, and it does not signal "campaign" the way a dark card does.
+   The wordmark is absolutely positioned, so a centred stack splits the slack
+   evenly and lands low: the band under the mark reads as half the band under the
+   last line. Reserving the mark's band as top padding centres the card optically
+   rather than geometrically. */
+.carousel--single .lpage { padding-top: 148px; justify-content: safe center; }
+
+/* the ask, on a light card. `.handle` is otherwise scoped to the ink CTA page,
+   where the ground does the separating; here the label above it carries the job,
+   so the URL itself never has to be a sentence. */
+.carousel--single .handle { font-family: var(--mono); font-size: 34px; color: var(--accent); margin-top: 36px; }
+.carousel--single .handle .lbl {
+  display: block; font-family: var(--sans); font-size: 26px; font-weight: 700;
+  color: var(--muted); letter-spacing: 0; margin-bottom: 10px;
+}
+
+/* ---------- role card (hiring) ----------
+   Sits under the headline and separates the argument from the facts: the headline
+   says what the seat is for, the card says what it is. The rule between them is
+   that split made visible.
+   The tags are the stack, never benefits. A senior engineer scans an announcement
+   for the ground it covers and stops reading if it is not there, so the stack is
+   the last thing on the card and the only thing set in the accent. */
+.lrole { border-top: 1px solid var(--line); padding-top: 36px; margin-top: 12px; }
+.lrole .seat { font-size: 56px; font-weight: 800; line-height: 1.04; letter-spacing: -.02em; }
+/* 25px, not 27: the meta is one mono line of facts and has to stay one line.
+   Wrapped, it drops a single orphan word under the seat and reads as a mistake. */
+.lrole .meta { font-family: var(--mono); font-size: 25px; line-height: 1.35; color: var(--muted); margin-top: 16px; letter-spacing: .01em; }
+.lrole .tags { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.lrole .tag {
+  /* 26px is the floor for qualification text, same as `.wtag`: below it the tags
+     stop being readable at feed thumbnail size and the work they do is thrown
+     away. If a set will not pack into two rows at 26px, cut a tag, never the
+     type. */
+  font-family: var(--mono); font-size: 26px; font-weight: 700; letter-spacing: .02em;
+  color: var(--accent); background: rgba(166,80,50,.12); border-radius: 999px; padding: 11px 20px;
+}
+
+/* series marker: which part of a multi-carousel set this is, and what is next */
+.lserie {
+  margin-top: 34px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.18);
+  font-family: var(--mono); font-size: 24px; color: #9aa5a1;
+}
+.lserie b { color: var(--accent); font-weight: 700; }
+
 /* small kicker under a hook headline */
 .lpage--hook .kicker { font-family: var(--mono); font-size: 30px; color: var(--muted); margin-top: 30px; }
+
+/* ---------- full-bleed image page (a cover that fills the whole square) ----------
+   Image behind, dark scrim, text sitting on the bottom third. Use for opening
+   pages and section breaks; never put small body copy on one. */
+.lpage--full { padding: 0; justify-content: flex-end; }
+.lpage--full .bg { position: absolute; inset: 0; }
+.lpage--full .bg img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.lpage--full .scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(21,32,30,.46) 0%, rgba(21,32,30,.30) 26%, rgba(21,32,30,.74) 60%, rgba(21,32,30,.95) 100%);
+}
+/* deeper scrim, for a busy or light photograph that would otherwise fight the type */
+.lpage--full .scrim--deep {
+  background: linear-gradient(180deg, rgba(21,32,30,.62) 0%, rgba(21,32,30,.56) 30%, rgba(21,32,30,.84) 66%, rgba(21,32,30,.97) 100%);
+}
+.lpage--full .inner { position: relative; padding: 84px; }
+.lpage--full h1, .lpage--full h2 { color: var(--bg); }
+.lpage--full p { color: #dfe3df; }
+.lpage--full .sub { font-size: 40px; color: #dfe3df; margin-top: 26px; }
+.lpage--full .eyebrow { color: #e3ac95; }
+.lpage--full .wm { color: var(--bg); z-index: 2; }
+.lpage--full .wm b { color: var(--accent); }
+.lpage--full .pagedot { color: #b9c2be; z-index: 2; }
+.lpage--full .loop { color: #e3ac95; }
+
+/* taller image band, for pages carrying one image and little else */
+.lband--tall img { height: 560px; }
+/* shorter band, for pages where the image sets the scene under dense content */
+.lband--short img { height: 260px; }
+
+/* ---------- product screenshot panel ----------
+   A screenshot must never be cropped by a band: phone shots are portrait and a
+   wide crop shows a useless slice. `.lshot` contains the image on a tinted panel
+   instead, so portrait and landscape captures both sit at native resolution. */
+.lshot {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 18px; border: 1px solid var(--line); background: var(--surface);
+  padding: 22px; margin: 12px 0 24px;
+}
+.lshot img { display: block; width: auto; max-width: 100%; max-height: 400px; object-fit: contain; }
+.lshot--tall img { max-height: 500px; }
+
+/* three images side by side with captions: several sectors at a glance */
+.ltrio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin: 28px 0 8px; }
+.ltrio figure { margin: 0; }
+.ltrio img {
+  display: block; width: 100%; height: 300px; object-fit: cover;
+  border-radius: 16px; border: 1px solid var(--line);
+}
+.ltrio figcaption {
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em;
+  font-size: 28px; color: var(--muted); margin-top: 12px;
+}
+
+/* ---------- industry case card ----------
+   One delivered engagement, told in a fixed shape so three of them read as a
+   set: which industry, what human signal was missing, what one timeline showed,
+   what changed. Region-level identification only, never a customer name. */
+.lcase .ind {
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em;
+  font-size: 24px; font-weight: 700; color: var(--machine); margin-bottom: 14px;
+}
+.lcase .rows { display: flex; flex-direction: column; gap: 20px; margin-top: 24px; }
+.lcase .r { display: grid; grid-template-columns: 200px 1fr; gap: 24px; align-items: start; }
+.lcase .r .k {
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em;
+  font-size: 25px; color: var(--muted); padding-top: 6px;
+}
+.lcase .r .v { font-size: 32px; line-height: 1.26; }
+.lcase .r.result .v { font-weight: 800; color: var(--accent); }
+
+/* ---------- the record pair ----------
+   One event, two records: what a person knew, and what the system stored. The
+   two rows are deliberately NOT the same size or the same typeface. The human
+   record is a full sentence set in the body face; the machine record is the
+   literal stored value set in mono, because that is what it is. The asymmetry
+   is the argument, so never equalise them into a two-card grid. */
+.lrecord { display: flex; flex-direction: column; gap: 20px; margin: 6px 0 0; }
+.lrecord .rec { border-radius: 20px; padding: 34px 38px; }
+.lrecord .rec.human { background: rgba(166,80,50,.10); }
+.lrecord .rec.machine { background: rgba(62,104,116,.09); }
+.lrecord .rec .k {
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em;
+  font-size: 25px; font-weight: 700; margin-bottom: 18px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 20px;
+}
+.lrecord .rec .k .at { font-weight: 400; opacity: .72; }
+.lrecord .rec.human .k { color: var(--accent); }
+.lrecord .rec.machine .k { color: var(--machine); }
+.lrecord .rec .v { font-size: 40px; line-height: 1.26; font-weight: 700; color: var(--ink); }
+/* the stored value, verbatim: mono here is measurement, not costume */
+.lrecord .rec.machine .v { font-family: var(--mono); font-size: 44px; letter-spacing: .02em; color: var(--muted); }
+.lrecord .rec .fate {
+  font-family: var(--mono); font-size: 25px; color: var(--muted);
+  margin-top: 18px; letter-spacing: .02em;
+}
+
+/* ---------- ink statement page ----------
+   The one page that names the thing. Ground goes to ink so the sentence reads as
+   a verdict rather than another point, and it carries no image on purpose: this
+   is the line people screenshot, and nothing should compete with it. */
+.lpage--mark { justify-content: center; background: var(--ink); color: var(--bg); }
+.lpage--mark .wm { color: var(--bg); }
+.lpage--mark .wm b { color: var(--accent); }
+.lpage--mark .eyebrow { color: #e3ac95; }
+.lpage--mark h2 { color: var(--bg); font-size: 84px; line-height: 1.03; margin-bottom: 34px; }
+.lpage--mark p { color: #d7dbd6; }
+.lpage--mark .loop { color: #e3ac95; }
+.lpage--mark .pagedot { color: #7f8b86; }
+
+/* ---------- contact strip ----------
+   Only for carousels meant to be downloaded and forwarded inside a company:
+   the reader who opens it second has no idea who we are. */
+.lcontact {
+  /* sits above the pagedot (bottom 64px), never under it */
+  margin-top: auto; margin-bottom: 30px; padding-right: 96px;
+  border-top: 1px solid var(--line); padding-top: 26px;
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--mono); font-size: 24px; color: var(--muted);
+}
+.lcontact b { color: var(--accent); font-weight: 700; }
+.lpage--cta .lcontact { border-top-color: rgba(255,255,255,.18); color: #9aa5a1; }
+/* the strip's auto margin pushes the rest of the page to the top, so a page
+   carrying one needs headroom to clear the wordmark */
+.lpage:has(.lcontact) { padding-top: 168px; }

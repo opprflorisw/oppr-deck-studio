@@ -11,11 +11,11 @@ import { icon, ibtn } from "../icons.js";
 const norm = (p) => String(p).replace(/^.*brand\/img\//, "");
 
 function usageOf(file) {
+  // Which library SLIDES use this image. (v3: decks are HTML snapshots in the
+  // backend with bundled assets, not slide-id compositions, so deck-level image
+  // usage is no longer tracked here.)
   const slides = state.index.slides.filter((s) => (s.images || []).some((im) => norm(im) === file));
-  const slideIds = new Set(slides.map((s) => s.id));
-  const decks = [...state.index.decks.canonical, ...state.index.decks.variants]
-    .filter((d) => d.slides.some((id) => slideIds.has(id)));
-  return { slides, decks };
+  return { slides, decks: [] };
 }
 
 let gFilter = { q: "", ent: "", unused: false };

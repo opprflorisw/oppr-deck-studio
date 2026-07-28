@@ -10,7 +10,7 @@
   .slide .lede { font-size: 21px; max-width: 68ch; }
   .eyebrow, .eyebrow-xl { font-family: var(--mono); font-size: 14px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
   .kicker { font-size: 18px; bottom: 66px; }
-  .subcopy { font-size: 18px; line-height: 1.5; max-width: 96ch; color: var(--ink); margin-bottom: 24px; }
+  .subcopy { font-size: 18px; line-height: 1.5; max-width: 96ch; color: var(--ink); margin-bottom: 14px; }
 
   /* --- Cover --------------------------------------------------------- */
   .cover { padding: 0; }
@@ -35,34 +35,46 @@
   .setup h2 { font-size: 40px; max-width: 30ch; color: var(--bg); line-height: 1.14; margin-bottom: 42px; }
   .setup h2 .hl { color: var(--accent); }
   .idea-cards { display: flex; gap: 22px; }
-  .idea-cards .ic { flex: 1; background: rgba(242,242,237,0.055); border: 1px solid rgba(242,242,237,0.16); border-radius: 14px; padding: 26px 24px; }
-  .ic-ico { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; background: var(--accent); margin-bottom: 18px; }
-  .ic-ico svg { width: 24px; height: 24px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .setup .ic h3 { font-size: 20px; color: var(--bg); margin-bottom: 8px; }
-  .setup .ic p { font-size: 14px; color: rgba(242,242,237,0.72); line-height: 1.5; }
+  .idea-cards .ic { flex: 1; min-height: 296px; background: rgba(242,242,237,0.055); border: 1px solid rgba(242,242,237,0.16); border-radius: 14px; padding: 32px 30px; }
+  .ic-ico { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); margin-bottom: 20px; }
+  .ic-ico svg { width: 26px; height: 26px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  /* the one-word name of the step, so the room hears CAPTURE / CONNECT / EXECUTE
+     as the platform's three words rather than three unrelated sentences */
+  .ic-lbl { font-family: var(--mono); font-size: 16px; font-weight: 700; letter-spacing: 0.14em;
+            text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 10px; }
+  .setup .ic h3 { font-size: 23px; color: var(--bg); margin-bottom: 10px; }
+  .setup .ic p { font-size: 17px; color: rgba(242,242,237,0.75); line-height: 1.5; }
 
   /* --- Why-now: vertical numbered flow -------------------------------- */
-  .flowdown { display: flex; flex-direction: column; margin-top: 6px; max-width: 1000px; }
-  .flowdown .row { display: flex; align-items: baseline; gap: 22px; padding: 16px 0; border-top: 1px solid var(--line); }
+  /* wider and taller than it was: the rows used to sit in the top half with the
+     kicker pinned far below them, so the slide read as half-empty */
+  .flowdown { display: flex; flex-direction: column; margin-top: 14px; max-width: 1120px; }
+  .flowdown .row { display: flex; align-items: baseline; gap: 26px; padding: 26px 0; border-top: 1px solid var(--line); }
   .flowdown .row:first-child { border-top: none; }
-  .flowdown .n { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--accent); flex: 0 0 34px; }
-  .flowdown .row h3 { font-size: 22px; flex: 0 0 300px; }
-  .flowdown .row p { font-size: 15px; color: var(--muted); flex: 1; line-height: 1.45; }
+  .flowdown .n { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--accent); flex: 0 0 40px; }
+  .flowdown .row h3 { font-size: 26px; flex: 0 0 340px; }
+  .flowdown .row p { font-size: 19px; color: var(--muted); flex: 1; line-height: 1.45; }
 
   /* --- Recognize: five problems + probing questions ------------------ */
-  .probs { display: flex; flex-direction: column; margin-top: 4px; }
-  .probs .p { display: flex; gap: 28px; align-items: baseline; padding: 15px 0; border-top: 1px solid var(--line); }
+  .probs { display: flex; flex-direction: column; margin-top: 2px; }
+  .probs .p { display: flex; gap: 30px; align-items: baseline; padding: 12px 0; border-top: 1px solid var(--line); }
   .probs .p:first-child { border-top: none; }
   .probs .p .mk { flex: 0 0 12px; height: 12px; border-radius: 50%; background: var(--accent); transform: translateY(3px); }
-  .probs .p h3 { flex: 0 0 320px; font-size: 20px; }
-  .probs .p .q { flex: 1; font-size: 15px; color: var(--muted); line-height: 1.5; }
-  .sum { margin-top: 22px; padding: 16px 22px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; font-size: 15.5px; line-height: 1.5; }
+  .probs .p h3 { flex: 0 0 372px; font-size: 23px; }
+  .probs .p .q { flex: 1; font-size: 18px; color: var(--muted); line-height: 1.5; }
+  .sum { margin-top: 14px; padding: 16px 22px; background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 10px; font-size: 18px; line-height: 1.5; }
   .sum b { color: var(--accent); }
 
   /* --- 2x2 card grid (transition slide, acceptance slide) ------------ */
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px; }
-  .grid2 .card h3 { font-size: 19px; margin-bottom: 6px; }
-  .grid2 .card p { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 0; }
+  .grid2 .card { min-height: 170px; padding: 18px 22px; }
+  .grid2 .card h3 { font-size: 22px; margin-bottom: 8px; }
+  .grid2 .card p { font-size: 16.5px; color: var(--muted); line-height: 1.5; }
+  /* numbered head: the icon and its number on one row, so four cards read as an
+     ordered set rather than four things that happen to be near each other */
+  .g2top { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .g2top .g2ico { margin-bottom: 0; }
+  .g2n { font-family: var(--mono); font-size: 17px; font-weight: 700; letter-spacing: 0.12em; color: var(--accent); }
 
   /* --- Platform: CCE circle + big legend ----------------------------- */
   .plat { display: flex; gap: 44px; align-items: center; margin-top: 10px; }
@@ -71,18 +83,33 @@
   .plat .loop img { width: 500px; max-width: 100%; height: auto; }
   .cce-legend .cl { display: flex; align-items: flex-start; gap: 15px; padding: 12px 0; }
   .cce-legend .cl svg { width: 28px; height: 28px; flex: 0 0 28px; margin-top: 2px; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .cce-legend .cl p { font-size: 20px; line-height: 1.4; }
+  .cce-legend .cl { padding: 16px 0; }
+  .cce-legend .cl p { font-size: 25px; line-height: 1.4; }
+  .cce-legend .cl svg { width: 32px; height: 32px; flex: 0 0 32px; }
   .cce-legend .cl b { font-weight: 650; }
-  .cce-note { font-size: 14px; color: var(--muted); margin-top: 12px; }
+  .cce-note { font-size: 18px; color: var(--muted); margin-top: 20px; line-height: 1.45; }
 
   /* --- Outcomes (bigger, fuller) ------------------------------------- */
-  .out-list .o { padding: 16px 0; border-top: 1px solid var(--line); }
+  .out-list .o { padding: 22px 0; border-top: 1px solid var(--line); }
   .out-list .o:first-child { border-top: none; }
-  .out-list .o h3 { font-size: 21px; margin-bottom: 5px; }
-  .out-list .o p { font-size: 14.5px; color: var(--muted); line-height: 1.45; }
+  .out-list .o h3 { font-size: 23px; margin-bottom: 7px; }
+  .out-list .o p { font-size: 17px; color: var(--muted); line-height: 1.45; }
   .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px 22px; }
   .stat-grid .stat strong { font-size: 48px; }
   .stat-grid .stat span { font-size: 13.5px; margin-top: 8px; }
+
+  /* --- reference stats as icon cards --------------------------------- */
+  /* Same icon-card language as the grid2 cards elsewhere in the deck, so a
+     verified number reads as a claim the deck stands behind rather than four
+     loose figures floating beside a list. */
+  .statcards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
+  .statcards .card { padding: 18px 20px; }
+  .statcards .sc-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .statcards .sc-ico { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%; background: var(--accent);
+                       display: inline-flex; align-items: center; justify-content: center; }
+  .statcards .sc-ico svg { width: 19px; height: 19px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .statcards strong { font-family: var(--sans); font-size: 34px; font-weight: 800; letter-spacing: -0.03em; color: var(--accent); line-height: 1; }
+  .statcards span { display: block; font-size: 14.5px; color: var(--muted); line-height: 1.35; }
 
   /* --- Evidence quote cards ------------------------------------------ */
   .quotes { display: flex; gap: 20px; margin-top: 14px; }
@@ -147,13 +174,16 @@
   .step .stack .card { align-items: center; }
 
   /* --- Product-flow slides (screenshots) ----------------------------- */
-  .flowsteps { display: flex; gap: 22px; margin-top: 18px; }
+  /* taller frames and bigger captions: the three columns used to stop well short
+     of the footer, leaving a dead band under a slide whose whole job is showing
+     the product */
+  .flowsteps { display: flex; gap: 22px; margin-top: 24px; }
   .flowsteps .fs { flex: 1; display: flex; flex-direction: column; }
-  .flowsteps .fnum { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.12em; margin-bottom: 9px; }
-  .flowsteps .frame { background: #e8e8e2; border: 1px solid var(--line); border-radius: 10px; height: 258px; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 10px; }
+  .flowsteps .fnum { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--accent); letter-spacing: 0.12em; margin-bottom: 11px; }
+  .flowsteps .frame { background: #e8e8e2; border: 1px solid var(--line); border-radius: 10px; height: 332px; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 12px; }
   .flowsteps .frame img { max-width: 100%; max-height: 100%; object-fit: contain; }
-  .flowsteps h3 { font-size: 18px; margin: 15px 0 4px; }
-  .flowsteps p { font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+  .flowsteps h3 { font-size: 21px; margin: 18px 0 6px; }
+  .flowsteps p { font-size: 16.5px; color: var(--muted); line-height: 1.45; }
 
   /* --- KPIs & payback rework ----------------------------------------- */
   .levers { display: flex; gap: 16px; margin-top: 6px; }

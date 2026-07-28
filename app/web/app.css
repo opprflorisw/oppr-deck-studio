@@ -148,6 +148,15 @@ button.primary:disabled { opacity: .5; cursor: not-allowed; }
 .filmstrip .frame img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border: 1px solid var(--line); border-radius: 6px; background: #ddd8cf; }
 .filmstrip .frame:hover img { border-color: var(--accent); }
 .filmstrip .frame .cap { font-size: 11px; color: var(--muted); margin-top: 3px; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A slide that lives only inside its own deck folder has no library thumbnail.
+   It gets a labelled placeholder frame, because <img src=""> renders as a broken
+   image and reads like a bug rather than "this slide is local to this deck". */
+.filmstrip .frame--local { cursor: default; }
+.filmstrip .frame--local::before {
+  content: ""; display: block; width: 100%; aspect-ratio: 16/9;
+  border: 1px dashed var(--line); border-radius: 6px;
+  background: repeating-linear-gradient(45deg, #eae6dd 0 6px, #f4f1ea 6px 12px);
+}
 
 /* ---- detail ---- */
 .detail-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
@@ -306,6 +315,78 @@ ul.plain li { padding: 3px 0; font-size: 14px; }
 .modal iframe { flex: 1; border: none; width: 100%; background: #fff; }
 .posttext { margin: 0; padding: 20px; overflow: auto; white-space: pre-wrap; font-family: var(--mono); font-size: 14px; line-height: 1.5; }
 
+/* ---- destructive actions + confirm dialog -------------------------------- */
+.ghost.danger { color: #a2372a; }
+.ghost.danger:hover { background: rgba(162,55,42,.1); border-color: rgba(162,55,42,.35); }
+/* `:not(.ghost)` matters: the row's delete control is a .ghost.icon-only button
+   that also carries .danger, and without this it renders as a solid red block. */
+button.danger:not(.ghost) {
+  background: #a2372a; color: #fff; border: 1px solid #a2372a; border-radius: 8px;
+  padding: 8px 16px; font-weight: 700; font-family: inherit; font-size: 14px;
+}
+button.danger:not(.ghost):disabled { background: var(--line); border-color: var(--line); color: var(--muted); cursor: not-allowed; }
+.modal .box.confirm { width: 560px; max-width: 92vw; height: auto; max-height: 86vh; }
+.confirm-body { padding: 18px 20px; overflow: auto; }
+.confirm-body p { margin: 0 0 12px; }
+.confirm-body code { font-family: var(--mono); font-size: 12px; background: var(--bg); padding: 2px 5px; border-radius: 4px; }
+.confirm-body .field { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.confirm-body .field span { font-size: 12px; color: var(--muted); }
+.confirm-body .field input {
+  font-family: var(--mono); font-size: 14px; padding: 9px 11px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink);
+}
+.inline-arch { padding: 2px 8px !important; font-size: 13px; }
+/* An archived row's way back has to read as an action, not a glyph. */
+.deck-row .arch.restore { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 5px 12px; font-weight: 600; }
+.pill-status.archived { background: rgba(95,105,101,.14); color: var(--muted); }
+.confirm-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--line); }
+
+/* ---- Unicode post editor -------------------------------------------------
+   The brand fonts are subset woff2 and do not cover Mathematical Alphanumeric
+   Symbols, so styled runs fall through to a system font that does. Naming the
+   fallbacks keeps that predictable instead of leaving it to the OS. */
+.pe-bar { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.pe-bar .spacer { margin-left: auto; }
+.pe-sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+.pe-bar button { font-size: 13px; padding: 5px 10px; }
+.pe-mark { font-size: 15px !important; min-width: 32px; }
+.pe-count { font-family: var(--mono); font-size: 12px; margin-right: 4px; }
+/* Editor beside a feed preview. A LinkedIn post is read in a proportional font
+   in a narrow column, so both panes use one: monospace made the editor look like
+   a config file and gave no sense of how the post actually reads. */
+.pe-split { flex: 1; display: flex; min-height: 0; }
+.postedit {
+  flex: 1; min-width: 0; margin: 0; padding: 28px 32px; border: none; resize: none; outline: none;
+  background: var(--surface); color: var(--ink);
+  font-family: var(--sans), "Segoe UI Symbol", "Cambria Math", sans-serif;
+  font-size: 16px; line-height: 1.62; white-space: pre-wrap;
+}
+.pe-side {
+  flex: 0 0 400px; display: flex; flex-direction: column; min-height: 0;
+  border-left: 1px solid var(--line); background: var(--bg);
+}
+.pe-side-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.pe-side-head b { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.pe-toggle { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; }
+.pe-phone { margin: 16px; padding: 16px; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: auto; }
+.pe-author { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.pe-avatar {
+  width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; flex: 0 0 auto;
+}
+.pe-who { display: flex; flex-direction: column; line-height: 1.3; }
+.pe-who b { font-size: 14px; }
+.pe-who span { font-size: 12px; color: var(--muted); }
+/* 14px/1.45 in a ~360px column is close to LinkedIn's own feed measure, so a
+   hook that fits here fits there. */
+.pe-post {
+  font-family: var(--sans), "Segoe UI Symbol", "Cambria Math", sans-serif;
+  font-size: 14px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; color: #1b1f23;
+}
+.pe-more { color: var(--muted); font-weight: 600; }
+.pe-meta { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11px; color: var(--muted); }
+@media (max-width: 1100px) { .pe-side { flex-basis: 320px; } }
+
 /* ---- paged deck/carousel viewer ---- */
 .viewer .viewer-box { width: 94vw; max-width: 1320px; height: 90vh; background: var(--surface); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
 .viewer-box header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
@@ -333,3 +414,132 @@ ul.plain li { padding: 3px 0; font-size: 14px; }
 .picked li button { margin-left: auto; background: transparent; border: none; color: var(--muted); cursor: pointer; }
 .import-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
 .mini-btn { padding: 2px 8px; font-size: 12px; }
+
+/* ---- Areas: one icon button per area (sidebar) + top tabs (page) ---------- */
+.side-link { gap: 10px; justify-content: flex-start; }
+.side-link .side-ic { display: inline-flex; align-items: center; opacity: .8; }
+.side-link .side-label { flex: 1; }
+.side-link.active .side-ic { opacity: 1; }
+
+.area-bar { align-items: center; }
+.area-bar .area-title { display: flex; align-items: center; gap: 10px; }
+.area-bar .area-title .ic { color: var(--accent); flex: 0 0 auto; }
+.area-tabs { margin-left: auto; }
+.tab-badge { display: inline-block; margin-left: 7px; background: var(--accent); color: #fff; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 0 6px; min-width: 16px; text-align: center; vertical-align: middle; }
+.tabbar button.active .tab-badge { background: var(--accent); }
+
+/* ---- Live filmstrip (social output): pages as small self-scaling frames --- */
+.filmstrip.live { align-items: flex-start; min-height: 120px; }
+.filmstrip.live .frame.live { position: relative; height: 112px; padding: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; cursor: pointer; }
+.filmstrip.live .frame.live iframe { width: 100%; height: 100%; border: 0; display: block; pointer-events: none; }
+.filmstrip.live .frame.live:hover { border-color: var(--accent); }
+.filmstrip.live .frame.live .cap { position: absolute; left: 4px; bottom: 4px; margin: 0; background: rgba(20,32,30,.6); color: #fff; padding: 0 5px; border-radius: 4px; font-size: 10px; }
+
+/* ---- Social output: status filter, publish badge, inline editor ---------- */
+.ghost.icon-only { padding: 7px; }
+.viewswitch button .of-count { display: inline-block; margin-left: 7px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: rgba(95,105,101,.16); color: var(--muted); font-size: 11px; font-weight: 700; font-family: var(--mono); }
+.viewswitch button.active .of-count { background: rgba(166,80,50,.16); color: var(--accent); }
+
+.status-wrap { display: inline-flex; }
+.pill-status { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.pill-status.draft { background: rgba(95,105,101,.14); color: var(--muted); }
+.pill-status.posted { background: rgba(85,116,94,.16); color: var(--verified); }
+a.pill-status.posted:hover { background: rgba(85,116,94,.26); }
+.pill-status .ic { display: inline-block; }
+
+.status-editor { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.status-editor .field.inline { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+.status-editor .field.inline.grow { flex: 1; min-width: 220px; }
+.status-editor .field label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.status-editor input[type="date"], .status-editor input[type="url"] { font-family: inherit; font-size: 14px; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+.status-editor input[type="url"] { width: 100%; }
+.status-editor .chk { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: 14px; padding-bottom: 8px; }
+.status-editor .se-msg { flex-basis: 100%; }
+
+/* ---- Tab buttons carry an icon now --------------------------------------- */
+.tabbar button { display: inline-flex; align-items: center; gap: 7px; }
+.tabbar button svg { opacity: .85; }
+.tabbar button.active svg { opacity: 1; }
+
+/* ---- Customers (home) ---------------------------------------------------- */
+.cust-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.cust-card { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; }
+.cust-card:hover { border-color: var(--accent); }
+.cust-card-top { height: 96px; display: flex; align-items: center; justify-content: center; background: var(--bg); border-bottom: 1px solid var(--line); padding: 14px; }
+.cust-card-body { padding: 12px 14px 14px; }
+.cust-card-body h3 { margin: 0 0 6px; font-size: 16px; }
+.cust-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cust-logo { max-height: 64px; max-width: 100%; object-fit: contain; }
+.cust-logo--none { display: inline-flex; align-items: center; justify-content: center; width: 60px; height: 60px; border-radius: 12px; background: var(--ink); color: var(--bg); font-weight: 800; font-size: 20px; letter-spacing: .02em; }
+
+.cust-detail-head { display: flex; align-items: center; gap: 18px; margin: 6px 0 22px; flex-wrap: wrap; }
+.cust-detail-head .cust-logo { max-height: 72px; }
+.cust-detail-head .cust-logo--none { width: 72px; height: 72px; font-size: 24px; }
+.cust-detail-id h1 { margin: 0 0 6px; }
+
+.logo-drop { display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 10px; background: var(--bg); cursor: pointer; }
+.logo-drop:hover { border-color: var(--accent); }
+.logo-drop .cust-logo { max-height: 52px; }
+
+.empty { padding: 48px 24px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius); background: var(--surface); }
+.empty p { margin: 0 0 8px; }
+
+/* ===== Deck Studio v3: deck detail, editor, personalize ==================== */
+
+/* deck detail head + actions */
+.deck-detail-head { display: flex; align-items: flex-start; gap: 18px; margin: 6px 0 22px; }
+.deck-detail-head .deck-id { min-width: 0; }
+.deck-detail-head h1 { margin: 0 0 8px; }
+.deck-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+.badge--master { background: var(--accent); color: #fff; border-color: var(--accent); }
+.deck-thumb { width: 64px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); margin-right: 4px; flex: none; }
+.version-row.is-current { border-color: var(--accent); }
+
+/* build status + needs-cli banners */
+.build-status { margin: 10px 0; padding: 12px 14px; border-radius: var(--radius); font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.build-status.running { background: var(--bg); color: var(--muted); }
+.build-status.pass { background: rgba(85,116,94,.14); color: #3c5a44; }
+.build-status.fail { background: rgba(162,55,42,.1); color: #a2372a; display: block; }
+.build-status.fail ul { margin: 8px 0 0; padding-left: 18px; }
+.needs-cli { margin: 8px 0 18px; padding: 14px 16px; border-radius: var(--radius); background: rgba(162,55,42,.08); border: 1px solid rgba(162,55,42,.25); }
+.needs-cli .prompt-box { margin-top: 10px; }
+
+/* generic centered modal card (distinct from the full-screen .box viewer) */
+.modal-box { width: 620px; max-width: 92vw; max-height: 88vh; background: var(--surface); border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; }
+.modal-box header { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.modal-box header b { flex: 1; }
+.modal-box .modal-body { padding: 16px; overflow: auto; }
+.modal-box footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.modal-box .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.modal-box .field label { font-size: 12px; color: var(--muted); }
+.modal-box .field input, .modal-box .field select, .modal-box .field textarea {
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font: inherit; }
+
+/* image picker */
+.img-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.img-pick { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding: 6px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+.img-pick:hover { border-color: var(--accent); }
+.img-pick img { width: 100%; height: 70px; object-fit: cover; border-radius: 4px; }
+.img-pick .note { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- the editor --------------------------------------------------------- */
+.editor { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); z-index: 30; }
+.editor-bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.editor-bar .spacer { margin-left: auto; }
+.editor-title { max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-dirty { font-size: 12px; color: var(--accent); }
+.editor-hint.warn { color: #a2372a; font-weight: 600; }
+.editor-strip { display: flex; gap: 6px; padding: 8px 14px; overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--surface); }
+.ed-dot { position: relative; min-width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); cursor: pointer; font-size: 12px; }
+.ed-dot.active { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.ed-of { position: absolute; top: -6px; right: -6px; background: #a2372a; color: #fff; border-radius: 50%; width: 14px; height: 14px; font-size: 10px; line-height: 14px; }
+.editor-main { flex: 1; display: flex; min-height: 0; }
+.editor-stage { flex: 1; overflow: hidden; background: #3a3a38; display: flex; }
+.editor-frame { flex: 1; border: none; background: #3a3a38; }
+.editor-inspect { width: 280px; border-left: 1px solid var(--line); background: var(--surface); padding: 14px; overflow-y: auto; }
+.insp-crumb { font-size: 12px; color: var(--muted); margin-bottom: 8px; word-break: break-all; }
+.insp-slot { font-size: 11px; color: var(--accent); margin-bottom: 10px; }
+.editor-inspect .full { width: 100%; justify-content: center; margin-bottom: 8px; }
+.nudge-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; font-size: 12px; }
+.nudge-row label { flex: 1; color: var(--muted); font-family: var(--mono); font-size: 11px; }
+.nudge-val { min-width: 46px; text-align: center; font-size: 11px; }
