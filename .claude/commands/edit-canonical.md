@@ -6,7 +6,7 @@ description: Edit mode — change a library slide, recipe, canonical composition
 
 This is **Edit mode**: reworking the system itself, not personalizing a deck.
 Scope you may change here: `library/slides/`, `library/design-system/`,
-`types/*/recipe.md`, `decks/canonical/*/deck.yaml`, and the shared stylesheets
+`types/*/recipe.md`, `decks/*/deck.yaml`, and the shared stylesheets
 `templates/deck.css` / `templates/showcase.css`. (Personalizing a single deck for
 a situation is `/new-deck`; frozen variants are never touched here.)
 
@@ -34,18 +34,18 @@ State in one line what is changing and why — this becomes the commit message.
   `library/design-system/<group>/<name>.html` and put its CSS in `showcase.css`
   (or `deck.css` if truly systemic) **first**, then use it in the slide.
 - **A recipe / skeleton**: edit `types/<type>/recipe.md`.
-- **A canonical composition**: edit `decks/canonical/<type>/deck.yaml`.
+- **A canonical composition**: edit `decks/<type>/deck.yaml`.
 
 ## 3. Regenerate everything the change touches
 Rebuild every canonical deck that uses the touched slide(s), and refresh the
 design-system specimens if CSS changed:
 ```
-python tools/assemble-deck.py decks/canonical/product-showcase
-python tools/assemble-deck.py decks/canonical/management-outlook
+python tools/assemble-deck.py decks/product-showcase
+python tools/assemble-deck.py decks/management-outlook
 .\tools\build-pdf.ps1 -Deck decks\canonical\product-showcase
 .\tools\build-pdf.ps1 -Deck decks\canonical\management-outlook
-python tools/verify-deck.py decks/canonical/product-showcase
-python tools/verify-deck.py decks/canonical/management-outlook
+python tools/verify-deck.py decks/product-showcase
+python tools/verify-deck.py decks/management-outlook
 .\tools\build-slide-catalog.ps1        # refresh thumbnails + catalog
 .\tools\build-asset-index.ps1          # if images/manifest changed
 ```
@@ -55,18 +55,28 @@ Do the visual per-slide pass on any changed deck. Fix and repeat until clean.
 ```
 git add -A && git commit -m "<the one-line change>"
 ```
-When Floris declares this the new canonical best version, tag it — tagging is the
-explicit "mark canonical" act and `data-total`/counts must already be clean:
+When Floris declares this the new best version of a deck type, **publish it and
+mark it master** — the `canonical/<type>@vN` git tag is retired (Deck Studio 2.0):
 ```
-git tag canonical/<type>@vN+1
+python tools/publish-deck.py decks/<type> --master --type <type>
 ```
-"Look back at old versions" is then `git log`/`git show` on the fragment or the tag.
+`is_master` is one row per type, and the backend moves the flag off the previous
+holder. "Look back at old versions" is the version timeline in the app for
+content, and `git log`/`git show` on the fragment for the library.
 
-## 5. Frozen variants are untouched
-Existing `decks/variants/*` are frozen snapshots; do not regenerate them. If a
-variant should adopt the improvement, that is a new `/new-deck` run.
+## 5. Published artifacts are untouched
+A published version is immutable; improving the library never rewrites an
+artifact that already shipped. If an existing deck should adopt the improvement,
+that is a new build published with `--version-of <slug>`.
+
+## 6. Hand back to the app
+Close by telling Floris where to look, so the CLI → app direction is never a
+guess:
+
+> Published. Open it at **http://127.0.0.1:4173/#/decks** to review, fine-tune
+> the wording, and download the PDF.
 
 ## Promotion path (library grows from real work)
-When a **new** slide crafted inside a variant (`decks/variants/<slug>/slides/…`)
+When a **new** slide crafted inside a variant (`decks/<slug>/slides/…`)
 proves good, lift it into `library/slides/<id>/` with a proper `meta.yaml` here,
 add its specimen if it introduced a pattern, and let the next deck reuse it.

@@ -10,6 +10,7 @@ import { go } from "../router.js";
 import { icon, ibtn } from "../icons.js";
 import { deckVersionViewer } from "./viewer.js";
 import { openPersonalize } from "./personalize.js";
+import { explain, summarize } from "../verify.js";
 
 export function offlinePanel(area) {
   return el(`<div>
@@ -27,10 +28,11 @@ export async function renderDetail(id, mount) {
   try { data = await api.getDeck(id); }
   catch { return mount(offlinePanel("Deck")); }
   const { deck, versions, family } = data;
+  const pdf = data.pdf || { name: "", current: false, verify: null };
 
   const badges = [
     deck.is_master ? `<span class="badge badge--master">MASTER</span>` : "",
-    `<span class="badge">${esc(deck.type || "—")}</span>`,
+    `<span class="badge">${esc(deck.kind && deck.kind !== "deck" ? deck.kind : deck.type || "—")}</span>`,
     deck.audience_kind && deck.audience_kind !== "general" ? `<span class="tags">${esc(deck.audience_label || deck.audience_kind)}</span>` : "",
     deck.status === "needs_cli" ? `<span class="pill-status draft">needs CLI</span>` : `<span class="pill-status posted">ok</span>`,
   ].filter(Boolean).join("");
@@ -46,15 +48,18 @@ export async function renderDetail(id, mount) {
           <div class="cust-meta">${badges}<span class="mono note">${esc(deck.slug)}</span></div>
         </div>
         <div class="deck-actions">
-          <button class="primary" id="open">${ibtn("preview", "Open")}</button>
-          <button class="ghost" id="edit">${ibtn("compose", "Edit")}</button>
-          <button class="ghost" id="regen">${ibtn("refresh", "Regenerate PDF")}</button>
+          <button class="ghost" id="open">${ibtn("preview", "Open")}</button>
+          <button class="primary" id="edit">${ibtn("compose", "Edit")}</button>
+          <button class="ghost" id="download">${ibtn("download", "Download PDF")}</button>
+          <button class="ghost" id="rename">${ibtn("compose", "Rename")}</button>
           ${deck.is_master ? `<button class="ghost" id="personalize">${ibtn("clone", "Personalize")}</button>` : ""}
           <button class="ghost" id="master">${deck.is_master ? ibtn("layers", "Master ✓") : ibtn("layers", "Make master")}</button>
         </div>
       </div>
+      ${pdfStatusBar(pdf, deck)}
       ${deck.status === "needs_cli" ? needsCliBanner(deck) : ""}
       <div id="build-status"></div>
+      ${findingsBlock(pdf.verify)}
       <div class="section-head"><h2>Versions</h2><span class="section-count">${versions.length}</span></div>
       <div id="versions"></div>
       ${deck.is_master ? `<div class="section-head"><h2>Family</h2><span class="section-count">${family.length}</span></div><div id="family"></div>` : ""}
@@ -64,7 +69,8 @@ export async function renderDetail(id, mount) {
   $("#back", wrap).addEventListener("click", () => history.length > 1 ? history.back() : go("/output/masters"));
   $("#open", wrap).addEventListener("click", () => deckVersionViewer(api, deck.id, cur, decodeEntities(deck.title), versions.find((v) => v.n === cur)?.has_pdf));
   $("#edit", wrap).addEventListener("click", () => go(`/deck/${deck.id}/edit`));
-  $("#regen", wrap).addEventListener("click", () => regenerate(deck.id, wrap, mount));
+  $("#download", wrap).addEventListener("click", () => downloadCurrent(deck, cur, wrap, mount));
+  $("#rename", wrap).addEventListener("click", () => openRename(deck, pdf.name, mount));
   $("#personalize", wrap)?.addEventListener("click", () => openPersonalize(deck));
   $("#master", wrap).addEventListener("click", async () => {
     try {
@@ -86,6 +92,43 @@ export async function renderDetail(id, mount) {
   mount(wrap);
 }
 
+// "Is my PDF current?" — the one question the old UI could not answer. It never
+// showed a download at all until a build had run, so an edited deck looked as if
+// it had no PDF rather than a stale one.
+function pdfStatusBar(pdf, deck) {
+  const state = pdf.current
+    ? `<span class="pill-status posted">PDF is current</span>`
+    : `<span class="pill-status draft">PDF not printed yet</span>`;
+  const note = pdf.current
+    ? "This file matches the version on screen."
+    : "Download will print it from the current version first, so what you get always matches the screen.";
+  return `<div class="pdf-status">
+    ${state}
+    <span class="mono">${esc(pdf.name || "—")}</span>
+    <span class="note">${esc(note)}</span>
+  </div>`;
+}
+
+// The verify report, said in words, with who fixes each thing.
+function findingsBlock(report) {
+  const found = explain(report);
+  if (!found.length) return "";
+  const rows = found.map((f) => `
+    <li class="finding finding--${f.level}">
+      <div class="finding-head">
+        <b>${esc(f.title)}</b>
+        ${f.slideId ? `<span class="tags mono">${esc(f.slideId)}</span>` : ""}
+        <span class="tags">${esc(f.whereLabel)}</span>
+      </div>
+      ${f.fix ? `<div class="note">${esc(f.fix)}</div>` : ""}
+      <div class="note mono finding-detail">${esc(f.detail)}</div>
+    </li>`).join("");
+  const fails = found.filter((f) => f.level === "fail").length;
+  return `<div class="section-head"><h2>Verification</h2>
+      <span class="section-count">${fails ? `${fails} to fix` : "clean"}</span></div>
+    <ul class="findings">${rows}</ul>`;
+}
+
 function versionRow(deck, v, cur, mount) {
   const summary = v.verify_summary
     ? `<span class="tags ${v.verify_summary.fails ? "pill-status draft" : ""}">${v.verify_summary.fails} fail · ${v.verify_summary.warns} warn</span>`
@@ -99,7 +142,10 @@ function versionRow(deck, v, cur, mount) {
         ${summary}
         <div class="spacer">
           <button class="ghost icon-only view" title="View this version">${icon("preview")}</button>
-          ${v.has_pdf ? `<a class="ghost icon-only" href="${esc(api.deckPdfUrl(deck.id, v.n))}" download title="Download PDF">${icon("download")}</a>` : ""}
+          ${v.has_pdf || v.n === cur
+            ? `<a class="ghost icon-only" href="${esc(api.deckPdfUrl(deck.id, v.n))}" download
+                 title="${v.has_pdf ? "Download PDF" : "Print this version and download"}">${icon("download")}</a>`
+            : `<span class="ghost icon-only is-disabled" title="This older version was never printed">${icon("download")}</span>`}
           ${v.n !== cur ? `<button class="ghost icon-only restore" title="Restore as a new version">${icon("history")}</button>` : ""}
         </div>
       </div>
@@ -133,6 +179,108 @@ function needsCliBanner(deck) {
     <div><b>This deck needs the CLI.</b> The last regenerate failed verification: <span class="note">${esc(deck.needs_cli_reason)}</span></div>
     <div class="prompt-box"><code>${esc(prompt)}</code></div>
   </div>`;
+}
+
+// Download the current version. The server prints on demand when it is stale,
+// so this can take a few seconds the first time after an edit — say so rather
+// than looking frozen.
+async function downloadCurrent(deck, n, wrap, mount) {
+  const box = $("#build-status", wrap);
+  const btn = $("#download", wrap);
+  btn.disabled = true;
+  box.innerHTML = `<div class="build-status running">${icon("refresh", 15)} Printing the current version and verifying…</div>`;
+  try {
+    const name = await api.downloadDeckPdf(deck.id, n);
+    box.innerHTML = `<div class="build-status pass">${icon("info", 15)} Downloaded <span class="mono">${esc(name)}</span></div>`;
+    await loadBackend(api);
+    setTimeout(() => renderDetail(deck.id, mount), 900);
+  } catch (e) {
+    if (e.status === 409) {
+      box.innerHTML = "";
+      box.append(failedGate(deck, n, e, wrap, mount));
+    } else {
+      box.innerHTML = `<div class="build-status fail">Could not produce the PDF: ${esc(e.message)}</div>`;
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Verify failed, so the PDF is withheld from the version. You can still take the
+// file — explicitly, and clearly marked — because being unable to send anything
+// is worse than sending something you were warned about. It is never attached to
+// the version, so it can never become the PDF of record.
+function failedGate(deck, n, err, wrap, mount) {
+  const found = explain(err.verify_report);
+  const box = el(`<div class="build-status fail">
+    <b>Verification failed, so the PDF was not attached to this version.</b>
+    <ul class="findings findings--inline">${found.filter((f) => f.level === "fail").map((f) =>
+      `<li><b>${esc(f.title)}</b> <span class="tags">${esc(f.whereLabel)}</span><div class="note">${esc(f.fix || f.detail)}</div></li>`).join("")}</ul>
+    ${err.canDownloadUnverified ? `<button class="ghost" id="anyway">${ibtn("download", "Download anyway, marked unverified")}</button>` : ""}
+  </div>`);
+  $("#anyway", box)?.addEventListener("click", async () => {
+    try {
+      const name = await api.downloadDeckPdf(deck.id, n, { unverified: true });
+      toast(`Downloaded ${name}`);
+    } catch (e2) { toast(e2.message || "could not download"); }
+  });
+  return box;
+}
+
+// Rename: the title is yours entirely; the filename is yours in the middle only.
+// The date, the `oppr` token and the client slug stay system-owned because
+// verify-deck.py FAILs a PDF missing them, and a rename must not defeat a gate.
+function openRename(deck, currentName, mount) {
+  const m = el(`<div class="modal"><div class="modal-box">
+    <header><b>Rename</b><button class="ghost icon-only close" title="Close">${icon("close")}</button></header>
+    <div class="modal-body">
+      <div class="field"><label for="r-title">Title</label>
+        <input id="r-title" type="text" value="${esc(decodeEntities(deck.title))}" maxlength="200"></div>
+      <div class="field"><label for="r-core">Filename</label>
+        <input id="r-core" type="text" value="${esc(deck.pdf_core || "")}" placeholder="leave empty to derive from the slug"></div>
+      <p class="note">Result: <span class="mono" id="r-preview">${esc(currentName)}</span></p>
+      <p class="note">You choose the middle segment. The date, <span class="mono">oppr</span> and the client slug stay
+        automatic, because verify fails a PDF that is missing them.</p>
+      <div class="modal-actions"><button class="primary" id="r-save">Save</button></div>
+    </div>
+  </div></div>`);
+  const close = () => m.remove();
+  $(".close", m).addEventListener("click", close);
+  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+
+  const preview = () => {
+    const core = $("#r-core", m).value.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-");
+    const dm = /^(\d{4}-\d{2}-\d{2})[_-](.+)$/.exec(deck.slug);
+    let out;
+    if (deck.is_master) {
+      out = `oppr_${core || deck.type}.pdf`;
+    } else {
+      const parts = [];
+      if (dm) parts.push(dm[1]);
+      parts.push("oppr");
+      const body = core || (dm ? dm[2] : deck.slug);
+      if (body && body !== "oppr") parts.push(body);
+      if (deck.client_slug && !parts.join("-").includes(deck.client_slug)) parts.push(deck.client_slug);
+      out = parts.join("_") + ".pdf";
+    }
+    $("#r-preview", m).textContent = out;
+  };
+  $("#r-core", m).addEventListener("input", preview);
+
+  $("#r-save", m).addEventListener("click", async () => {
+    try {
+      const out = await api.renameDeck(deck.id, {
+        title: $("#r-title", m).value,
+        pdf_core: $("#r-core", m).value,
+      });
+      close();
+      await loadBackend(api);
+      toast(`Renamed. PDF will be ${out.pdf_name}`);
+      renderDetail(deck.id, mount);
+    } catch (e) { toast(e.message || "rename failed"); }
+  });
+  document.body.append(m);
+  setTimeout(() => $("#r-title", m).focus(), 30);
 }
 
 async function regenerate(id, wrap, mount) {

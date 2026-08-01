@@ -1,10 +1,11 @@
 // Slides: three view modes (cards / sections / table) + a detail page.
 
-import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
+import { $, $$, el, esc, decodeEntities, toast, ENTITLEMENTS } from "../util.js";
 import { state, setSlideView, slideById, addSlide, saveDraftLocal } from "../state.js";
 import { go } from "../router.js";
 import { previewFrame, fetchFragment } from "../preview.js";
 import { renderTray } from "../compose.js";
+import { downloadPanel } from "../download.js";
 import { historySection } from "./history.js";
 import { icon, ibtn } from "../icons.js";
 
@@ -61,7 +62,7 @@ function toolbar() {
         <input type="search" id="q" placeholder="Filter…" value="${esc(state.filter.q)}">
         <select id="section"><option value="">All sections</option>${sections.map((r) => `<option ${state.filter.section === r ? "selected" : ""}>${esc(r)}</option>`).join("")}</select>
         <select id="role"><option value="">All roles</option>${roles.map((r) => `<option ${state.filter.role === r ? "selected" : ""}>${esc(r)}</option>`).join("")}</select>
-        <select id="ent"><option value="">Any clearance</option>${["public", "named-customer", "mutares-family"].map((r) => `<option ${state.filter.entitlement === r ? "selected" : ""}>${esc(r)}</option>`).join("")}</select>
+        <select id="ent"><option value="">Any clearance</option>${ENTITLEMENTS.map((r) => `<option ${state.filter.entitlement === r ? "selected" : ""}>${esc(r)}</option>`).join("")}</select>
       </div>
     </div>`);
   $$("[data-view]", bar).forEach((b) => b.addEventListener("click", () => { setSlideView(b.dataset.view); go("/slides"); }));
@@ -126,9 +127,11 @@ function sectionsView(list) {
 }
 
 // ---- table ------------------------------------------------------------------
+// Which published artifacts use this slide. Sourced from the backend (see
+// /api/slide-usage) because decks/ on disk is scratch that gets deleted after a
+// publish — reading it used to crash this page once the folders went.
 function decksUsing(id) {
-  const all = [...state.index.decks.canonical, ...state.index.decks.variants];
-  return all.filter((d) => d.slides.includes(id)).map((d) => d.slug);
+  return state.slideUsage?.[id] || [];
 }
 function tableView(list) {
   const rows = list.map((s) => {
@@ -186,6 +189,7 @@ export function renderDetail(id) {
             </dl>
             ${s.notes ? `<p class="note">${esc(s.notes)}</p>` : ""}
           </div>
+          <div id="dl-panel"></div>
           <div class="panel">
             <h2>Used in</h2>
             ${decks.length ? `<ul class="plain">${decks.map((d) => `<li><a href="#/decks">${esc(d)}</a></li>`).join("")}</ul>` : `<p class="note">Not used in any deck yet.</p>`}
@@ -201,6 +205,7 @@ export function renderDetail(id) {
   wrap.querySelector("#back").addEventListener("click", () => go("/slides"));
   const addBtnEl = wrap.querySelector("#add-detail");
   if (addBtnEl) addBtnEl.addEventListener("click", () => { addSlide(id); toast("Added to draft"); renderTray(); });
+  wrap.querySelector("#dl-panel").replaceWith(downloadPanel("slide", id));
   wrap.querySelector("#preview-col").append(previewFrame(fetchFragment(id), 720));
   wrap.querySelector("#history-col").append(historySection(id));
   return wrap;

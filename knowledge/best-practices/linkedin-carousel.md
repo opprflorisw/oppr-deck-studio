@@ -163,6 +163,8 @@ Compose only from the documented blocks below, then:
 ```powershell
 .\tools\build-carousel.ps1 -Carousel social\linkedin\<date>_<slug>
 python tools\verify-carousel.py social\linkedin\<date>_<slug>   # or --all
+python tools\publish-social.py       # publish to the backend: without this the
+                                      # app never sees it. Then read the row back.
 ```
 
 `verify-carousel.py` is the automated gate. It FAILs on: em dashes, unfilled

@@ -1,12 +1,14 @@
-// The fine-tuning editor (Deck Studio v3, §6.3). Loads a deck version into a
+// The fine-tuning editor. Loads an ARTIFACT version — deck, carousel or social
+// image, they are one model since Deck Studio 2.0 — into a
 // SAME-ORIGIN iframe (served from the local cache) and edits the final DOM with
 // three bounded verbs — text in place, layout nudges, image swaps. Every save
 // is a new version; the server re-validates that the change is structure-
 // preserving (text/attribute only) and rejects anything else with a CLI prompt.
 //
-// One authoritative document lives in the iframe. Slides are shown one at a time
-// by scaling the whole deck and scrolling to the active section. Saving
-// serializes the entire document, so every slide's edits are captured.
+// One authoritative document lives in the iframe. Pages are shown one at a time
+// by scaling the container and scrolling to the active section. The canvas size
+// comes from the artifact's page_format, so a 4:5 carousel scales correctly.
+// Saving serializes the entire document, so every page's edits are captured.
 
 import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
 import { state, loadBackend } from "../state.js";
@@ -14,7 +16,21 @@ import * as api from "../api.js";
 import { go } from "../router.js";
 import { icon, ibtn } from "../icons.js";
 
-const SLIDE_W = 1280, SLIDE_H = 720;
+// Page geometry per format, in CSS pixels. Deck Studio 2.0: the editor is no
+// longer deck-only, so the canvas size comes from the artifact's page_format
+// instead of being hardcoded to 16:9. These must match templates/deck.css and
+// templates/linkedin.css @page, and verifylib.PAGE_FORMATS.
+const PAGE_SIZES = {
+  "deck-16x9": [1280, 720],
+  "linkedin-4x5": [1080, 1350],
+  "square-1x1": [1080, 1080],
+  "hero-1200x627": [1200, 627],
+};
+const DEFAULT_PAGE = PAGE_SIZES["deck-16x9"];
+
+// A deck wraps its pages in .deck; a carousel/image wraps them in .carousel.
+const PAGE_CONTAINER = ".deck, .carousel";
+
 const NUDGE = ["margin-top", "margin-bottom", "margin-left", "margin-right", "padding-top", "padding-bottom", "gap", "font-size", "line-height", "max-width"];
 
 export async function render(id, mount) {
@@ -24,6 +40,8 @@ export async function render(id, mount) {
   catch { return mount(el(`<div class="loading">Backend not reachable. <a href="#/output/masters">Back</a></div>`)); }
   const deck = data.deck;
   const n = deck.current_version_n;
+  const [SLIDE_W, SLIDE_H] = PAGE_SIZES[deck.page_format] || DEFAULT_PAGE;
+  const pageWord = deck.kind && deck.kind !== "deck" ? "page" : "slide";
 
   const wrap = el(`
     <div class="editor">
@@ -44,7 +62,7 @@ export async function render(id, mount) {
           <iframe id="frame" class="editor-frame"></iframe>
         </div>
         <aside class="editor-inspect" id="inspect">
-          <p class="note">Select an element in the slide to edit it.</p>
+          <p class="note">Select an element in the ${pageWord} to edit it.</p>
         </aside>
       </div>
     </div>`);
@@ -80,8 +98,8 @@ export async function render(id, mount) {
   function setup() {
     const doc = idoc();
     if (!doc) return;
-    const deckEl = doc.querySelector(".deck");
-    if (!deckEl) { inspect.innerHTML = `<p class="note">Could not read this deck.</p>`; return; }
+    const deckEl = doc.querySelector(PAGE_CONTAINER);
+    if (!deckEl) { inspect.innerHTML = `<p class="note">Could not read this artifact: no .deck or .carousel container.</p>`; return; }
     st.sections = [...deckEl.children].filter((c) => c.tagName === "SECTION");
 
     // scale the whole deck so one slide fills the stage; scroll to the active one
@@ -95,8 +113,15 @@ export async function render(id, mount) {
 
   function layout() {
     const doc = idoc(); if (!doc) return;
-    const deckEl = doc.querySelector(".deck");
-    const scale = Math.min(1, (stage.clientWidth - 40) / SLIDE_W);
+    const deckEl = doc.querySelector(PAGE_CONTAINER);
+    // Fit BOTH dimensions. Scaling on width alone was fine while every artifact
+    // was 16:9, but a 4:5 carousel is taller than it is wide, so a width-only
+    // scale renders it at full height and it overflows the stage.
+    const scale = Math.min(
+      1,
+      (stage.clientWidth - 40) / SLIDE_W,
+      (stage.clientHeight - 40) / SLIDE_H,
+    );
     deckEl.style.transformOrigin = "top left";
     deckEl.style.transform = `scale(${scale})`;
     doc.body.style.height = `${SLIDE_H * st.sections.length * scale}px`;
@@ -126,7 +151,7 @@ export async function render(id, mount) {
   function wireSelection(doc) {
     doc.addEventListener("click", (e) => {
       const target = e.target.closest("*");
-      if (!target || target === doc.body || target.classList.contains("deck")) return;
+      if (!target || target === doc.body || (target.classList.contains("deck") || target.classList.contains("carousel"))) return;
       select(target);
     }, true);
   }
@@ -271,7 +296,7 @@ export async function render(id, mount) {
     doc.querySelectorAll("[class]").forEach((n) => { if (!n.getAttribute("class").trim()) n.removeAttribute("class"); });
     const styleTag = doc.getElementById("__ed-style");
     if (styleTag) styleTag.remove();
-    const deckEl = doc.querySelector(".deck");
+    const deckEl = doc.querySelector(PAGE_CONTAINER);
     const savedTransform = deckEl.style.transform; deckEl.style.transform = "";
     const savedH = doc.body.style.height; doc.body.style.height = "";
     st.selected = null;
@@ -341,7 +366,7 @@ function isTextEditable(node) {
 function breadcrumb(node) {
   const parts = [];
   let n = node;
-  while (n && !n.classList.contains("deck") && parts.length < 4) {
+  while (n && !(n.classList.contains("deck") || n.classList.contains("carousel")) && parts.length < 4) {
     parts.unshift(n.tagName.toLowerCase());
     n = n.parentElement;
   }

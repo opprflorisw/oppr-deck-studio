@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Move file-based CONTENT into the backend so the repo can be tool-only
+Publish social output into the backend so the repo stays tool-only.
 (Deck Studio v3 cleanup). Uploads:
 
   social/<channel>/<slug>/*   -> deck-files/social/...   + social_outputs rows
@@ -10,7 +10,7 @@ Files are uploaded at their repo-relative path (e.g. deck-files/social/linkedin/
 <slug>/index.html), so the agent's /repo fallback can serve them back by the
 same path and the app is unchanged. Re-runnable: rows upsert; uploads overwrite.
 
-    python tools/migrate-content.py
+    python tools/publish-social.py
 """
 from __future__ import annotations
 

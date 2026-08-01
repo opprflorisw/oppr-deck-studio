@@ -64,6 +64,46 @@ function printPdf(indexHtml, outPdf) {
   });
 }
 
+// Page geometry in CSS px per format — must match verifylib.PAGE_FORMATS and
+// editor.js PAGE_SIZES. A PNG needs an explicit window size or the browser
+// screenshots its default viewport and crops the page.
+const PAGE_PX = {
+  "deck-16x9": [1280, 720],
+  "linkedin-4x5": [1080, 1350],
+  "square-1x1": [1080, 1080],
+  "hero-1200x627": [1200, 627],
+};
+
+// Print a single-page document (a library element) to PDF or PNG, using the
+// same headless browser the deck build uses so an exported element matches a
+// built one exactly.
+export function printElement(indexHtml, outFile, format) {
+  return new Promise((resolve, reject) => {
+    const browser = findBrowser();
+    if (!browser) return reject(new Error("no Chrome or Edge found"));
+    let pageFormat = "deck-16x9";
+    try {
+      const m = /"page_format":\s*"([^"]+)"/.exec(fs.readFileSync(indexHtml, "utf-8"));
+      if (m && PAGE_PX[m[1]]) pageFormat = m[1];
+    } catch {}
+    const [w, h] = PAGE_PX[pageFormat];
+    const userDir = path.join(os.tmpdir(), `oppr-el-${Date.now()}`);
+    const args = [
+      "--headless=new", "--disable-gpu", "--no-pdf-header-footer",
+      `--user-data-dir=${userDir}`, "--virtual-time-budget=8000",
+      `--window-size=${w},${h}`,
+      format === "png" ? `--screenshot=${outFile}` : `--print-to-pdf=${outFile}`,
+      fileUri(indexHtml),
+    ];
+    const child = spawn(browser, args);
+    child.on("error", reject);
+    child.on("close", async () => {
+      await fsp.rm(userDir, { recursive: true, force: true }).catch(() => {});
+      fs.existsSync(outFile) ? resolve(outFile) : reject(new Error(`${format} was not produced`));
+    });
+  });
+}
+
 function runPython(args) {
   return new Promise((resolve) => {
     const attempts = [["python", args], ["py", ["-3", ...args]]];
@@ -88,11 +128,17 @@ function slugify(s) {
   return String(s).toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-function pdfNameFor(deck) {
-  if (deck.is_master) return `oppr_${slugify(deck.type)}.pdf`;
+// The filename is part system-owned, part yours. `pdf_core` (set by rename) is
+// the only segment you choose; the date prefix, the mandatory `oppr` token and
+// the client slug stay derived, because verify-deck.py FAILs a PDF missing
+// `oppr` or a named client's slug and a rename must not be able to defeat that.
+export function pdfNameFor(deck) {
+  const chosen = slugify(deck.pdf_core || "");
+  if (deck.is_master) return `oppr_${chosen || slugify(deck.type)}.pdf`;
   const m = /^(\d{4}-\d{2}-\d{2})[_-](.+)$/.exec(deck.slug);
   let date = "", core = slugify(deck.slug);
   if (m) { date = m[1]; core = slugify(m[2]); }
+  if (chosen) core = chosen;
   const parts = [];
   if (date) parts.push(date);
   parts.push("oppr");
@@ -109,15 +155,34 @@ export function startBuild(deck) {
   if (existing) return { jobId: existing, already: true };
   const id = newId();
   const n = deck.current_version_n;
-  const job = { id, deckId: deck.id, versionN: n, state: "running", verify_report: null, pdf: null, error: "" };
+  const job = { id, deckId: deck.id, versionN: n, state: "running", verify_report: null, pdf: null, localPdf: null, error: "" };
   jobs.set(id, job);
   runningByDeck.set(deck.id, id);
-  _run(job, deck).catch((e) => {
+  job.done = _run(job, deck).catch((e) => {
     job.state = "error"; job.error = String(e.message || e);
   }).finally(() => {
     runningByDeck.delete(deck.id);
   });
   return { jobId: id, already: false };
+}
+
+// Build to completion and resolve with the finished job.
+//
+// The download path uses this: a version saved in the editor has no PDF until
+// something prints one, and serving an older version's file instead would hand
+// back a document that silently does not match what is on screen. So a stale
+// download prints first and waits.
+export async function buildAndWait(deck) {
+  const existing = runningByDeck.get(deck.id);
+  if (existing) {
+    const running = jobs.get(existing);
+    if (running?.done) await running.done;
+    return running;
+  }
+  const { jobId } = startBuild(deck);
+  const job = jobs.get(jobId);
+  await job.done;
+  return job;
 }
 
 async function _run(job, deck) {
@@ -128,6 +193,10 @@ async function _run(job, deck) {
   const outPdf = path.join(dir, pdfName);
 
   await printPdf(indexHtml, outPdf);
+  // Keep the printed file reachable even if verify FAILs, so the UI can offer an
+  // explicit "download unverified" without ever attaching it to the version.
+  job.localPdf = outPdf;
+  job.pdfName = pdfName;
 
   const verify = await runPython([path.join(TOOLS, "verify-deck.py"), "--snapshot", "--json", dir]);
   let report = { fails: ["verify did not run"], warns: [], entries: [] };

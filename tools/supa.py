@@ -16,6 +16,7 @@ PostgREST tables live under {URL}/rest/v1/<table>; Storage objects under
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 import requests
@@ -41,6 +42,11 @@ def load_env() -> dict:
         if os.environ.get(k):
             env[k] = os.environ[k]
     return env
+
+
+_HAS_OP = re.compile(
+    r"^(eq|neq|gt|gte|lt|lte|like|ilike|is|in|cs|cd|ov|fts|plfts|phfts|wfts|not)\."
+)
 
 
 class Supa:
@@ -76,7 +82,11 @@ class Supa:
 
     def update(self, table: str, match: dict, values: dict) -> list:
         h = {**self._h, "Prefer": "return=representation"}
-        params = {k: f"eq.{v}" for k, v in match.items()}
+        # A match value may already carry a PostgREST operator ("neq.deck",
+        # "in.(a,b)"). Prefixing eq. onto those produced "eq.neq.deck", which
+        # matches nothing and updates zero rows WITHOUT erroring — a silent
+        # no-op that reads exactly like success. Pass operators through.
+        params = {k: (v if _HAS_OP.match(str(v)) else f"eq.{v}") for k, v in match.items()}
         r = requests.patch(f"{self.rest}/{table}", headers=h, params=params, json=values, timeout=30)
         if not r.ok:
             raise SystemExit(f"ERROR updating {table}: {r.status_code} {r.text[:400]}")

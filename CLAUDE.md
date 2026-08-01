@@ -22,9 +22,12 @@ should be able to build a deck from these docs alone.
 3. **Deck types (recipes / the "living brain")** — `types/<type>/recipe.md` : the
    reusable brief per presentation type (goal, audience, skeleton, learnings).
    See `types/CLAUDE.md`.
-4. **Canonical decks + frozen variants** — `decks/canonical/<type>/` are the
-   masters (a `deck.yaml` composition); `decks/variants/<slug>/` are frozen,
-   shipped snapshots. See `decks/CLAUDE.md`.
+4. **Artifacts (the one model)** — every built thing (deck, carousel, social
+   image, article) is a row in `decks` with a `kind`, and its content is an
+   immutable `deck_versions` row. **`decks/<slug>/` on disk is build scratch**:
+   the CLI assembles there, publishes, confirms, and the folder is disposable.
+   A master is a **tag** (`is_master`, one per type), not a folder. A new version
+   is a new row, never a `<slug>-v2/` folder. See `decks/CLAUDE.md`.
 5. **Workflows** — `.claude/commands/deckbuilder.md` is the **orchestrator front
    door** (`/deckbuilder`) that routes a plain-language request to the right
    workflow. Underneath: `new-deck.md` (Personalize), `edit-canonical.md` (Edit),
@@ -33,22 +36,41 @@ should be able to build a deck from these docs alone.
 6. **Intake inbox** — `dump/` : drop past decks / event material / images here;
    `/ingest-dump` files each piece into its home (library, images, brief,
    references) and leaves `dump/` empty. See `dump/CLAUDE.md`.
-7. **Deck Studio App** — `app/` : a local **customer-first cockpit** (`npm run
-   dev`) over the **v3 backend** (Supabase). Sidebar: **Customers** (home) ·
-   **Output** (Masters + Company decks) · **Library** · **Knowledge**. Decks live
-   in the backend as versioned HTML; the app opens a deck, **fine-tunes** it
-   (text, layout nudges, entitlement-filtered image swaps), saves a new version,
-   and **regenerates the PDF** through the same verify gate as the CLI. Masters
-   are a tag (Personalize a master → a customer/event deck with lineage). The app
-   talks only to the **local agent** (`app/server.mjs` + `app/lib/*`), which holds
-   the Supabase secret key and runs assemble/print/verify; the browser never sees
-   the key. Authoring (new decks/slides, structural change) stays CLI. See
-   `app/README.md` and `.scratch/deck-app/hybrid-editor/report_and_implementation.md`.
+7. **Deck Studio App** — `app/` : the local cockpit (`npm run dev` →
+   http://127.0.0.1:4173). **This is where you change and ship anything.**
+   Sidebar: **Customers** (home) · **Decks** · **Social output** · **Library** ·
+   **Last 30 days** · **Knowledge**.
+
+   Open any artifact and **Edit** it in place: click text and retype, nudge
+   spacing, swap an entitlement-filtered image. Every save is a new immutable
+   version. **Download PDF** always gives you the version on screen, printing it
+   on demand if it has not been printed yet. **Rename** sets the title and the
+   filename's middle segment. Carousels and social images work exactly like
+   decks, because they are the same artifact model. In the Library, any slide or
+   design-system block can be **downloaded on its own** as self-contained HTML,
+   PNG or PDF.
+
+   The browser talks only to the **local agent** (`app/server.mjs` + `app/lib/*`),
+   which holds the Supabase secret key and runs print/verify; the browser never
+   sees the key. Creating anything new, and any structural change, stays CLI —
+   the app tells you when you have hit that wall and hands you the prompt. See
+   `app/README.md`.
 8. **Social output** — `social/<channel>/<date>_<slug>/` : brand-styled
    carousels (4:5, `tools/build-carousel.ps1`), posts, articles, images,
    thumbnails. Made via `/deckbuilder`. Public by definition — no named-customer
    material. See `social/CLAUDE.md`.
-9. **Knowledge** — `knowledge/` : the design brain in the open —
+9. **Market listening** — `research/last30days/` : every `/last30days` run
+   recorded as structured knowledge (`runs/<slug>/run.json`), folded by
+   `tools/research-brain.py` into an accumulating **brain** (themes gain
+   confidence as evidence repeats) plus LinkedIn drafts in `posts/`. This
+   folder is `LAST30DAYS_MEMORY_DIR`; research lives in the repo, not in
+   `~/Documents`. Ideas are cheap; **promoting** one turns it into a
+   `social/drafts/` draft (with its 1200×627 hero for an article) that
+   `/deckbuilder` then builds. Engagement recorded after posting rolls back up
+   per theme, so every belief carries both `confidence` (did the evidence
+   repeat) and `audience` (did anyone respond). Surfaced in the app's
+   **Last 30 days** area. See `research/CLAUDE.md`.
+10. **Knowledge** — `knowledge/` : the design brain in the open —
    `design-philosophy.md` and living `best-practices/<type>.md` docs
    (platform facts + how Oppr applies them + dated learnings). Surfaced in the
    app's Knowledge/Config pages. See `knowledge/CLAUDE.md`.
@@ -88,21 +110,56 @@ computed from the output location). **Any unfilled `{{placeholder}}` is a hard
 error** — none ever reaches a PDF. Variants may hold local slide overrides under
 `decks/variants/<slug>/slides/<id>/slide.html` that win over the library.
 
+## Nothing is done until it is in the backend (MANDATORY, every artifact)
+
+The repo is **tool-only**. Content lives in Supabase, and the app shows what the
+backend holds, not what happens to be on this disk. **A file written to the repo
+is invisible to Floris.** So every build ends with its publish step, and the run
+is not finished, reported or called done until that step has run and been checked.
+
+| What you built | Publish it with | Lands in |
+|---|---|---|
+| A deck (`decks/<slug>/`) | `python tools\publish-deck.py decks\<slug> [--customer <s>]` | `decks` + `deck_versions` (+ PDF object, assets) |
+| Any social output (`social/<channel>/<slug>/`) | `python tools\publish-social.py` then `python tools\import-social.py` | `decks` + `deck_versions` as `kind=carousel\|image\|article` |
+| A `/last30days` run or the brain | `POST /api/research/sync` (app), after `python tools\research-brain.py` | Storage |
+
+Then **verify it landed** — publishing is not proof. Query the row back and
+download one stored object; a registry row whose bytes never uploaded looks
+identical to a healthy one from the CLI's output:
+
+```powershell
+python -c "import sys;sys.path.insert(0,'tools');from supa import Supa;sb=Supa();`
+r=sb.select('social_outputs',{'slug':'eq.<slug>','select':'*'});print(r);print(len(sb.download(r[0]['pdf_path'])))"
+```
+
+Two things that are **deliberately not** published, so do not 'fix' them:
+`social/drafts/` and `decks/drafts/` are staging (the CLI builds them into real
+outputs first), and anything personal or named-recipient never becomes public
+social output at all. If a piece belongs in neither place, say so explicitly in
+the hand-off rather than leaving it on disk and calling it delivered.
+
 ## Build & verify (MANDATORY before calling a deck done)
 
 ```powershell
-python tools\assemble-deck.py decks\<canonical-or-variant-path>
-.\tools\build-pdf.ps1 -Deck decks\<...>
-python tools\verify-deck.py decks\<...>
-# v3: publish the verified deck to the backend (it becomes the living deck)
-python tools\publish-deck.py decks\<...> [--master --type <t>] [--customer <slug>] `
+python tools\assemble-deck.py decks\<slug>
+.\tools\build-pdf.ps1 -Deck decks\<slug>
+python tools\verify-deck.py decks\<slug>
+# publish the verified artifact: from here on, THIS is the artifact
+python tools\publish-deck.py decks\<slug> [--master --type <t>] [--customer <slug>] `
     [--derived-from <deck-slug>]        # or --version-of <slug> to add a version
+python tools\check-docs.py --check      # if you moved, renamed or deleted anything
 ```
+Then **delete `decks/<slug>/`**: it is build scratch, and the artifact now lives
+in the backend. A social output publishes with `publish-social.py` and then
+`import-social.py`, which brings it into the same artifact model as a deck.
+
 To build a new deck **from an existing one** (reproduction), first
 `python tools\fetch-deck.py <slug>` and read the fetched HTML as content source,
 then compose + publish with `--derived-from <slug>`.
 
-`verify-deck.py` is the automated gate (SPEC.md §9): page count == slide count ==
+`verify-deck.py` is the automated gate, and it is **format-aware**: the rules it
+applies come from the artifact's `page_format` (see `verifylib.PAGE_FORMATS`), so
+a carousel is checked as a carousel. For a deck: page count == slide count ==
 every `data-total`; page size 13.333×7.5 in; **zero em dashes**; zero unfilled
 `{{...}}`; footer discipline; images resolve and their entitlement ≤ the deck's
 clearance (no customer-name leaks); WARNs on Anglo euro formatting and blank pages.
@@ -125,7 +182,14 @@ manual regeneration.
   deck.yaml, or as a variant-local slide override — never by editing the library
   from `/new-deck`. Named customer material only in decks cleared for it: the
   `entitlement` field in `brand/img/library.json` and `allowed_entitlements` in
-  deck.yaml enforce this mechanically (Holliday/Venator → `mutares-family` only).
+  deck.yaml enforce this mechanically. **Clearance is one slug per customer**
+  (2026-08-01): `public` plus `mutares`, `holliday`, `venator`, `attero`,
+  `keeeper`, `omniplast`, `sonneborn`, `host`, `selo`, `wavin`. The old
+  `mutares-family` grouping and the generic `named-customer` bucket are gone:
+  Mutares is a company in its own right and each company acquired through it is a
+  separate customer at the same level, because a PE-level pitch and a plant-level
+  pitch are different decks. A deck must be cleared for exactly the customers it
+  names, so a Holliday deck naming Attero is now a hard FAIL.
 - **Brand + canonical language** live in `brand/BRAND.md` — colors, type, the
   Capture → Connect → Execute framing (never LOGS/IDA/DOCS as the story),
   Analyze → Prove → Scale path, verified reference stats, current pricing. Verify
@@ -136,31 +200,56 @@ manual regeneration.
 - **Tone.** Short, declarative, concrete, no hype. European number formatting
   (€ 25.000 · 0,5%). No em dashes (en dashes for numeric ranges are fine). Payback
   claims are labelled illustrative and deliberately conservative.
-- **Decks live in the backend as versioned HTML (v3).** After a CLI build, the
-  deck is **published** to Supabase as a self-contained HTML snapshot (inlined
-  CSS + bundled assets). From there it is the deck: the app edits it and every
-  save is a new immutable version; the "current" pointer moves; git no longer
-  versions decks (it versions the tool). Old "variants are frozen" is superseded
-  by immutable versions. Masters are a **tag** (one per type), not the
-  `decks/canonical/` folder. See `.scratch/deck-app/hybrid-editor/report_and_implementation.md`.
-- **PDF naming.** Every built PDF carries `oppr`, and a named-client deck carries
-  the client slug: `YYYY-MM-DD_oppr_<type-or-purpose>[_<client>].pdf` (canonical:
-  `oppr_<type>.pdf`). `build-pdf.ps1` derives it from `deck.yaml` (add a top-level
-  `client:` for a named deck); `verify-deck.py` FAILs a PDF missing `oppr` or the
-  client slug. LinkedIn PDFs follow the same rule.
+- **Every artifact lives in the backend as versioned HTML.** After a CLI build,
+  the artifact is **published** to Supabase as a self-contained snapshot (inlined
+  CSS + bundled assets). From there it *is* the artifact: the app edits it and
+  every save is a new immutable version; the "current" pointer moves; git
+  versions the tool, not the content. Masters are a **tag** (one per type).
+- **One artifact model (2026-08-01).** A deck, a carousel, a social image and an
+  article are the same record, told apart by `kind` on the `decks` row, with
+  `page_format` declaring the geometry (`deck-16x9`, `linkedin-4x5`,
+  `square-1x1`, `hero-1200x627`). That is what lets **one** editor, **one**
+  verify gate, **one** build job and **one** version history serve all of them.
+  Never add a parallel store for a new output type: give it a `kind`.
+- **One verify gate, several rule sets.** `tools/verifylib.py` is the single
+  source. The brand rules (no em dashes, no unfilled placeholders, no
+  customer-name leak, image entitlement ≤ clearance, European numbers, `oppr` in
+  the filename) are **universal**. Only page geometry and the deck-specific
+  structural rules (footer discipline, `data-total`) vary, by `page_format`, from
+  `verifylib.PAGE_FORMATS`. `app/lib/htmlcheck.mjs` is a different gate with a
+  different job: it checks a save is structure-preserving.
+- **PDF naming, and the freshness rule.** Every built PDF carries `oppr`, and a
+  named-client deck carries the client slug:
+  `YYYY-MM-DD_oppr_<core>[_<client>].pdf` (master: `oppr_<type>.pdf`).
+  `verify-deck.py` FAILs a PDF missing `oppr` or the client slug. The app's
+  **Rename** sets `<core>` and the title only; the date, `oppr` and the client
+  slug stay system-owned so a rename cannot defeat the gate. **A downloaded PDF
+  is always the version on screen** — a version with no PDF is printed on demand
+  rather than falling back to an older file.
 - **Secrets never in the repo.** Real keys live only in `.env` (gitignored);
   `.env.example` lists the variable names. Nothing checked in ever contains a key.
-- **Authoring is CLI-only; the app fine-tunes and re-prints (v3).** New decks,
-  new slides and structural changes stay in the CLI (recipes, design-system rule,
-  approval gate, entitlement clearance). The app **edits the published HTML**
-  (text, layout nudges, entitlement-filtered image swaps) and can **regenerate
-  the PDF**, running the exact same `verify` gate as the CLI (`tools/verifylib.py`)
-  — a failed verify withholds the PDF and flags the deck **needs CLI**. The
-  server re-validates every save is structure-preserving (`app/lib/htmlcheck.mjs`),
-  so the boundary never depends on the browser. The app writes staging areas
-  (`dump/_app/`, legacy `decks/drafts/`, `social/drafts/`) and the backend (deck
-  versions, publish_log) via the local agent; it never writes `library/`,
-  `brand/` or `templates/`.
+- **The CLI creates; the app changes and ships.** This is the boundary, and it
+  runs in both directions so you are never stuck on the wrong side of it.
+
+  | The CLI creates | The app changes and ships |
+  |---|---|
+  | A new deck, carousel, post or article | Edit text, spacing, images in place |
+  | A new library slide or design-system block | Save a new version (immutable) |
+  | Any **structural** change (add/remove/reorder a page) | Rename the artifact and its PDF |
+  | Image generation, ingest, research runs | Regenerate + download the PDF |
+  | | Personalize a master; mark posted; download a library element |
+
+  It is enforced in code, not by convention: `app/lib/htmlcheck.mjs` fingerprints
+  every save server-side and rejects anything beyond text/attribute level, so the
+  boundary never depends on the browser. When the app refuses, it shows the exact
+  CLI prompt and **clicking it copies it**. The app writes only staging areas
+  (`dump/_app/`, `decks/drafts/`, `social/drafts/`) and the backend; it never
+  writes `library/`, `brand/` or `templates/`.
+- **Documentation is checked, not trusted.** `python tools\check-docs.py --check`
+  fails when a path, tool or command named in any `CLAUDE.md` / README does not
+  exist. Run it after moving or deleting anything. It is the mechanical half of
+  the anti-drift rule; the other half is stating each rule **once** and linking
+  to it from everywhere else.
 
 ## Structure
 
@@ -171,43 +260,73 @@ manual regeneration.
 - `library/` — `slides/<id>/` (fragments + meta + thumb) and generated `catalog.html`;
   `design-system/` (block specimens); `icons/` (reusable icon set + `icons.json`)
 - `types/` — `<type>/recipe.md` per presentation type
-- `decks/` — `canonical/<type>/` (masters), `variants/<slug>/` (frozen), and
-  `drafts/<slug>/` (pending drafts from the app; normally empty)
+- `decks/` — **build scratch only** (gitignored): the CLI assembles into
+  `decks/<slug>/`, publishes, confirms it landed, and the folder is disposable.
+  Plus `drafts/<slug>/` (pending drafts from the app; normally empty). The deck
+  itself lives in the backend.
 - `customers/<slug>/` — one folder per customer (`customer.yaml` + logo);
   CLI-owned (filed by `/ingest-dump` from a `dump/_app/` intake), read by the app.
   A customer's decks are matched by the `client:` slug on its variants.
 - `social/` — `<channel>/<date>_<slug>/` outputs (carousels, posts, articles,
   images, thumbnails) + `drafts/` staging
 - `knowledge/` — `design-philosophy.md`, `best-practices/<type>.md` (living docs)
+- `research/last30days/` — recorded `/last30days` runs (`runs/<slug>/run.json`
+  + `raw.md` + `brief.html`), the generated `brain.json`/`brain.md`, and
+  LinkedIn drafts in `posts/`. Rebuild with `python tools/research-brain.py`.
 - `app/` — the Deck Studio App (`server.mjs`, `web/`; `npm run dev`)
-- `tools/` — `deckstudio.py` (engine), `assemble-deck.py`, `verify-deck.py`,
-  `verify-carousel.py` (the carousel gate, enforces the LinkedIn playbook),
-  `build_app_index.py`, `deck_pdf_name.py`, `generate-image.py`,
-  `build-pdf.ps1`, `build-carousel.ps1`, `build-social-image.ps1`,
-  `build-asset-index.ps1`, `build-slide-catalog.ps1`
+- `tools/` — the engine and the gates:
+  - **compose + publish**: `deckstudio.py`, `assemble-deck.py`, `snapshot.py`
+    (deck folder → self-contained snapshot), `snapshot_html.py` (an already-built
+    HTML document → self-contained snapshot), `publish-deck.py`, `fetch-deck.py`,
+    `publish-social.py`, `import-social.py` (social output → the one artifact model)
+  - **gates**: `verifylib.py` (the single rule source), `verify-deck.py`,
+    `verify-carousel.py` (the LinkedIn playbook), `check-docs.py` (doc drift)
+  - **render + export**: `build-pdf.ps1`, `build-carousel.ps1`,
+    `build-social-image.ps1`, `build-article-hero.py`, `pdf-thumbs.py`,
+    `export-element.py` (one library element as self-contained HTML/PNG/PDF)
+  - **indexes**: `build_app_index.py`, `build-asset-index.ps1`,
+    `build-slide-catalog.ps1`, `build-design-system.ps1`
+  - **other**: `supa.py` (backend client), `deck_pdf_name.py`,
+    `generate-image.py`, `research-brain.py` (`--check` for CI)
 - `dump/` — the intake inbox (drop material to seed a deck; ends empty)
 - `.env.example` — names of secrets; copy to `.env` (gitignored) and fill in
 - `.claude/commands/` — `deckbuilder.md` (front door), `new-deck.md`,
   `edit-canonical.md`, `ingest-dump.md`
-- `.scratch/deck-tool/` + `.scratch/deck-app/` — the wayfinder maps, SPECs, research
+- `.scratch/` — the design history. `README.md` there says which map is **live**
+  and what superseded each of the others. Exactly one map is live at a time.
 
 ## Versioning
 
-The repo is under git. Canonical "best versions" are git tags
-`canonical/<type>@vN`; "look back" is `git log`/`git show` on a fragment or tag.
-Variants record provenance in their `manifest.yaml` (source canonical + per-slide
-commit). PDFs (canonical and variant) are committed — the shipped artifact and record.
+The repo is under git, and git versions **the tool**. Content is versioned in the
+backend: `deck_versions.n`, immutable, one row per save, with the "current"
+pointer on the deck row. "Look back" on an artifact is its version timeline in
+the app; "look back" on the tool is `git log` / `git show`.
+
+The old `canonical/<type>@vN` git tags are **retired** — a master is the
+`is_master` flag, and folder-suffix versioning (`engagement-v2/`) is the mistake
+this replaced.
+A published artifact records its provenance in the backend: `derived_from_deck_id`
++ `derived_from_version_n` for a personalized deck, and `change_note` per version.
+PDFs are **not** committed; the PDF of record is the `pdf_object` on its version.
 
 ## Roadmap (agreed, not yet built — keep to the spec until asked)
 
-- Other social formats (X, one-pagers) follow the LinkedIn pattern.
+- Other social formats (X, one-pagers) follow the LinkedIn pattern: give the new
+  output a `kind` and a `page_format`, never a parallel store.
+- **Hosting the app.** It stays localhost-only. 2.0 avoided adding new local-only
+  dependencies so this is not a rewrite later, but Chrome-print, Python-verify
+  and the secret-key-holding agent are the anchors that would have to move.
 - Team access & sharing (deliberately deferred — the app is single-user/local).
 - Translation-alignment tooling for language variants.
+- An **article** (`kind=article`) has no HTML document yet, so it is the one
+  output type still outside the edit → verify → PDF loop. Give its builder an
+  HTML body and `import-social.py` will bring it in.
 
-**Built since the original spec:** the Phase-2 visual browser / composer app
-(`app/`), the `/deckbuilder` orchestrator, LinkedIn carousel output (see
-`.scratch/deck-app/APP-SPEC.md`), and **image generation**
-(`tools/generate-image.py`, 2026-07-23).
+**Built in Deck Studio 2.0 (2026-08-01):** the one artifact model (decks and
+social output merged behind `kind` + `page_format`), the format-aware verify
+gate, print-on-demand PDF with rename, the editor extended to carousels, plain-
+language verification, library element download, the unified action grammar, and
+the repo purge. The map is `.scratch/deck-studio-2/MAP.md`.
 
 ## Image generation
 

@@ -1,12 +1,14 @@
 // App + draft state, with localStorage persistence for the working draft.
 
-import { ENTITLEMENT_RANK } from "./util.js";
 
 export const state = {
   index: null,
   // Deck Studio v3: decks + customers come from the backend (Supabase via the
   // agent), not from index.json. `ok:false` means the backend is unreachable.
   backend: { decks: [], customers: [], ok: true },
+  // slideId -> [artifact slug]. Derived from published content, not from
+  // disk folders (those are build scratch and get deleted after publish).
+  slideUsage: {},
   composeMode: false,
   slideView: localStorage.getItem("oppr.slideView") || "cards", // cards | sections | table
   filter: { role: "", entitlement: "", section: "", q: "" },
@@ -19,10 +21,14 @@ export const customerById = (id) => state.backend.customers.find((c) => c.id ===
 // Refresh the backend slice; sets ok=false if the agent/back end is offline.
 export async function loadBackend(api) {
   try {
-    const [decks, customers] = await Promise.all([api.getDecks(), api.getCustomers2()]);
+    const [decks, customers, usage] = await Promise.all([
+      api.getDecks(), api.getCustomers2(), api.getSlideUsage().catch(() => ({ usage: {} })),
+    ]);
     state.backend = { decks: decks.decks || [], customers: customers.customers || [], ok: true };
+    state.slideUsage = usage.usage || {};
   } catch {
     state.backend = { decks: [], customers: [], ok: false };
+    state.slideUsage = {};
   }
   return state.backend;
 }
@@ -64,11 +70,15 @@ export function setSlideView(v) {
 
 export const slideById = (id) => state.index?.slides.find((s) => s.id === id);
 
-export function draftClearanceRank() {
-  return ENTITLEMENT_RANK[state.draft.intent.entitlement || "public"] ?? 0;
-}
+// Clearance is per customer (2026-08-01), not a rank. It used to be a rank, and
+// that quietly stopped working the moment `named-customer` was split into one
+// slug per customer: Holliday and Attero were both rank 1, so `1 > 1` was false
+// and a Holliday-cleared draft would happily accept Attero material. `public` is
+// always allowed; every other slug needs an exact match.
 export function slideExceedsClearance(entitlement) {
-  return (ENTITLEMENT_RANK[entitlement] ?? 0) > draftClearanceRank();
+  const want = entitlement || "public";
+  if (want === "public") return false;
+  return want !== (state.draft.intent.entitlement || "public");
 }
 
 export function addSlide(id) {

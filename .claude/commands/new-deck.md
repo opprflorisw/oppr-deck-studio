@@ -6,8 +6,8 @@ description: Intake -> proposed plan -> approval -> assemble a new deck variant 
 
 You are running the Oppr Deck Studio intake workflow. You **propose a plan and
 wait for Floris's approval before building anything.** You may write ONLY inside
-`decks/variants/`. Never modify `library/`, `types/` skeletons, or
-`decks/canonical/` from this command — that is Edit mode (`/edit-canonical`).
+`decks/`. Never modify `library/`, `types/` skeletons, or
+`decks/` from this command — that is Edit mode (`/edit-canonical`).
 
 Read `SPEC.md` sections 5–7 and `CLAUDE.md` if you need context. Then:
 
@@ -30,7 +30,9 @@ the recipe):
 1. Audience — company, role, what they already know of Oppr.
 2. Named client? name, "prepared for" line, logo — **requires entitlement clearance**.
 3. Language — en / fr / de / nl / …
-4. Entitlement — public, or cleared to show named-customer / mutares-family material?
+4. Entitlement — public, or cleared for a named customer? Clearance is one slug
+   per customer (`holliday`, `attero`, `wavin`, …); a deck must be cleared for
+   exactly the customers it names or shows.
 5. Goal & emphasis — full vs. teaser; numbers-heavy vs. illustration-heavy; the one action the audience should take.
 6. Presenter from Oppr's side.
 7. Length target and date of use.
@@ -50,10 +52,10 @@ entitlement clearance, and which images you'll pull (by their manifest
 edits the plan.**
 
 ## Step 4 — Assemble the variant
-Create `decks/variants/YYYY-MM-DD_<purpose-or-client-slug>/` containing:
+Create `decks/YYYY-MM-DD_<purpose-or-client-slug>/` containing:
 - `brief.md` — the intake answers + the approved plan (this deck's contract).
 - `deck.yaml` — `title`, `type`, `vars` (deck_footer, cover_meta), optional
-  `allowed_entitlements` (e.g. `[public, mutares-family]` only if cleared), and
+  `allowed_entitlements` (e.g. `[public, holliday]` only if cleared), and
   the ordered `slides` list.
 - For any **adjust** or **new** slide, write the fragment to
   `slides/<id>/slide.html` inside the variant folder (local override — never edit
@@ -66,14 +68,14 @@ Create `decks/variants/YYYY-MM-DD_<purpose-or-client-slug>/` containing:
 
 Then run:
 ```
-python tools/assemble-deck.py decks/variants/YYYY-MM-DD_<slug>
+python tools/assemble-deck.py decks/YYYY-MM-DD_<slug>
 ```
 It fails loudly on any unfilled `{{placeholder}}`.
 
 ## Step 5 — Build + verify
 ```
 .\tools\build-pdf.ps1 -Deck decks\variants\YYYY-MM-DD_<slug>
-python tools/verify-deck.py decks/variants/YYYY-MM-DD_<slug>
+python tools/verify-deck.py decks/YYYY-MM-DD_<slug>
 ```
 Fix any FAIL and rebuild. Then do the visual pass CLAUDE.md requires: render each
 page and actually look — overflow, footers, images, page numbers. A WARN about a
@@ -82,7 +84,7 @@ verbatim euro quote is fine.
 ## Step 5b — Publish to the backend (v3)
 The deck's living home is the backend, not this folder. Publish the verified deck:
 ```
-python tools/publish-deck.py decks/variants/YYYY-MM-DD_<slug> `
+python tools/publish-deck.py decks/YYYY-MM-DD_<slug> `
     [--customer <slug>] [--derived-from <deck-slug> [--derived-from-version N]]
 ```
 Use `--customer` for a named-client deck (it links/creates the customer row),
@@ -95,9 +97,20 @@ Building **from an existing deck** (reproduction): first
 The published version is an immutable snapshot (the old "frozen variant" rule is
 now versions). The repo `decks/` copy is a working artifact; commit it if you like:
 ```
-git add decks/variants/YYYY-MM-DD_<slug> && git commit -m "variant: <slug> from <type>@<tag>"
+git add decks/YYYY-MM-DD_<slug> && git commit -m "variant: <slug> from <type>@<tag>"
 ```
 Finally ask: **anything to feed back into the brain?** A per-type lesson appends to
 `types/<type>/recipe.md` `## Learnings`; a cross-cutting style lesson goes to a
 `memory/` file (see [[deck-management-level-style]]). That closing question is what
 keeps the brain living.
+
+## Hand back to the app
+
+A build is not finished when the file exists; it is finished when Floris can see
+it. Close every run by naming where:
+
+> Published as `<slug>`. Open it at **http://127.0.0.1:4173/#/decks** — Edit to
+> change any wording, Download PDF when it reads right.
+
+Then delete `decks/<slug>/`: it was build scratch, and the deck now lives in the
+backend.

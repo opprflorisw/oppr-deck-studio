@@ -9,11 +9,31 @@ Everything Oppr publishes on a social channel lives here, made through
 - `social/x/…`, future channels beside these.
 - `social/drafts/<slug>/draft.json` — a social draft staged by the app, built by
   the CLI, then cleared (same staging discipline as `decks/drafts/` and `dump/`).
-- `social/_status.json` — the app-owned **publish log**: per built output slug, its
-  status (`draft`/`posted`), the posted date, and the post link. Written by the
-  Deck Studio App's Output → Social output view (the gear on each row); it is
-  tracking metadata, never a built artifact. The app's Output view filters on it
-  (All / Draft / Posted) and turns the link into "open the post".
+The channel folders are **build scratch**, exactly like `decks/<slug>/`: the CLI
+builds into one, publishes it, and the folder is then disposable. Nothing here is
+committed. The published outputs on disk were deleted on 2026-08-01 after
+confirming every one of them in `social_outputs`.
+
+The **publish log** (per built output slug: `draft`/`posted`, the posted date and
+the post link) is the `publish_log` **table**, read and written by the app's
+Social output view through `/api/publish-log`. The old `_status.json` file
+is retired. It is tracking metadata, never a built artifact; the app filters on
+it (All / Draft / Posted) and turns the link into "open the post".
+
+## Publishing is part of building, not a follow-up
+
+Built output lives in the **backend**, not in this folder: the app lists the
+`social_outputs` table, so a folder written here and never published does not
+exist as far as Floris is concerned. Every build ends with:
+
+```powershell
+python tools\publish-social.py     # re-runnable: uploads files, upserts rows
+```
+
+Then read the row back and download one object to confirm the bytes landed, not
+just the row. See "Nothing is done until it is in the backend" in the root
+`CLAUDE.md`. `social/drafts/` is deliberately excluded from this: it is staging,
+and the CLI turns a draft into a real output first.
 
 Each built output carries `oppr` in its filename (see the naming rule in the root
 `CLAUDE.md`). Best-practice facts and Oppr's own usage rules for each format live
@@ -31,7 +51,7 @@ back-fill. Keep the value kebab-case and matching a tab id in `app/web/js/areas.
 
 ## Non-negotiable: social is public
 
-Social is external, so **no named-customer or mutares-family material** ever
+Social is external, so **no customer-cleared material of any kind** ever
 appears in a carousel, post, image or thumbnail. Entitlement gating applies
 fully: the app only offers **public** graphics for social, and `verify` refuses
 anything above public clearance. Brand rules hold: no em dashes (en dashes for
@@ -77,9 +97,53 @@ illustrative and conservative, Capture → Connect → Execute framing.
 - See `knowledge/best-practices/social-image.md` and the worked example in
   `social/linkedin/2026-07-23_hiring-senior-developer/`.
 
+## LinkedIn article + its hero (1200×627)
+
+An **article** is a markdown body plus one wide banner. The banner is composed
+from `templates/linkedin.css` with `.carousel carousel--hero` + one `.lpage`
+(specimen: `library/design-system/blocks/linkedin-article-hero.html`). Ink
+ground, because the banner sits directly under a headline LinkedIn renders in
+its own chrome. The hero carries the **claim and nothing else** — no body copy,
+no page number, no open loop — plus one optional stat set beside the claim so it
+stays a single horizontal read at thumbnail size.
+
+```
+python tools\build-article-hero.py --draft social\drafts\<slug>
+.\tools\build-social-image.ps1 -Image social\drafts\<slug>\hero -Width 1200 -Height 627
+```
+
+`build-article-hero.py` refuses a claim over 95 characters (a banner is a claim,
+not a sentence), an em/en dash, and a mojibake replacement character — all three
+are invisible in JSON and impossible to miss in the feed.
+
+## Where a piece comes from: the Last-30-days pipeline
+
+Most LinkedIn output now starts as an **idea** in `research/last30days/posts/`,
+written off the brain. The chain is deliberate about what is cheap and what is
+committed:
+
+```
+idea (cheap, disposable)  →  PROMOTE  →  social/drafts/<slug>/  →  /deckbuilder
+research/last30days/posts/              draft.json + hero/         build + verify
+                                                                        ↓
+   brain learns which themes                                    social/<channel>/
+   earned attention  ←── performance.json ←── posted + link ←── built output
+```
+
+**Promote** is the gate (the button on the app's Last 30 days → Ideas tab). It
+copies the body into a social draft, keeps the lineage (`source_idea` + the
+`themes` ids the idea came from), and for an article writes the hero page. It
+deliberately does **not** build: `/deckbuilder` still owns that, with its verify
+gate and human approval.
+
+After posting, record the link and the engagement readings on the app's
+**Performance** tab. Those numbers roll up per theme in
+`research/last30days/performance.json`, which gives every belief in the brain a
+second axis: `confidence` says the evidence repeated, `audience` says whether
+anyone responded. See `research/CLAUDE.md`.
+
 ## Other formats
 
-Articles, 1200×627 link images and YouTube
-thumbnails (1280×720) follow the same shape: a template in `templates/`, blocks
-composed only from the documented set, built by a tool, named with `oppr`,
+YouTube thumbnails (1280×720) follow the same shape: a template in `templates/`,
+blocks composed only from the documented set, built by a tool, named with `oppr`,
 verified, human-approved. See `knowledge/best-practices/` for each.

@@ -3,6 +3,8 @@
 
 import { $, $$, el, esc } from "../util.js";
 import { state } from "../state.js";
+import { icon } from "../icons.js";
+import { downloadPanel } from "../download.js";
 
 export function render() {
   const specs = state.index.design_system || [];
@@ -31,9 +33,12 @@ export function render() {
     for (const s of specs.filter((x) => x.group === g)) {
       const card = el(`
         <div class="ds-spec">
-          <div class="ds-spec-label mono">${esc(s.name)}</div>
+          <div class="ds-spec-label mono">${esc(s.name)}
+            <button class="ghost sm ds-dl" data-id="${esc(s.name)}" title="Download this block on its own">${icon("download", 14)}</button>
+          </div>
           <iframe class="ds-spec-frame" src="/repo/${esc(s.path)}" scrolling="no" loading="lazy"></iframe>
         </div>`);
+      $(".ds-dl", card).addEventListener("click", () => openBlockDownload(s.name));
       const frame = $("iframe", card);
       const fit = () => {
         try {
@@ -54,4 +59,18 @@ export function render() {
   }));
 
   return wrap;
+}
+
+// A block specimen can be taken on its own: same exporter as a slide, so what
+// you get is the block rendered from the real stylesheets, not a bare fragment.
+function openBlockDownload(name) {
+  const m = el(`<div class="modal"><div class="modal-box">
+    <header><b>Download ${esc(name)}</b><button class="ghost icon-only close" title="Close">${icon("close")}</button></header>
+    <div class="modal-body" id="dl-host"></div>
+  </div></div>`);
+  const close = () => m.remove();
+  $(".close", m).addEventListener("click", close);
+  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  $("#dl-host", m).append(downloadPanel("block", name));
+  document.body.append(m);
 }

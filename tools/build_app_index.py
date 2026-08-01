@@ -118,49 +118,6 @@ def build_slides() -> list[dict]:
 
     slides.sort(key=sort_key)
     return slides
-
-
-def build_deck(deckdir: Path) -> dict:
-    deck = _yaml(deckdir / "deck.yaml")
-    index = deckdir / "index.html"
-    pdfs = list(deckdir.glob("*.pdf"))
-    # A variant may hold local slide overrides.
-    overrides = []
-    slides_over = deckdir / "slides"
-    if slides_over.exists():
-        for od in slides_over.iterdir():
-            if (od / "slide.html").exists() or (od.suffix == ".html"):
-                overrides.append(od.stem if od.suffix == ".html" else od.name)
-    return {
-        "path": rel(deckdir),
-        "slug": deckdir.name,
-        "title": deck.get("title", deckdir.name),
-        "type": deck.get("type", ""),
-        "client": deck.get("client", ""),
-        "vars": deck.get("vars", {}) or {},
-        "allowed_entitlements": deck.get("allowed_entitlements", ["public"]),
-        "slides": deck.get("slides", []) or [],
-        "overrides": overrides,
-        "index": rel(index) if index.exists() else None,
-        "pdf": rel(pdfs[0]) if pdfs else None,
-    }
-
-
-def build_decks() -> dict:
-    out = {"canonical": [], "variants": []}
-    canon = REPO_ROOT / "decks" / "canonical"
-    var = REPO_ROOT / "decks" / "variants"
-    if canon.exists():
-        for d in sorted(canon.iterdir()):
-            if (d / "deck.yaml").exists():
-                out["canonical"].append(build_deck(d))
-    if var.exists():
-        for d in sorted(var.iterdir()):
-            if (d / "deck.yaml").exists():
-                out["variants"].append(build_deck(d))
-    return out
-
-
 def build_images() -> list[dict]:
     mf = REPO_ROOT / "brand" / "img" / "library.json"
     if not mf.exists():
@@ -286,84 +243,13 @@ def build_recipes() -> list[dict]:
             if d.is_dir() and (d / "recipe.md").exists():
                 out.append({"type": d.name, "path": rel(d / "recipe.md")})
     return out
-
-
-def _cust_slugify(s: str) -> str:
-    s = re.sub(r"[^a-z0-9]+", "-", (s or "").strip().lower()).strip("-")
-    return s or "customer"
-
-
-def build_customers(decks: dict) -> list[dict]:
-    """A customer is a `customers/<slug>/` folder (CLI-owned, app-read). We also
-    surface customers derived from a variant's `client:` slug (until the CLI files
-    them) and pending intakes the app staged in `dump/_app/<slug>/`."""
-    IMG = (".svg", ".png", ".jpg", ".jpeg", ".webp")
-    by_slug: dict[str, dict] = {}
-
-    def ensure(slug, name=None):
-        c = by_slug.get(slug)
-        if not c:
-            c = {"slug": slug, "name": name or slug, "logo": None,
-                 "notes": "", "decks": [], "pending": False, "source": "derived"}
-            by_slug[slug] = c
-        if name and c["name"] == c["slug"]:
-            c["name"] = name
-        return c
-
-    def first_img(d: Path):
-        imgs = [p for p in d.iterdir() if p.suffix.lower() in IMG]
-        return imgs[0] if imgs else None
-
-    # 1) filed customers: customers/<slug>/customer.yaml + logo
-    cust_root = REPO_ROOT / "customers"
-    if cust_root.exists():
-        for d in sorted(cust_root.iterdir()):
-            if not d.is_dir():
-                continue
-            meta = _yaml(d / "customer.yaml")
-            c = ensure(meta.get("slug") or d.name, meta.get("name"))
-            c["source"] = "filed"
-            c["notes"] = meta.get("notes", "") or ""
-            logo = d / meta["logo"] if meta.get("logo") else None
-            if not (logo and logo.exists()):
-                logo = first_img(d)
-            c["logo"] = rel(logo) if logo and logo.exists() else None
-
-    # 2) variants grouped by their client slug
-    for v in decks.get("variants", []):
-        client = (v.get("client") or "").strip()
-        if not client:
-            continue
-        c = ensure(_cust_slugify(client), client)
-        c["decks"].append({"slug": v["slug"], "title": v["title"], "path": v["path"],
-                           "index": v.get("index"), "pdf": v.get("pdf")})
-
-    # 3) pending intakes the app staged (dump/_app/<slug>/ with a brief/customer.yaml;
-    #    graphics imports carry note.md instead, so they are skipped)
-    dump_app = REPO_ROOT / "dump" / "_app"
-    if dump_app.exists():
-        for d in sorted(dump_app.iterdir()):
-            if not d.is_dir() or not ((d / "brief.md").exists() or (d / "customer.yaml").exists()):
-                continue
-            meta = _yaml(d / "customer.yaml") if (d / "customer.yaml").exists() else {}
-            c = ensure(meta.get("slug") or d.name, meta.get("name") or d.name)
-            c["pending"] = True
-            if c["source"] == "derived":
-                c["source"] = "pending"
-            if not c["logo"]:
-                img = first_img(d)
-                if img:
-                    c["logo"] = rel(img)
-
-    return sorted(by_slug.values(), key=lambda c: c["name"].lower())
-
-
 def build_index() -> dict:
     # Deck Studio v3: decks and customers now live in the backend (Supabase) and
     # are served by the agent, not baked into this index. This index is only the
     # git-versioned TOOL surfaces: slides, images, social outputs, icons, the
-    # design system, and recipes. (build_deck/build_decks/build_customers remain
-    # in this file as legacy helpers but are intentionally no longer called.)
+    # design system, and recipes. The legacy deck/customer scanners were deleted
+    # in Deck Studio 2.0: they read decks/canonical + decks/variants, which are
+    # build scratch that gets removed after publishing.
     return {
         "slides": build_slides(),
         "images": build_images(),

@@ -29,11 +29,14 @@ Desktop.ini
 # Local deck materialization cache (agent): never committed
 app/.deck-cache/
 
-# --- v3: CONTENT lives in Supabase, not the repo ---------------------------
-# Decks, social outputs and references were migrated to the backend (Supabase
-# Postgres + Storage). The repo is the TOOL only. These dirs stay as working
-# areas (the CLI builds into them, then publishes), but their contents are never
-# committed — only each folder's CLAUDE.md is kept as documentation.
+# --- CONTENT lives in Supabase, not the repo -------------------------------
+# The repo is the TOOL only. Content (decks, social outputs, references) lives in
+# Supabase Postgres + Storage. The dirs below are BUILD SCRATCH: the CLI
+# assembles into one, publishes it, confirms it landed, and the folder is then
+# disposable. Their contents are never committed — only each folder's CLAUDE.md.
+#
+# Deck Studio 2.0 rule (2026-08-01): a new version of a deck is a new
+# deck_versions row, NEVER a `<slug>-v2/` folder. See decks/CLAUDE.md.
 /decks/*
 !/decks/CLAUDE.md
 /social/*
@@ -50,3 +53,7 @@ app/.deck-cache/
 # Installed Claude skills (e.g. impeccable) — keep the deck workflows in
 # .claude/commands/, but not general skills bundled into this repo.
 /.claude/skills/
+
+# last30days engine local search index (rebuildable)
+research/last30days/library.db
+research/last30days/*.db

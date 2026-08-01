@@ -10,13 +10,13 @@ import { renderSidebar, markActive } from "./sidebar.js";
 import { areaById, areaPath } from "./areas.js";
 import { renderArea } from "./views/area.js";
 import * as slides from "./views/slides.js";
-import * as decks from "./views/decks.js";
 import * as graphics from "./views/graphics.js";
-import * as social from "./views/social.js";
+import * as artifacts from "./views/artifacts.js";
 import * as customers from "./views/customers.js";
 import * as deck from "./views/deck.js";
 import * as editor from "./views/editor.js";
 import * as knowledge from "./views/knowledge.js";
+import * as research from "./views/research.js";
 import * as designsystem from "./views/design-system.js";
 import * as iconsView from "./views/icons-view.js";
 
@@ -30,12 +30,18 @@ const RENDER = {
     "design-system": () => designsystem.render(),
   },
   // Tab-less area: the value is the render function itself, not a tab table.
-  decks: () => decks.renderMasters(),
+  decks: () => artifacts.renderDecks(),
   social: {
-    all: () => social.renderOutputs("all"),
-    carousel: () => social.renderOutputs("carousel"),
-    "job-description": () => social.renderOutputs("job-description"),
-    post: () => social.renderOutputs("post"),
+    all: () => artifacts.renderSocial("all"),
+    carousel: () => artifacts.renderSocial("carousel"),
+    "job-description": () => artifacts.renderSocial("job-description"),
+    post: () => artifacts.renderSocial("post"),
+  },
+  research: {
+    brain: () => research.renderBody("brain"),
+    runs: () => research.renderBody("runs"),
+    posts: () => research.renderBody("posts"),
+    performance: () => research.renderBody("performance"),
   },
   knowledge: {
     philosophy: () => knowledge.renderBody("philosophy"),
@@ -117,11 +123,13 @@ async function boot() {
   route("/decks", () => area("decks"));            // single page, no tabs
   route("/social/:tab", (tab) => area("social", tab));
   route("/library/:tab", (tab) => area("library", tab));
+  route("/research/:tab", (tab) => area("research", tab));
   route("/knowledge/:tab", (tab) => area("knowledge", tab));
   route("/knowledge/best-practices/:type", (t) => area("knowledge", "best-practices", t));
   // Bare area path -> first (or remembered) tab.
   route("/social", () => go(areaTab("social")));
   route("/library", () => go(areaTab("library")));
+  route("/research", () => go(areaTab("research")));
   route("/knowledge", () => go(areaTab("knowledge")));
 
   // Legacy / short routes keep working and render the same area frame.
@@ -136,10 +144,28 @@ async function boot() {
   route("/config", () => go("/knowledge/config"));
 
   // Detail / drill-down pages (standalone, no tabbar).
+  route("/research/runs/:slug", (slug) => mount(research.renderRun(slug)));
   route("/slides/:id", (id) => mount(slides.renderDetail(id)));
   route("/graphics/:file", (f) => mount(graphics.renderDetail(f)));
 
   setNotFound(() => go("/customers"));
+
+  // The app → CLI handover. Wherever the app hands you a prompt to run in the
+  // CLI, clicking it copies it. The wall between "app changes and ships" and
+  // "CLI creates" is real, so crossing it should take one click, not a careful
+  // retype of a slug. One delegated listener covers every prompt box there is.
+  document.addEventListener("click", async (e) => {
+    const box = e.target.closest?.(".prompt-box");
+    if (!box) return;
+    const code = box.querySelector("code");
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code.textContent.trim());
+      const was = box.dataset.hint;
+      box.dataset.hint = "copied";
+      setTimeout(() => { box.dataset.hint = was || ""; }, 1400);
+    } catch { /* clipboard blocked; the text is still selectable */ }
+  });
 
   window.addEventListener("hashchange", renderSidebar);
   if (!location.hash) location.hash = "/customers";

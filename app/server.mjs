@@ -12,6 +12,11 @@
 //     dump/_app/, and social/_status.json (the publish-status log — posted date +
 //     post link + archived flag per built output; tracking metadata, never a
 //     built artifact).
+//   - Last 30 days research is READ-ONLY over research/last30days/, with two
+//     actions: POST /api/research/rebuild shells out to tools/research-brain.py
+//     (the CLI stays the thing that writes brain.json/brain.md, from the runs),
+//     and POST /api/research/sync mirrors the folder to Supabase Storage. The
+//     app never hand-edits a run or the brain.
 //   - ONE exception, and it only ever removes: DELETE /api/social-output/<channel>/<slug>
 //     deletes a built social output folder outright. The app still never *edits*
 //     a built artifact. Archiving is the non-destructive alternative and is just
@@ -31,6 +36,7 @@ import * as db from "./lib/supabase.mjs";
 import { supabaseConfigured } from "./lib/env.mjs";
 import { validateSave, fingerprint } from "./lib/htmlcheck.mjs";
 import * as jobs from "./lib/jobs.mjs";
+import { pdfNameFor, printElement } from "./lib/jobs.mjs";
 import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./lib/deckcache.mjs";
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -41,6 +47,16 @@ const SOCIAL_DRAFTS_DIR = path.join(REPO_ROOT, "social", "drafts");
 const SOCIAL_STATUS_FILE = path.join(REPO_ROOT, "social", "_status.json");
 const DUMP_APP_DIR = path.join(REPO_ROOT, "dump", "_app");
 const INDEX_JSON = path.join(APP_DIR, "index.json");
+// Last 30 days research: the run archive + the accumulated brain. Read-only to
+// the app except for the rebuild/sync actions, which shell out to the CLI tool
+// and to Storage respectively — the app never hand-edits a run or the brain.
+const RESEARCH_DIR = path.join(REPO_ROOT, "research", "last30days");
+// Which ideas have already been spent (app-owned; the post .md files stay pristine).
+const IDEA_STATUS_FILE = path.join(RESEARCH_DIR, "posts", "_status.json");
+// The feedback signal: engagement samples per posted item, keyed by draft slug.
+// Lives under research/ because it closes the loop back into the brain — the
+// aggregator reads it to tell which themes an audience actually responded to.
+const PERFORMANCE_FILE = path.join(RESEARCH_DIR, "performance.json");
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4173;
 const HOST = "127.0.0.1";
@@ -84,12 +100,20 @@ function safeResolve(baseDir, requestPath) {
   return resolved;
 }
 
-async function serveFile(res, absPath) {
+// `downloadName` sets Content-Disposition so the browser saves the file under
+// the name the system computed, instead of the cache's path. Without it a
+// downloaded deck arrives named after whatever the URL ended in.
+async function serveFile(res, absPath, downloadName = "") {
   try {
     const stat = await fsp.stat(absPath);
     if (stat.isDirectory()) return send(res, 403, "Directory listing disabled");
     const stream = fs.createReadStream(absPath);
-    res.writeHead(200, { "Content-Type": mimeFor(absPath), "Cache-Control": "no-store" });
+    const headers = { "Content-Type": mimeFor(absPath), "Cache-Control": "no-store" };
+    if (downloadName) {
+      const safe = downloadName.replace(/[^\w.\-]/g, "_");
+      headers["Content-Disposition"] = `attachment; filename="${safe}"`;
+    }
+    res.writeHead(200, headers);
     stream.pipe(res);
     stream.on("error", () => { if (!res.headersSent) send(res, 500, "read error"); });
   } catch {
@@ -111,6 +135,27 @@ function regenerateIndex() {
       const child = spawn(cmd, args, { cwd: REPO_ROOT });
       child.on("error", tryNext);
       child.on("close", (code) => (code === 0 ? resolve(true) : tryNext()));
+    };
+    tryNext();
+  });
+}
+
+// Run a repo Python tool the same way regenerateIndex does (python, then py -3),
+// collecting stdout+stderr so the caller can surface a real message.
+function runPython(scriptRel, args = []) {
+  return new Promise((resolve) => {
+    const script = path.join(REPO_ROOT, ...scriptRel.split("/"));
+    const attempts = [["python", [script, ...args]], ["py", ["-3", script, ...args]]];
+    let i = 0;
+    const tryNext = () => {
+      if (i >= attempts.length) return resolve({ ok: false, out: "python not found" });
+      const [cmd, argv] = attempts[i++];
+      let out = "";
+      const child = spawn(cmd, argv, { cwd: REPO_ROOT });
+      child.stdout.on("data", (d) => (out += d));
+      child.stderr.on("data", (d) => (out += d));
+      child.on("error", tryNext);
+      child.on("close", (code) => (code === 0 ? resolve({ ok: true, out }) : resolve({ ok: false, out })));
     };
     tryNext();
   });
@@ -220,6 +265,220 @@ async function readSocialStatus() {
   catch { return {}; }
 }
 
+// --- Last 30 days research helpers -------------------------------------------
+
+async function readJsonFile(abs) {
+  try { return JSON.parse(await fsp.readFile(abs, "utf-8")); } catch { return null; }
+}
+
+async function serveText(res, abs) {
+  try { return send(res, 200, await fsp.readFile(abs, "utf-8"), { "Content-Type": "text/plain; charset=utf-8" }); }
+  catch { return send(res, 404, "Not found"); }
+}
+
+// Minimal `--- key: value ---` frontmatter reader for the LinkedIn post files.
+// Values are plain strings; a comma list becomes an array for `tags`/`sources`.
+function frontmatter(text) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(text);
+  if (!m) return { meta: {}, body: text };
+  const meta = {};
+  for (const line of m[1].split(/\r?\n/)) {
+    const kv = /^([a-z_]+):\s*(.*)$/i.exec(line.trim());
+    if (!kv) continue;
+    const [, k, raw] = kv;
+    meta[k] = ["tags", "sources", "themes"].includes(k)
+      ? raw.split(",").map((s) => s.trim()).filter(Boolean)
+      : raw.trim();
+  }
+  return { meta, body: m[2] };
+}
+
+const readJsonOr = async (abs, fallback) => (await readJsonFile(abs)) || fallback;
+const writeJson = async (abs, obj) => {
+  await fsp.mkdir(path.dirname(abs), { recursive: true });
+  await fsp.writeFile(abs, JSON.stringify(obj, null, 2) + "\n", "utf-8");
+};
+
+async function listResearchPosts() {
+  const dir = path.join(RESEARCH_DIR, "posts");
+  let names = [];
+  try { names = (await fsp.readdir(dir)).filter((n) => n.endsWith(".md") && !n.startsWith("_")).sort(); } catch { return []; }
+  const status = await readJsonOr(IDEA_STATUS_FILE, {});
+  const out = [];
+  for (const file of names) {
+    try {
+      const { meta, body } = frontmatter(await fsp.readFile(path.join(dir, file), "utf-8"));
+      const st = status[file] || {};
+      out.push({
+        file,
+        title: meta.title || file.replace(/\.md$/, ""),
+        kind: meta.kind || "linkedin-post",
+        angle: meta.angle || "",
+        theme: meta.theme || "",
+        date: meta.date || "",
+        chars: body.replace(/^#.*$/gm, "").trim().length,
+        status: st.status || "idea",
+        promoted_to: st.slug || null,
+        promoted_at: st.promoted_at || null,
+      });
+    } catch { /* skip unreadable post */ }
+  }
+  return out;
+}
+
+// Idea -> social draft. Copies the body, keeps the lineage, and for an article
+// writes the hero page through the CLI tool so the banner comes from the real
+// linkedin.css. Deliberately does NOT build: /deckbuilder owns that.
+async function promoteIdea(file, rawBody) {
+  let over = {};
+  try { over = rawBody ? JSON.parse(rawBody) : {}; } catch { /* optional overrides */ }
+
+  const src = path.join(RESEARCH_DIR, "posts", file);
+  const { meta, body } = frontmatter(await fsp.readFile(src, "utf-8"));
+  const kind = meta.kind || "linkedin-post";
+  const date = (meta.date || new Date().toISOString().slice(0, 10)).slice(0, 10);
+  const name = file.replace(/\.md$/, "").replace(/^\d+[-_]/, "");
+  const slug = `${date}-${slugify(name)}`.slice(0, 80);
+
+  const isArticle = kind === "linkedin-article";
+  const claim = String(over.claim || meta.title || name);
+  const draft = {
+    slug, kind, channel: "linkedin",
+    title: meta.title || name,
+    intent: { angle: meta.angle || "", entitlement: "public" },
+    pages: [], post: {}, status: "draft",
+    body: body.trim(),
+    hero: isArticle
+      ? { claim, kicker: String(over.kicker ?? "Industrial AI"), stat_n: String(over.stat_n ?? ""), stat_l: String(over.stat_l ?? "") }
+      : null,
+    source_idea: file,
+    themes: meta.theme ? [meta.theme] : [],
+  };
+
+  const dir = path.join(SOCIAL_DRAFTS_DIR, slug);
+  await fsp.mkdir(dir, { recursive: true });
+  await fsp.writeFile(path.join(dir, "draft.json"), JSON.stringify(draft, null, 2) + "\n", "utf-8");
+
+  let hero = null;
+  if (isArticle) {
+    const r = await runPython("tools/build-article-hero.py", ["--draft", `social/drafts/${slug}`]);
+    hero = { ok: r.ok, out: r.out.trim() };
+  }
+
+  const status = await readJsonOr(IDEA_STATUS_FILE, {});
+  status[file] = { status: "promoted", slug, promoted_at: new Date().toISOString().slice(0, 10) };
+  await writeJson(IDEA_STATUS_FILE, status);
+
+  // Seed the performance record so the post shows up as awaiting a link, which
+  // is what makes an unposted draft visible instead of silently forgotten.
+  const perf = await readJsonOr(PERFORMANCE_FILE, { posts: {} });
+  perf.posts[slug] = perf.posts[slug] || {
+    slug, title: draft.title, kind, source_idea: file, themes: draft.themes,
+    posted_date: "", url: "", samples: [],
+  };
+  await writeJson(PERFORMANCE_FILE, perf);
+
+  return { ok: true, slug, kind, hero, prompt: `/deckbuilder build social ${slug}` };
+}
+
+const readPerformance = () => readJsonOr(PERFORMANCE_FILE, { posts: {} });
+
+// One record per promoted post. `sample` appends a dated engagement reading;
+// everything else merges, so recording the LinkedIn URL and adding numbers a
+// week later are the same endpoint.
+async function updatePerformance(slug, d) {
+  const perf = await readPerformance();
+  const rec = perf.posts[slug] || { slug, title: slug, kind: "linkedin-post", themes: [], posted_date: "", url: "", samples: [] };
+  for (const k of ["title", "kind", "url", "posted_date", "source_idea"]) {
+    if (typeof d[k] === "string") rec[k] = d[k];
+  }
+  if (Array.isArray(d.themes)) rec.themes = d.themes;
+  if (d.sample && typeof d.sample === "object") {
+    const s = d.sample;
+    const num = (v) => (v === "" || v == null ? null : Number(v) || 0);
+    rec.samples.push({
+      date: String(s.date || new Date().toISOString().slice(0, 10)).slice(0, 10),
+      impressions: num(s.impressions), likes: num(s.likes),
+      comments: num(s.comments), reposts: num(s.reposts),
+      source: String(s.source || "manual"),
+    });
+    rec.samples.sort((a, b) => a.date.localeCompare(b.date));
+  }
+  if (d.delete_sample != null) rec.samples.splice(Number(d.delete_sample), 1);
+  perf.posts[slug] = rec;
+  await writeJson(PERFORMANCE_FILE, perf);
+  return { ok: true, record: rec };
+}
+
+async function listResearchRuns() {
+  const dir = path.join(RESEARCH_DIR, "runs");
+  let names = [];
+  try { names = (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name); } catch { return []; }
+  const out = [];
+  for (const slug of names.sort()) {
+    const r = await readJsonFile(path.join(dir, slug, "run.json"));
+    if (!r) continue;
+    const counts = (r.sources && r.sources.counts) || {};
+    out.push({
+      slug: r.slug || slug, date: r.date || "", topic: r.topic || slug,
+      question: r.question || "", domain: r.domain || "", verdict: r.verdict || "",
+      headline: r.headline || "",
+      items: Object.values(counts).reduce((a, b) => a + (Number(b) || 0), 0),
+      themes: (r.themes || []).length, findings: (r.findings || []).length,
+      missing: (r.sources && r.sources.missing) || [],
+      degraded: (r.sources && r.sources.degraded) || [],
+      has_raw: fs.existsSync(path.join(dir, slug, "raw.md")),
+      has_brief: fs.existsSync(path.join(dir, slug, "brief.html")),
+    });
+  }
+  out.sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.slug.localeCompare(b.slug));
+  return out;
+}
+
+async function researchIndex() {
+  const brain = await readJsonFile(path.join(RESEARCH_DIR, "brain.json"));
+  return {
+    ok: true,
+    configured: fs.existsSync(RESEARCH_DIR),
+    backend: supabaseConfigured(),
+    brain: brain
+      ? {
+          generated: brain.generated,
+          themes: (brain.themes || []).length,
+          established: (brain.themes || []).filter((t) => t.confidence === "established").length,
+          corroborated: (brain.themes || []).filter((t) => t.confidence === "corroborated").length,
+          vocabulary: (brain.vocabulary || []).length,
+          stats: (brain.stats || []).length,
+          entities: (brain.entities || []).length,
+          questions: (brain.open_questions || []).length,
+          coverage: brain.coverage || {},
+        }
+      : null,
+    runs: await listResearchRuns(),
+    posts: await listResearchPosts(),
+    performance: Object.values((await readPerformance()).posts || {}),
+  };
+}
+
+// Mirror the brain + every run artifact to Storage under its repo-relative path,
+// the same convention decks/social/references already use. Skips the local
+// sqlite cache (a rebuildable local index, not research output).
+async function syncResearchToStorage() {
+  const uploaded = [];
+  const walk = async (abs) => {
+    for (const e of await fsp.readdir(abs, { withFileTypes: true })) {
+      const child = path.join(abs, e.name);
+      if (e.isDirectory()) { await walk(child); continue; }
+      if (e.name.endsWith(".db")) continue;
+      const rel = path.relative(REPO_ROOT, child).replace(/\\/g, "/");
+      await db.upload(rel, await fsp.readFile(child), mimeFor(child));
+      uploaded.push(rel);
+    }
+  };
+  await walk(RESEARCH_DIR);
+  return { ok: true, uploaded: uploaded.length, files: uploaded };
+}
+
 const listDrafts = () => listDraftsIn(DRAFTS_DIR, (slug, d) => ({ slug, title: d.title || slug, slides: (d.slides || []).length }));
 const listSocialDrafts = () => listDraftsIn(SOCIAL_DRAFTS_DIR, (slug, d) => ({ slug, title: d.title || slug, kind: d.kind || "carousel", pages: (d.pages || []).length }));
 
@@ -271,6 +530,46 @@ async function handleApi(req, res, url) {
 
   // Import graphics: stage files into dump/_app/<date>/ for /ingest-dump to file.
   // Base64 JSON (no multipart dep). The app never touches brand/img directly.
+  // --- library element export (Deck Studio 2.0) ---------------------------
+  // Download one slide / design-system block on its own, as a self-contained
+  // file. HTML inlines its assets so it is a single portable document; PNG and
+  // PDF are printed from that same document with the same headless browser the
+  // build job uses, so an exported element looks exactly like a built one.
+  if (req.method === "GET" && p === "/api/library/export") {
+    const kind = url.searchParams.get("kind") || "slide";
+    const elId = url.searchParams.get("id") || "";
+    const format = url.searchParams.get("format") || "html";
+    const allow = url.searchParams.get("allow") || "";
+    if (!["slide", "block"].includes(kind)) return sendJson(res, 400, { error: "bad kind" });
+    if (!/^[a-z0-9][a-z0-9-]{0,80}$/.test(elId)) return sendJson(res, 400, { error: "bad id" });
+    if (!["html", "png", "pdf"].includes(format)) return sendJson(res, 400, { error: "bad format" });
+    if (allow && !/^[a-z0-9,\-]{0,120}$/.test(allow)) return sendJson(res, 400, { error: "bad allow" });
+
+    const outDir = path.join(CACHE_ROOT, "_exports", `${kind}-${elId}`);
+    await fsp.mkdir(outDir, { recursive: true });
+    const htmlPath = path.join(outDir, `${elId}.html`);
+    const args = ["tools/export-element.py", "--kind", kind, "--id", elId, "--out", htmlPath];
+    if (allow) args.push("--allow", allow);
+    // PNG/PDF are printed by a browser, which cannot read the huge data: URIs
+    // reliably at print time, so those formats use a sidecar assets/ folder.
+    if (format !== "html") args.push("--sidecar");
+
+    const r = await runPython(args[0], args.slice(1));
+    if (!r.ok) {
+      const refused = /REFUSED/.test(r.out);
+      return sendJson(res, refused ? 403 : 500, { error: r.out.trim().slice(0, 600) });
+    }
+    if (format === "html") return serveFile(res, htmlPath, `oppr_${elId}.html`);
+
+    const outFile = path.join(outDir, `oppr_${elId}.${format}`);
+    try {
+      await printElement(htmlPath, outFile, format);
+    } catch (e) {
+      return sendJson(res, 500, { error: String(e.message || e) });
+    }
+    return serveFile(res, outFile, `oppr_${elId}.${format}`);
+  }
+
   if (req.method === "POST" && p === "/api/import-graphics") {
     let data;
     try { data = JSON.parse(await readBody(req, 40_000_000)); } catch { return sendJson(res, 400, { error: "bad json" }); }
@@ -349,7 +648,12 @@ async function handleApi(req, res, url) {
     }
     if (req.method === "PUT" || req.method === "POST") {
       let d; try { d = JSON.parse(await readBody(req)); } catch { return sendJson(res, 400, { error: "bad json" }); }
-      const rec = { slug, kind: String(d.kind || "carousel"), title: String(d.title || slug), channel: String(d.channel || "linkedin"), intent: d.intent || {}, pages: Array.isArray(d.pages) ? d.pages : [], post: d.post || {}, status: "draft" };
+      // body/hero/source_idea/themes carry a promoted Last-30-days idea. They are
+      // preserved here so editing a draft in the app never severs its lineage
+      // back to the run and theme that produced it (the performance loop needs it).
+      const rec = { slug, kind: String(d.kind || "carousel"), title: String(d.title || slug), channel: String(d.channel || "linkedin"), intent: d.intent || {}, pages: Array.isArray(d.pages) ? d.pages : [], post: d.post || {}, status: "draft",
+        body: typeof d.body === "string" ? d.body : "", hero: d.hero || null,
+        source_idea: d.source_idea || null, themes: Array.isArray(d.themes) ? d.themes : [] };
       await fsp.mkdir(dir, { recursive: true });
       await fsp.writeFile(file, JSON.stringify(rec, null, 2), "utf-8");
       return sendJson(res, 200, { ok: true, slug, prompt: `/deckbuilder build social ${slug}` });
@@ -427,6 +731,74 @@ async function handleApi(req, res, url) {
       await regenerateIndex();
       return sendJson(res, 200, { ok: true, slug, removed: existed });
     } catch { return sendJson(res, 500, { error: "delete failed" }); }
+  }
+
+  // === Last 30 days research (brain + runs + posts) ========================
+  // Read-only over research/last30days/. Two actions: rebuild (re-runs the
+  // aggregator CLI) and sync (mirrors the brain + runs to Storage). Neither
+  // ever writes a run by hand — runs come from the /last30days workflow.
+  if (req.method === "GET" && p === "/api/research") {
+    return sendJson(res, 200, await researchIndex());
+  }
+  if (req.method === "GET" && p === "/api/research/brain") {
+    const b = await readJsonFile(path.join(RESEARCH_DIR, "brain.json"));
+    if (!b) return sendJson(res, 404, { error: "no brain yet", hint: "python tools/research-brain.py" });
+    return sendJson(res, 200, b);
+  }
+  if (req.method === "GET" && p === "/api/research/brain.md") {
+    return serveText(res, path.join(RESEARCH_DIR, "brain.md"));
+  }
+  let rm = p.match(/^\/api\/research\/runs\/([^/]+)$/);
+  if (req.method === "GET" && rm) {
+    if (!SLUG_RE.test(rm[1])) return sendJson(res, 400, { error: "bad slug" });
+    const r = await readJsonFile(path.join(RESEARCH_DIR, "runs", rm[1], "run.json"));
+    if (!r) return sendJson(res, 404, { error: "no such run" });
+    return sendJson(res, 200, r);
+  }
+  rm = p.match(/^\/api\/research\/runs\/([^/]+)\/raw$/);
+  if (req.method === "GET" && rm) {
+    if (!SLUG_RE.test(rm[1])) return send(res, 400, "bad slug");
+    return serveText(res, path.join(RESEARCH_DIR, "runs", rm[1], "raw.md"));
+  }
+  rm = p.match(/^\/api\/research\/posts\/([^/]+)$/);
+  if (req.method === "GET" && rm) {
+    if (!SLUG_RE.test(rm[1])) return send(res, 400, "bad slug");
+    return serveText(res, path.join(RESEARCH_DIR, "posts", rm[1]));
+  }
+  // Promote an idea into a social draft. This is the gate between "thinking out
+  // loud" and "something we intend to ship": it copies the body into
+  // social/drafts/, keeps the lineage (source idea + theme ids), and for an
+  // article writes the 1200x627 hero page via the CLI tool. It never builds the
+  // output — /deckbuilder still does that, with its verify gate.
+  rm = p.match(/^\/api\/research\/posts\/([^/]+)\/promote$/);
+  if (req.method === "POST" && rm) {
+    const file = rm[1];
+    if (!SLUG_RE.test(file) || !file.endsWith(".md")) return sendJson(res, 400, { error: "bad post" });
+    try { return sendJson(res, 200, await promoteIdea(file, await readBody(req))); }
+    catch (e) { return sendJson(res, e.code === "ENOENT" ? 404 : 500, { error: String(e.message || e) }); }
+  }
+
+  // Performance: the engagement samples behind "is this working".
+  if (req.method === "GET" && p === "/api/research/performance") {
+    return sendJson(res, 200, await readPerformance());
+  }
+  rm = p.match(/^\/api\/research\/performance\/([^/]+)$/);
+  if (rm && (req.method === "PUT" || req.method === "POST")) {
+    const slug = rm[1];
+    if (!SLUG_RE.test(slug)) return sendJson(res, 400, { error: "bad slug" });
+    let d; try { d = JSON.parse(await readBody(req)); } catch { return sendJson(res, 400, { error: "bad json" }); }
+    try { return sendJson(res, 200, await updatePerformance(slug, d)); }
+    catch (e) { return sendJson(res, 500, { error: String(e.message || e) }); }
+  }
+
+  if (req.method === "POST" && p === "/api/research/rebuild") {
+    const r = await runPython("tools/research-brain.py");
+    return sendJson(res, r.ok ? 200 : 500, { ok: r.ok, out: r.out.trim() });
+  }
+  if (req.method === "POST" && p === "/api/research/sync") {
+    if (!supabaseConfigured()) return requireBackend(res);
+    try { return sendJson(res, 200, await syncResearchToStorage()); }
+    catch (e) { return sendJson(res, 500, { error: String(e.message || e) }); }
   }
 
   // Knowledge whitelist (Phase 7).
@@ -517,7 +889,8 @@ function requireBackend(res) {
 async function handleDeckApi(req, res, url) {
   const p = url.pathname;
   const isDeckRoute = p.startsWith("/api/decks") || p.startsWith("/api/customers2")
-    || p.startsWith("/api/publish-log") || p.startsWith("/api/jobs");
+    || p.startsWith("/api/publish-log") || p.startsWith("/api/jobs")
+    || p === "/api/slide-usage";
   if (!isDeckRoute) return undefined;
   if (!requireBackend(res)) return;
 
@@ -584,11 +957,44 @@ async function handleDeckApi(req, res, url) {
     // --- deck list ---------------------------------------------------------
     if (p === "/api/decks" && req.method === "GET") {
       const decks = await db.select("decks", { select: "*", order: "updated_at.desc" });
+      // The list needs each artifact's CURRENT-version state, or the row can only
+      // say "v3" and not whether v3 is verified or has ever been printed. One
+      // query for all of them rather than one per row.
+      const versions = await db.select("deck_versions", { select: "deck_id,n,verify_report,pdf_object" });
+      const byDeck = new Map();
+      for (const v of versions) {
+        const cur = byDeck.get(v.deck_id);
+        if (!cur || v.n > cur.n) byDeck.set(v.deck_id, v);
+      }
       for (const d of decks) {
         const tp = path.join(CACHE_ROOT, d.id, "thumbs", `v${d.current_version_n}`, "p1.png");
         d.thumb = fs.existsSync(tp) ? `/deck-cache/${d.id}/thumbs/v${d.current_version_n}/p1.png` : null;
+        const v = byDeck.get(d.id);
+        d.verify_report = v && v.n === d.current_version_n ? v.verify_report : null;
+        d.pdf_current = Boolean(v && v.n === d.current_version_n && v.pdf_object);
+        d.pdf_name = pdfNameFor(d);
       }
       return sendJson(res, 200, { decks });
+    }
+
+    // --- which artifacts use a library slide -------------------------------
+    // "Used in" used to be derived by scanning decks/canonical + decks/variants
+    // on disk. Those folders are build scratch and are now deleted after
+    // publishing, so the only honest source is the published content itself:
+    // every snapshot carries data-slide-id on each <section>.
+    if (p === "/api/slide-usage" && req.method === "GET") {
+      const decks = await db.select("decks", { select: "id,slug,title,current_version_n" });
+      const versions = await db.select("deck_versions", { select: "deck_id,n,html" });
+      const current = new Map(decks.map((d) => [d.id, d]));
+      const usage = {};
+      for (const v of versions) {
+        const deck = current.get(v.deck_id);
+        if (!deck || deck.current_version_n !== v.n) continue;
+        const ids = new Set();
+        for (const m of String(v.html).matchAll(/data-slide-id="([^"]+)"/g)) ids.add(m[1]);
+        for (const id of ids) (usage[id] ||= []).push(deck.slug);
+      }
+      return sendJson(res, 200, { usage });
     }
 
     // --- deck detail -------------------------------------------------------
@@ -603,8 +1009,16 @@ async function handleDeckApi(req, res, url) {
         deck_id: `eq.${id}`, select: "n,change_note,author,created_at,pdf_object,verify_report", order: "n.desc" });
       const family = await db.select("decks", {
         derived_from_deck_id: `eq.${id}`, select: "id,slug,title,audience_kind,audience_label,derived_from_version_n,current_version_n,status", order: "created_at.asc" });
+      const current = versions.find((v) => v.n === deck.current_version_n);
       return sendJson(res, 200, {
         deck,
+        // Everything the status surface needs to answer "is my PDF current?"
+        // without the UI re-deriving it and getting a different answer.
+        pdf: {
+          name: pdfNameFor(deck),
+          current: Boolean(current?.pdf_object),
+          verify: current?.verify_report || null,
+        },
         versions: versions.map((v) => ({
           n: v.n, change_note: v.change_note, author: v.author, created_at: v.created_at,
           has_pdf: Boolean(v.pdf_object),
@@ -612,6 +1026,25 @@ async function handleDeckApi(req, res, url) {
         })),
         family,
       });
+    }
+
+    // --- rename (title + the user-owned segment of the filename) -----------
+    if (dm && req.method === "PATCH") {
+      const id = dm[1];
+      if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const d = JSON.parse(await readBody(req, 50_000));
+      const rows = await db.select("decks", { id: `eq.${id}`, select: "*" });
+      if (!rows.length) return sendJson(res, 404, { error: "no such deck" });
+      const patch = {};
+      if (typeof d.title === "string" && d.title.trim()) {
+        // en dash, not em dash: the brand rule holds for titles too.
+        patch.title = d.title.trim().replace(/—/g, "–").slice(0, 200);
+      }
+      if (typeof d.pdf_core === "string") patch.pdf_core = slugify(d.pdf_core).slice(0, 80);
+      if (!Object.keys(patch).length) return sendJson(res, 400, { error: "nothing to change" });
+      await db.update("decks", { id }, patch);
+      const after = { ...rows[0], ...patch };
+      return sendJson(res, 200, { ok: true, deck: after, pdf_name: pdfNameFor(after) });
     }
 
     // --- version html / view / pdf ----------------------------------------
@@ -631,9 +1064,41 @@ async function handleDeckApi(req, res, url) {
         return res.end();
       }
       if (kind === "pdf") {
-        const pdfPath = await materializePdf(id, n);
-        if (!pdfPath) return send(res, 404, "no PDF for this version");
-        return serveFile(res, pdfPath);
+        // The PDF you download is ALWAYS the version you are looking at.
+        //
+        // A version saved in the editor has no PDF until something prints one.
+        // Previously this 404'd (or, worse, the UI fell back to an older
+        // version's file and handed over a document that did not match the
+        // screen). Now a stale download prints on demand and waits.
+        const rows = await db.select("decks", { id: `eq.${id}`, select: "*" });
+        if (!rows.length) return sendJson(res, 404, { error: "no such deck" });
+        const deck = rows[0];
+        const wantName = pdfNameFor(deck);
+
+        let pdfPath = await materializePdf(id, n);
+        if (!pdfPath) {
+          if (deck.current_version_n !== n) {
+            return sendJson(res, 404, { error: "that older version was never printed" });
+          }
+          const job = await jobs.buildAndWait(deck);
+          if (job.state === "pass") {
+            pdfPath = await materializePdf(id, n);
+          } else if (url.searchParams.get("unverified") === "1" && job.localPdf) {
+            // The gate still stands: an unverified file is served only when
+            // explicitly asked for, and is never attached to the version, so it
+            // can never become "the" PDF of record.
+            return serveFile(res, job.localPdf, "UNVERIFIED_" + wantName);
+          } else {
+            return sendJson(res, 409, {
+              error: "verify failed, so the PDF is withheld",
+              state: job.state,
+              verify_report: job.verify_report,
+              can_download_unverified: Boolean(job.localPdf),
+            });
+          }
+        }
+        if (!pdfPath) return sendJson(res, 500, { error: "the PDF could not be produced" });
+        return serveFile(res, pdfPath, wantName);
       }
     }
 
@@ -830,7 +1295,7 @@ const server = http.createServer(async (req, res) => {
       if (!abs) return send(res, 403, "forbidden");
       if (fs.existsSync(abs)) return serveFile(res, abs);
       const rel = decodeURIComponent(p.slice("/repo/".length));
-      if (supabaseConfigured() && /^(social|references|decks)\//.test(rel)) {
+      if (supabaseConfigured() && /^(social|references|decks|research)\//.test(rel)) {
         try { return send(res, 200, await db.download(rel), { "Content-Type": mimeFor(rel) }); }
         catch { /* fall through to 404 */ }
       }

@@ -1,140 +1,110 @@
-# app/ — Oppr Deck Studio App (local workbench, v3)
+# app/ — Oppr Deck Studio App (Deck Studio 2.0)
 
-A local, single-user web app over the **v3 backend** (Supabase). Decks live in
-the backend as versioned, self-contained HTML. The app **browses** the library
-and outputs, **fine-tunes** a published deck in place (text, layout nudges,
-entitlement-filtered image swaps — every save a new immutable version),
-**regenerates its PDF** through the same verify gate as the CLI, and
-**personalizes** a master into a customer/event deck. Authoring — new decks, new
-slides, structural change — stays in the CLI (`/deckbuilder`), with its
-plan-approval and verify gates.
-
-**Architecture.** The browser talks only to the **local agent** (`server.mjs` +
-`app/lib/*`), which holds the Supabase secret key (never sent to the browser),
-proxies the backend, and runs assemble/print/verify locally (headless Chrome for
-PDF, Python for verify). Decks are materialized on demand into `app/.deck-cache/`
-(gitignored). The agent writes staging areas (`dump/_app/`, legacy
-`decks/drafts/`, `social/drafts/`) and the backend (deck versions, publish_log);
-it never writes `library/`, `brand/`, or `templates/`. Needs
-`SUPABASE_URL` + `SUPABASE_SECRET_KEY` in `.env`. See
-`.scratch/deck-app/hybrid-editor/report_and_implementation.md`.
-
-Below describes the pre-v3 draft/compose surface; parts are legacy (the composer
-is superseded by the editor + personalize).
-
-## Run
+A local, single-user web app over the Supabase backend. **The CLI creates; the
+app changes and ships.**
 
 ```
 cd app
 npm run dev        # -> http://127.0.0.1:4173
 ```
 
-No install step and no dependencies: the server (`server.mjs`) uses only Node
-built-ins (Node 18+). It needs **Python on PATH** (to build the library index)
-and **git** (for slide version history).
+No install step, no dependencies: the server uses only Node built-ins (Node 18+).
+It also needs **Python on PATH** (library index, verify, element export),
+**Chrome or Edge** (printing), and **git** (slide version history).
 
-## What's in it (v2)
+## The boundary, in one table
 
-A persistent **left sidebar** with hash routing (deep-linkable, back-button works):
+Every capability sits on exactly one side. Where the app cannot do something it
+hands you a prompt — click it to copy — instead of failing silently.
 
-- **Library**
-  - **Slides** — Cards / Sections (the narrative spine) / Table (audit) views;
-    a slide **detail page** with a live preview, meta, used-in + image
-    cross-links, and **git-backed version history** (flip through and compare
-    past versions).
-  - **Graphics** — the described image library with **usage cross-references**
-    (which slides / decks use each), an unused filter, and an **Import** flow
-    that stages files into `dump/_app/` for `/ingest-dump`.
-  - **Design system** — the specimen index rendered from the real stylesheets.
-- **Create**
-  - **Deck drafts** — the composer: turn on **Compose** mode, cherry-pick from
-    the library (a bottom tray tracks the draft, with a multi-draft switcher),
-    comment per slide, insert new-slide instructions, then save + hand off.
-  - **Social studio** — carousel and post composers (4:5 preview; live 140-char
-    hook counter), brief-only for article/image/thumbnail. Saves to
-    `social/drafts/`, hands off with `/deckbuilder build social <slug>`.
-- **Decks** — the deck browser (preview, download). Lists the **canonical
-  masters**, then **Company decks**: frozen variants with no `client:` (teasers,
-  investor updates, internal cuts). A variant built *for* a customer is not here,
-  it lives under that **Customer**.
-- **Social output** — the social browser, split by **category** across the tab bar
-  (All · Carousels · Job descriptions · Posts). Category is what a piece *is*
-  editorially; it is declared in the output's `meta.yaml` (`category:`) and falls
-  back to the artifact shape (`kind`) when absent, so a carousel with no meta still
-  lands under Carousels. Within a category, the sticky **status** sub-filter
-  (All / Draft / Posted / Archived) still applies; when it hides everything the
-  empty state says so and offers **Show all**. An output offers whichever artifact
-  it ships: **PDF** for a carousel, **PNG** for a single image (kind `image`), from
-  the row and from inside the paged viewer.
-  Post text opens the **Unicode post editor**: bold / italic / bold-italic
-  toggling, list and separator characters, a live feed preview showing where the
-  "see more" fold lands, and **Copy all** for pasting straight into LinkedIn.
-  Rows can also be **archived** (reversible) or **deleted** (not). See below.
-- **Knowledge** — Design philosophy, living **Best practices** docs, Recipes,
-  and a **⚙ Config** browser over a read-only whitelist of the studio's docs
-  (rendered with a built-in markdown renderer).
+| The CLI creates | The app changes and ships |
+|---|---|
+| A new deck, carousel, post or article | Edit text, spacing and images in place |
+| A new library slide or design-system block | Save a new version (immutable) |
+| Any **structural** change (add/remove/reorder a page) | Rename the artifact and its PDF |
+| New image generation, ingest, research runs | Regenerate + download the PDF |
+| | Personalize a master into a customer deck |
+| | Mark posted, track the publish log |
+| | Download a single library element |
 
-## Archive and delete (Output → Social)
+The wall is enforced in code, not by convention: `app/lib/htmlcheck.mjs`
+fingerprints the document on every save and rejects anything that is not
+text/attribute-level, so a structural edit cannot slip through the browser.
 
-Two ways to clear the list, deliberately unequal.
+## One artifact model
 
-- **Archive** is a flag in `social/_status.json`, never a file move. The built
-  artifact stays exactly where the CLI put it; the row leaves All / Draft /
-  Posted and lives under its own **Archived** tab, one click from being restored.
-  This is the one you want.
-- **Delete** removes `social/<channel>/<slug>/` outright: the built PDF or PNG, `index.html`,
-  the post text and the brief. `DELETE /api/social-output/<channel>/<slug>` is
-  the only place the app removes a built artifact, so it is fenced: channel and
-  slug are pattern-checked, the path is rebuilt server-side rather than taken
-  from the client, and the resolved directory must sit inside
-  `social/<channel>/` before anything happens. The dialog names the exact path,
-  offers Archive instead, and keeps the button disabled until the slug is typed
-  in full. An output that was never committed to git is not recoverable.
+A deck, a carousel and a social image are **the same kind of record**, told apart
+by `kind`. That is what lets one editor, one verify gate, one build job and one
+version history serve all of them.
 
-Delete **rebuilds `app/index.json`** before returning, and it is **idempotent**:
-`app/index.json` is a cache, so a row can outlive the folder it points at (deleted
-by hand, moved by the CLI). Returning 404 on that made the stale row permanently
-undeletable, since the index rebuild is the only thing that clears it. A missing
-folder is now a success that removed nothing (`{ok: true, removed: false}`), the
-index is regenerated either way, and the client re-fetches it so the row does not
-reappear on the next reload.
+| | |
+|---|---|
+| `decks` | every artifact: `kind` (deck·carousel·image·article·post), `page_format`, clearance, master flag, `pdf_core` |
+| `deck_versions` | the content, one immutable row per version (`html`, `verify_report`, `pdf_object`) |
+| `deck_assets` | its bundled images and fonts |
+| `publish_log` | posted / not posted, date, link, archived |
+| `app/.deck-cache/` | **pure cache** — rebuilt from the backend on demand, safe to delete at any moment |
 
-## The Unicode post editor
+`page_format` (`deck-16x9`, `linkedin-4x5`, `square-1x1`, `hero-1200x627`) decides
+the page geometry and which verify rules apply. It is **declared**, never guessed
+from the bytes.
 
-`web/js/postedit.js`. LinkedIn has no rich text: "bold" there is Unicode
-Mathematical Alphanumeric Symbols, different characters that look bold. The
-styling **is** the text, which is why a plain `<textarea>` can display it and why
-copying is the whole delivery mechanism.
+## Areas
 
-- **Never writes to disk.** `post.txt` stays the plain source the CLI built, and
-  styling is applied fresh each time you open it. The stored copy stays
-  greppable, searchable and readable by a screen reader. This keeps the app on
-  its side of the "the app composes, the CLI builds" wall.
-- **Toggles, not one-way.** Selecting already-styled text and clicking the same
-  button returns it to plain, so posts that arrive with hand-authored Unicode
-  bold behave like anything else. Bold → italic converts in one click.
-- **Digits are never mapped**, which enforces the brand rule (never bold a
-  number: search cannot index it, a screen reader spells it out) silently rather
-  than warning after the fact.
-- **Counts characters, not UTF-16 units.** A Mathematical Alphanumeric character
-  is one character but two code units, so `.length` over-counts a styled hook by
-  roughly 2× and would report a legal post as over the 3000 limit. Every count
-  goes through `Array.from`.
-- The brand fonts are subset woff2 and do not cover these codepoints, so styled
-  runs fall back to a system font. That is expected, and useful: styled text is
-  visibly distinct while you edit.
+- **Customers** — a customer, its decks, and the intake that stages a new one to
+  `dump/_app/` for the CLI to file.
+- **Decks** — masters, company decks, customer decks. Every row carries the same
+  actions: **Open · Edit · PDF**.
+- **Social output** — carousels, images and articles, tabbed by category, with
+  publish status. Same rows, same actions: social is not a different system.
+- **Library** — slides, graphics, icons, design system. Each slide and block can
+  be **downloaded on its own** as self-contained HTML, PNG or PDF.
+- **Last 30 days** — the research brain, runs, ideas and performance (read-only).
+- **Knowledge** — design philosophy, best practices, recipes, config.
+
+## The PDF is always the version you are looking at
+
+This is the rule the whole download path exists to keep.
+
+A version saved in the editor has no PDF until something prints one. Downloading
+such a version **prints it on demand and waits**, then serves it — it never falls
+back to an older version's file. The filename comes from the server
+(`Content-Disposition`), so what lands in your Downloads folder is the name the
+system computed.
+
+If verify FAILs, the PDF is **not** attached to the version and the response is a
+409 carrying the report in plain language. You can still take the file via
+**Download anyway**, which serves it prefixed `UNVERIFIED_` and never records it
+as the PDF of record.
+
+Naming: `<date>_oppr_<core>[_<client>].pdf`, or `oppr_<type>.pdf` for a master.
+**Rename** lets you set `<core>` and the title; the date, the `oppr` token and the
+client slug stay system-owned, because `verify-deck.py` FAILs a PDF missing them
+and a rename must not be able to defeat a gate.
+
+## Verification, said in words
+
+`verify_report` is structured (`{level, code, slide_id, msg}`). `web/js/verify.js`
+turns each code into a sentence and says who fixes it — **fix here**, **needs the
+CLI**, or **your call** — rather than showing a count. A clean report and no
+report are different states and read differently.
 
 ## How it works
 
-- **`server.mjs`** — a localhost HTTP server. Serves the front-end and repo files
-  read-only under `/repo/…`; exposes `/api/index`, drafts (`/api/drafts`,
-  `/api/social-drafts`), `/api/history/slide/…` (git), `/api/knowledge/…`
-  (whitelist), and `/api/import-graphics` (staging). Guardrails: writes only under
-  the three staging areas, path traversal blocked, git args validated, localhost
-  only.
-- **`tools/build_app_index.py`** (in the repo) — Python owns all YAML, so the Node
-  server needs no YAML parser. It emits `app/index.json` (slides + sections +
-  version counts, decks, images, social outputs, recipes). Generated + gitignored;
-  regenerated on start and on **Refresh**.
-- **`web/`** — the front-end: plain ES modules (`web/js/**`), no build step, styled
-  in the deck's own palette. See `.scratch/deck-app/V2-SPEC.md` for the full design.
+- **`server.mjs`** — a localhost HTTP server holding the Supabase secret key
+  (never sent to the browser). Serves the front-end, repo files read-only under
+  `/repo/…`, the materialized cache under `/deck-cache/…`, and the API. Writes
+  only staging areas (`dump/_app/`, `decks/drafts/`, `social/drafts/`) and the
+  backend; never `library/`, `brand/` or `templates/`.
+- **`lib/jobs.mjs`** — printing and the build job. Runs the **same**
+  `tools/verify-deck.py` gate the CLI runs.
+- **`lib/htmlcheck.mjs`** — the structural fingerprint that keeps the wall honest.
+- **`lib/deckcache.mjs`** — materializes a version to disk for the iframes and
+  the printer.
+- **`tools/build_app_index.py`** — Python owns all YAML, so the Node server needs
+  no YAML parser. Emits `app/index.json` (gitignored); rebuilt on start and on
+  **Refresh**.
+- **`web/`** — plain ES modules, no build step.
+
+Design rationale: `.scratch/deck-studio-2/MAP.md` (current) and
+`.scratch/deck-app/hybrid-editor/report_and_implementation.md` (the v3 backend).

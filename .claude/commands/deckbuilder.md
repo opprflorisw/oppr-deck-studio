@@ -12,7 +12,7 @@ remember many commands.
 The **CLI is always the engine**: the local app (`app/`) only browses and drafts;
 assembly, new-slide creation, PDF and verify happen here, and **every building
 route keeps a hard plan-approval gate** — nothing is assembled or shipped before
-Floris approves the plan. You may write only under `decks/variants/`,
+Floris approves the plan. You may write only under `decks/`,
 `decks/drafts/` (to clear a built draft), and `social/`. Editing the library or
 canonicals is the other side of the wall: that is `/edit-canonical`, never here.
 
@@ -49,15 +49,15 @@ for the schema. Then:
    and the entitlement clearance. This is the same gate and format as `/new-deck`
    Step 3. **Stop for approval.** Flag any slide whose entitlement exceeds the
    draft's clearance — it does not ship unless the deck is cleared.
-3. **Assemble the variant** into `decks/variants/<slug>/` exactly as `/new-deck`
+3. **Assemble the variant** into `decks/<slug>/` exactly as `/new-deck`
    Step 4: `brief.md` (from the draft intent + approved plan), `deck.yaml`
    (title, type, vars, `allowed_entitlements` only if cleared, `client` if named,
    ordered slides), and for every **adjust** (commented) or **new** slide a
    local override `slides/<id>/slide.html` composed only from documented
-   design-system blocks. Then `python tools/assemble-deck.py decks/variants/<slug>`.
+   design-system blocks. Then `python tools/assemble-deck.py decks/<slug>`.
 4. **Build + verify** as `/new-deck` Step 5: `build-pdf.ps1`, then
    `verify-deck.py`, fix any FAIL, then the human visual pass.
-4b. **Publish (v3):** `python tools/publish-deck.py decks/variants/<slug>`
+4b. **Publish (v3):** `python tools/publish-deck.py decks/<slug>`
    (+`--customer`/`--derived-from`/`--master` as fitting). Masters are resolved by
    TAG, not the `canonical/` folder — to build "the <type> presentation" grab the
    `is_master` deck for that type (query the backend or `GET /api/decks`). Building
@@ -79,7 +79,7 @@ an existing deck's argument, or new). Then:
 1. **Propose the plan (approval gate):** the page sequence for a carousel (hook
    → point/stat pages → CTA, 6–10 pages at 1080×1350 / 4:5) or the post/article
    structure, plus which **public** graphics. Entitlement rules apply **fully** —
-   social is public by definition, so no named-customer / mutares-family
+   social is public by definition, so no customer-cleared
    material. Stop for approval.
 2. **Build** into `social/<channel>/<YYYY-MM-DD>_<slug>/`:
    - carousel → page HTML on `templates/linkedin.css` + a 4:5 PDF via
@@ -105,3 +105,17 @@ an existing deck's argument, or new). Then:
 carries the client slug for a named-client deck. `build-pdf.ps1` derives this
 from `deck.yaml` and `verify-deck.py` FAILs a PDF that lacks `oppr` or (for a
 deck with a `client`) the client slug. Never hand-name around it.
+
+## Where a run ends
+
+Every building route ends the same way, so the CLI → app handover is never left
+to guesswork:
+
+> Published as `<slug>`. Open it at **http://127.0.0.1:4173/** — Edit for wording
+> and spacing, Download PDF for the current version, Rename to change the file
+> name.
+
+Small changes do **not** come back here. Changing a word, nudging spacing,
+swapping an image, renaming, and re-printing the PDF are all app jobs now. Route
+back to the CLI only for a new artifact, a new library element, or a structural
+change (adding, removing or reordering a page).
