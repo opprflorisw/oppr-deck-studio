@@ -5,13 +5,24 @@
 
 import fs from "node:fs";
 import fsp from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as db from "./supabase.mjs";
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url)); // app/lib
-export const CACHE_ROOT = path.resolve(APP_DIR, "..", ".deck-cache");
+
+// Where a version is materialized to disk. Locally that is app/.deck-cache/,
+// which survives restarts and makes the second open instant. A serverless
+// function has no writable project directory and no disk that outlives the
+// invocation, so it uses /tmp: same interface, same same-origin serving, just
+// cold every time. Truth is in Supabase either way, so a lost cache costs a
+// download, never data.
+const SERVERLESS = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+export const CACHE_ROOT = SERVERLESS
+  ? path.join(os.tmpdir(), "oppr-deck-cache")
+  : path.resolve(APP_DIR, "..", ".deck-cache");
 
 export function versionDir(deckId, n) {
   return path.join(CACHE_ROOT, deckId, `v${n}`);

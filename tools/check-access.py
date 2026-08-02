@@ -43,6 +43,7 @@ def check(passed: bool, name: str, detail: str = "") -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="exit 1 on any failure")
+    ap.add_argument("--app-url", default="", help="also test a deployed app URL")
     args = ap.parse_args()
 
     env = load_env()
@@ -124,6 +125,27 @@ def main() -> int:
                 pass
     check(not leaked, "the secret key is not in anything the browser can fetch",
           ", ".join(leaked) or "clean")
+
+    # 8. The deployed app: every route refused without a session, and the public
+    #    config endpoint must not leak the secret key.
+    if args.app_url:
+        base = args.app_url.rstrip("/")
+        for ep in ["/api/decks", "/api/accounts", "/api/audit", "/api/me",
+                   "/api/index", "/repo/brand/img/library.json",
+                   "/deck-cache/x/v1/index.html"]:
+            try:
+                r = requests.get(base + ep, timeout=30, allow_redirects=False)
+                check(r.status_code == 401, f"deployed {ep} refuses anonymous", f"HTTP {r.status_code}")
+            except Exception as e:  # noqa: BLE001
+                check(False, f"deployed {ep} refuses anonymous", str(e)[:60])
+        try:
+            r = requests.get(base + "/api/config", timeout=30)
+            body = r.text
+            check(secret not in body, "deployed /api/config does not leak the secret key")
+            check(r.ok and "anon_key" in body, "deployed /api/config serves the public config",
+                  f"HTTP {r.status_code}")
+        except Exception as e:  # noqa: BLE001
+            check(False, "deployed /api/config reachable", str(e)[:60])
 
     # --- report ---------------------------------------------------------------
     print()

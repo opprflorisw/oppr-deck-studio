@@ -1,12 +1,18 @@
 {
   "name": "oppr-deck-studio-app",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Local viewer + composer over the Oppr Deck Studio library. Browse slides/decks/images, cherry-pick into a draft, hand off to the Claude CLI. Zero runtime dependencies.",
+  "description": "Oppr Deck Studio. Runs locally with `npm run dev` and on Vercel from the same server.mjs router. Browse, edit and ship decks, carousels and social images.",
   "scripts": {
     "dev": "node server.mjs",
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && node --check lib/verify.mjs && node --check api/index.mjs"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "@sparticuz/chromium": "^131.0.0",
+    "puppeteer-core": "^23.10.4"
   },
   "engines": {
     "node": ">=18"

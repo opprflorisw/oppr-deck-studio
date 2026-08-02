@@ -57,3 +57,6 @@ app/.deck-cache/
 # last30days engine local search index (rebuildable)
 research/last30days/library.db
 research/last30days/*.db
+
+# Upload cache for tools/publish-assets.py (rebuildable; --force ignores it)
+/.scratch/.asset-hashes.json

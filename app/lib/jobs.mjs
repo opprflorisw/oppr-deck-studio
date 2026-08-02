@@ -13,6 +13,8 @@ import { fileURLToPath } from "node:url";
 
 import * as db from "./supabase.mjs";
 import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./deckcache.mjs";
+import { print as renderPrint, rendererName, isServerless } from "./render.mjs";
+import { verifySnapshot } from "./verify.mjs";
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(APP_DIR, "..", "..");
@@ -45,24 +47,7 @@ function fileUri(absPath) {
   return "file:///" + absPath.replace(/\\/g, "/");
 }
 
-function printPdf(indexHtml, outPdf) {
-  return new Promise((resolve, reject) => {
-    const browser = findBrowser();
-    if (!browser) return reject(new Error("no Chrome or Edge found"));
-    const userDir = path.join(os.tmpdir(), `oppr-print-${Date.now()}`);
-    const args = [
-      "--headless=new", "--disable-gpu", "--no-pdf-header-footer",
-      `--user-data-dir=${userDir}`, "--virtual-time-budget=10000",
-      `--print-to-pdf=${outPdf}`, fileUri(indexHtml),
-    ];
-    const child = spawn(browser, args);
-    child.on("error", reject);
-    child.on("close", async () => {
-      await fsp.rm(userDir, { recursive: true, force: true }).catch(() => {});
-      fs.existsSync(outPdf) ? resolve(outPdf) : reject(new Error("PDF was not produced"));
-    });
-  });
-}
+const printPdf = (indexHtml, outPdf) => renderPrint(indexHtml, outPdf);
 
 // Page geometry in CSS px per format — must match verifylib.PAGE_FORMATS and
 // editor.js PAGE_SIZES. A PNG needs an explicit window size or the browser
@@ -77,30 +62,16 @@ const PAGE_PX = {
 // Print a single-page document (a library element) to PDF or PNG, using the
 // same headless browser the deck build uses so an exported element matches a
 // built one exactly.
-export function printElement(indexHtml, outFile, format) {
-  return new Promise((resolve, reject) => {
-    const browser = findBrowser();
-    if (!browser) return reject(new Error("no Chrome or Edge found"));
-    let pageFormat = "deck-16x9";
-    try {
-      const m = /"page_format":\s*"([^"]+)"/.exec(fs.readFileSync(indexHtml, "utf-8"));
-      if (m && PAGE_PX[m[1]]) pageFormat = m[1];
-    } catch {}
-    const [w, h] = PAGE_PX[pageFormat];
-    const userDir = path.join(os.tmpdir(), `oppr-el-${Date.now()}`);
-    const args = [
-      "--headless=new", "--disable-gpu", "--no-pdf-header-footer",
-      `--user-data-dir=${userDir}`, "--virtual-time-budget=8000",
-      `--window-size=${w},${h}`,
-      format === "png" ? `--screenshot=${outFile}` : `--print-to-pdf=${outFile}`,
-      fileUri(indexHtml),
-    ];
-    const child = spawn(browser, args);
-    child.on("error", reject);
-    child.on("close", async () => {
-      await fsp.rm(userDir, { recursive: true, force: true }).catch(() => {});
-      fs.existsSync(outFile) ? resolve(outFile) : reject(new Error(`${format} was not produced`));
-    });
+export async function printElement(indexHtml, outFile, format) {
+  let pageFormat = "deck-16x9";
+  try {
+    const m = /"page_format":\s*"([^"]+)"/.exec(fs.readFileSync(indexHtml, "utf-8"));
+    if (m && PAGE_PX[m[1]]) pageFormat = m[1];
+  } catch {}
+  const [w, h] = PAGE_PX[pageFormat];
+  return renderPrint(indexHtml, outFile, {
+    screenshot: format === "png", width: w, height: h,
+    pageInches: [w / 96, h / 96],
   });
 }
 
@@ -172,7 +143,7 @@ export async function ensureThumbs(deckId, n) {
     }
   } catch { /* not in Storage yet — render it below */ }
 
-  const pdfPath = await materializePdf(deckId, n);
+  const pdfPath = isServerless ? null : await materializePdf(deckId, n);
   if (pdfPath) {
     const r = await runPython([path.join(TOOLS, "pdf-thumbs.py"), pdfPath, thumbDir]);
     if (r.code !== 0 || !fs.existsSync(p1)) return null;
@@ -210,7 +181,12 @@ export function startBuild(deck) {
   jobs.set(id, job);
   runningByDeck.set(deck.id, id);
   job.done = _run(job, deck).catch((e) => {
-    job.state = "error"; job.error = String(e.message || e);
+    job.state = "error";
+    job.error = String(e?.stack || e?.message || e);
+    // A build that dies silently is the worst kind: the UI says "failed" and
+    // nothing anywhere says why. Put it in the log the platform captures.
+    process.stderr.write(`build failed for ${deck.slug}: ${job.error}
+`);
   }).finally(() => {
     runningByDeck.delete(deck.id);
   });
@@ -249,9 +225,20 @@ async function _run(job, deck) {
   job.localPdf = outPdf;
   job.pdfName = pdfName;
 
-  const verify = await runPython([path.join(TOOLS, "verify-deck.py"), "--snapshot", "--json", dir]);
-  let report = { fails: ["verify did not run"], warns: [], entries: [] };
-  try { report = JSON.parse(verify.stdout.trim().split("\n").pop()); } catch {}
+  // The JavaScript gate, in BOTH environments. Running Python locally and JS in
+  // the cloud would make the app's answer depend on where it happens to be
+  // running, which is exactly the drift this rebuild removed.
+  // tools/check-verify-parity.py proves the two agree on every artifact.
+  let report;
+  try {
+    report = await verifySnapshot({
+      html: await fsp.readFile(indexHtml, "utf-8"),
+      pdfBytes: fs.existsSync(outPdf) ? await fsp.readFile(outPdf) : null,
+      pdfName,
+    });
+  } catch (e) {
+    report = { fails: [`verify did not run: ${e.message}`], warns: [], entries: [] };
+  }
   job.verify_report = report;
 
   const passed = report.fails.length === 0;
@@ -260,9 +247,14 @@ async function _run(job, deck) {
     const pdfObj = `decks/${deck.id}/pdf/v${n}_${pdfName}`;
     await db.upload(pdfObj, await fsp.readFile(outPdf), "application/pdf");
 
-    // thumbnails
+    // thumbnails. pdf-thumbs.py rasterises every page with PyMuPDF, which is
+    // richer but Python-only; without it page 1 is rendered from the HTML, which
+    // is what the lazy thumbnail path does anyway.
     const thumbDir = path.join(CACHE_ROOT, deck.id, "thumbs", `v${n}`);
-    await runPython([path.join(TOOLS, "pdf-thumbs.py"), outPdf, thumbDir]);
+    if (!isServerless) await runPython([path.join(TOOLS, "pdf-thumbs.py"), outPdf, thumbDir]);
+    else await fsp.mkdir(thumbDir, { recursive: true }).then(() =>
+      renderPrint(indexHtml, path.join(thumbDir, "p1.png"), {
+        screenshot: true, width: 1280, height: 720 })).catch(() => {});
     let pageObjs = [];
     try {
       const pngs = (await fsp.readdir(thumbDir)).filter((f) => f.endsWith(".png")).sort();

@@ -60,7 +60,10 @@ const IDEA_STATUS_FILE = path.join(RESEARCH_DIR, "posts", "_status.json");
 const PERFORMANCE_FILE = path.join(RESEARCH_DIR, "performance.json");
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4173;
-const HOST = "127.0.0.1";
+// Localhost by default: this is a local tool and should not be reachable from
+// the network by accident. On Vercel the platform routes to the function, so it
+// must bind every interface or nothing can reach it.
+const HOST = process.env.HOST || (process.env.VERCEL ? "0.0.0.0" : "127.0.0.1");
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -1193,8 +1196,11 @@ async function handleDeckApi(req, res, url) {
             return serveFile(res, job.localPdf, "UNVERIFIED_" + wantName);
           } else {
             return sendJson(res, 409, {
-              error: "verify failed, so the PDF is withheld",
+              error: job.state === "error"
+                ? `the PDF could not be produced: ${job.error}`
+                : "verify failed, so the PDF is withheld",
               state: job.state,
+              detail: job.error || "",
               verify_report: job.verify_report,
               can_download_unverified: Boolean(job.localPdf),
             });
@@ -1398,9 +1404,14 @@ async function personalize(req, res, masterId) {
   return sendJson(res, 200, { ok: true, deck: { id: newId, slug, title } });
 }
 
-const server = http.createServer(async (req, res) => {
+// The whole router, as one request handler.
+//
+// Locally it is wrapped in an http server; on Vercel `api/index.mjs` calls it
+// directly. One implementation either way — a second copy of the routing is how
+// a hosted app and a local app quietly stop behaving the same.
+export async function handleRequest(req, res) {
   try {
-    const url = new URL(req.url, `http://${HOST}:${PORT}`);
+    const url = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
     const p = url.pathname;
 
     if (p.startsWith("/api/")) return handleApi(req, res, url);
@@ -1418,7 +1429,12 @@ const server = http.createServer(async (req, res) => {
       if (!abs) return send(res, 403, "forbidden");
       if (fs.existsSync(abs)) return serveFile(res, abs);
       const rel = decodeURIComponent(p.slice("/repo/".length));
-      if (supabaseConfigured() && /^(social|references|decks|research)\//.test(rel)) {
+      // Hosted, there is no repo on disk: the front-end still asks for brand
+      // images, fonts, slide thumbnails and design-system specimens under
+      // /repo/. tools/publish-assets.py mirrors those into Storage at the same
+      // relative path, so the same URL works locally (from disk) and hosted
+      // (from Storage) with no change in the browser.
+      if (supabaseConfigured() && /^(social|references|decks|research|library|brand|templates)\//.test(rel)) {
         try { return send(res, 200, await db.download(rel), { "Content-Type": mimeFor(rel) }); }
         catch { /* fall through to 404 */ }
       }
@@ -1445,13 +1461,27 @@ const server = http.createServer(async (req, res) => {
   } catch (err) {
     if (!res.headersSent) send(res, 500, "server error");
   }
-});
+}
 
-server.listen(PORT, HOST, async () => {
-  process.stdout.write("Oppr Deck Studio App\n");
-  process.stdout.write("Refreshing library index... ");
-  const ok = await regenerateIndex();
-  process.stdout.write(ok ? "done.\n" : "could not run Python (serving last known index).\n");
-  process.stdout.write(`\n  ->  http://${HOST}:${PORT}\n\n`);
-  process.stdout.write("Browse & compose in the browser. Ctrl+C to stop.\n");
-});
+// Vercel treats this file as the root entrypoint and requires a default export
+// that is a request handler or a server. The same function `npm run dev` wraps
+// in an http server — so hosted and local run identical code, which is the whole
+// point of not writing a separate serverless implementation.
+export default handleRequest;
+
+// Only bind a port when this file IS the program. On Vercel it is imported for
+// its default export, and binding would be wrong there.
+const isEntry = process.argv[1]
+  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  && !process.env.VERCEL;
+
+if (isEntry) {
+  http.createServer(handleRequest).listen(PORT, HOST, async () => {
+    process.stdout.write("Oppr Deck Studio App\n");
+    process.stdout.write("Refreshing library index... ");
+    const ok = await regenerateIndex();
+    process.stdout.write(ok ? "done.\n" : "could not run Python (serving last known index).\n");
+    process.stdout.write(`\n  ->  http://${HOST}:${PORT}\n\n`);
+    process.stdout.write("Browse & compose in the browser. Ctrl+C to stop.\n");
+  });
+}

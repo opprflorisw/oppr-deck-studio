@@ -391,6 +391,10 @@ export async function render(id, mount) {
     // an element that had no class but got a selection class now has class="" —
     // drop it, or the fingerprint would see an added `class` attribute.
     doc.querySelectorAll("[class]").forEach((n) => { if (!n.getAttribute("class").trim()) n.removeAttribute("class"); });
+    // Same for style: the layout code sets and clears body/container styles, and
+    // an emptied style="" is an added attribute as far as the fingerprint is
+    // concerned — and pure noise in the saved document.
+    doc.querySelectorAll("[style]").forEach((n) => { if (!n.getAttribute("style").trim()) n.removeAttribute("style"); });
     const styleTag = doc.getElementById("__ed-style");
     if (styleTag) styleTag.remove();
     const deckEl = doc.querySelector(PAGE_CONTAINER);

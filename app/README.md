@@ -5,12 +5,57 @@ app changes and ships.**
 
 ```
 cd app
+npm install        # pdf-lib, and Chromium for printing
 npm run dev        # -> http://127.0.0.1:4173
 ```
+
+**Hosted:** https://deck-manager-oppr.vercel.app — same `server.mjs`, same router,
+same gate. Vercel runs it as the root entrypoint via its default export; `npm run
+dev` wraps the identical handler in an http server. There is deliberately no
+separate serverless implementation, because two implementations is how a hosted
+app and a local app quietly stop behaving the same.
+
+Deploy with `npx vercel deploy --prod` from `app/`.
 
 No install step, no dependencies: the server uses only Node built-ins (Node 18+).
 It also needs **Python on PATH** (library index, verify, element export),
 **Chrome or Edge** (printing), and **git** (slide version history).
+
+## Signing in
+
+Supabase Auth, email magic link. **Only @oppr.ai addresses can have an account**,
+and that is enforced by a trigger on `auth.users`, not by the UI — a wrong domain
+is refused at signup, so the account never exists. No password is typed, stored
+or sent.
+
+`profiles` is the account registry (email, name, role, disabled, last seen).
+Roles: **owner** manages people, **editor** changes artifacts, **viewer** reads.
+New colleagues arrive as `editor`, because the domain is the gate; an owner can
+demote or remove access on the Accounts page, but not their own.
+
+Every `/api` call carries the session token. `/repo` and `/deck-cache` are gated
+by an HttpOnly cookie instead, because an `<img>`, an `<iframe>` and a download
+link cannot send an Authorization header — and those two paths serve the whole
+image library and every rendered deck.
+
+`python tools/check-access.py --app-url <url>` is the proof: 26 adversarial
+checks that assert refusals, not happy paths. Run it after any change to
+policies, roles or the signup gate.
+
+## Rendering and verification, anywhere
+
+Printing picks its backend from what exists: the installed Chrome or Edge
+locally, a packaged Chromium (`@sparticuz/chromium` + `puppeteer-core`) on
+Vercel. A 12-slide deck prints in about 19s in the cloud, at exactly
+13.333 x 7.5 in — the same geometry the local browser produces, which the verify
+gate checks to 0.02 in.
+
+The gate itself is `lib/verify.mjs`, a deliberate port of `tools/verifylib.py`
+with the same codes and the same `PAGE_FORMATS` table. The app uses the JS gate
+in **both** environments, so its answer never depends on where it is running.
+`python tools/check-verify-parity.py` runs both over every published artifact and
+fails if they disagree — that check is the reason a second implementation is
+allowed to exist at all.
 
 ## The boundary, in one table
 
