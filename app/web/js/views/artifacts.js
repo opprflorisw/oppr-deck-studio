@@ -107,7 +107,9 @@ export function artifactRow(d) {
   const row = el(`
     <div class="deck-row artifact-row">
       <div class="head">
-        ${d.thumb ? `<img class="deck-thumb" src="${esc(d.thumb)}" alt="">` : `<span class="deck-thumb deck-thumb--none">${icon(isDeck(d) ? "monitor" : "cards", 16)}</span>`}
+        ${d.thumb
+          ? `<img class="deck-thumb" src="${esc(d.thumb)}" alt="" loading="lazy" title="Page 1">`
+          : `<span class="deck-thumb deck-thumb--none">${icon(isDeck(d) ? "monitor" : "cards", 16)}</span>`}
         <h3>${esc(decodeEntities(d.title))}</h3>
         ${d.is_master ? `<span class="badge badge--master">MASTER</span>` : ""}
         <span class="badge">${kindBadge}</span>
@@ -123,6 +125,16 @@ export function artifactRow(d) {
         </div>
       </div>
     </div>`);
+
+  // A thumbnail can legitimately be unavailable (a version that was never
+  // printed has no PDF to render page 1 from). Swap in the placeholder rather
+  // than leaving a broken image in the row.
+  const thumbImg = $(".deck-thumb", row);
+  if (thumbImg?.tagName === "IMG") {
+    thumbImg.addEventListener("error", () => {
+      thumbImg.replaceWith(el(`<span class="deck-thumb deck-thumb--none" title="No page image yet — print the PDF to get one">${icon(isDeck(d) ? "monitor" : "cards", 16)}</span>`));
+    });
+  }
 
   $(".act-open", row).addEventListener("click", (e) => { e.stopPropagation(); go("/deck/" + d.id); });
   $(".act-edit", row).addEventListener("click", (e) => { e.stopPropagation(); go(`/deck/${d.id}/edit`); });

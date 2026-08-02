@@ -82,6 +82,33 @@ Naming: `<date>_oppr_<core>[_<client>].pdf`, or `oppr_<type>.pdf` for a master.
 client slug stay system-owned, because `verify-deck.py` FAILs a PDF missing them
 and a rename must not be able to defeat a gate.
 
+## Editing: three verbs, or the HTML itself
+
+Click text and retype, nudge spacing, swap an entitlement-filtered image. When
+that is not enough, **HTML** in the editor bar opens the live source of the page
+you are on — edit it and **Apply** to see it immediately.
+
+A line under the box tells you what will happen *before* you save:
+
+| | |
+|---|---|
+| **Text and attributes only. This will save.** | it is within the wall |
+| **This changes the structure…** | the save will be refused and handed to the CLI |
+| **That is not valid HTML yet.** | Apply is a no-op until it parses |
+
+That last check is the same question the server's fingerprint asks; asking it
+locally as you type just means you find out before typing a page of changes.
+Applying only touches the live document — nothing is written until **Save
+version**.
+
+## Title-page thumbnails
+
+Every artifact row shows page 1. Thumbnails are rendered **on demand** the first
+time one is asked for (`/api/decks/:id/versions/:n/thumb`), from the version's
+PDF, or by screenshotting its HTML when there is no PDF — so CLI-published and
+imported artifacts get a picture too, not a grey placeholder. Each render is
+uploaded once, so a wiped cache costs nothing the second time.
+
 ## Verification, said in words
 
 `verify_report` is structured (`{level, code, slide_id, msg}`). `web/js/verify.js`

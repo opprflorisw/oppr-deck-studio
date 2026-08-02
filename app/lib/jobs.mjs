@@ -12,7 +12,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import * as db from "./supabase.mjs";
-import { materialize, versionDir, CACHE_ROOT } from "./deckcache.mjs";
+import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./deckcache.mjs";
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(APP_DIR, "..", "..");
@@ -146,6 +146,57 @@ export function pdfNameFor(deck) {
   const client = deck.client_slug ? slugify(deck.client_slug) : "";
   if (client && !parts.join("-").includes(client)) parts.push(client);
   return parts.join("_") + ".pdf";
+}
+
+// Make sure page-1 (and the rest) of a version exist as PNGs, generating them if
+// this version was never built through the app.
+//
+// Thumbnails used to appear only as a side effect of a PASS build, so anything
+// published by the CLI or imported showed a grey placeholder — you could not
+// tell one carousel from another in a list. This fills the gap lazily: cache
+// first, then Storage, then render from the version's PDF and upload so the next
+// caller (and a fresh cache) gets it for free.
+export async function ensureThumbs(deckId, n) {
+  const thumbDir = path.join(CACHE_ROOT, deckId, "thumbs", `v${n}`);
+  const p1 = path.join(thumbDir, "p1.png");
+  if (fs.existsSync(p1)) return p1;
+
+  await fsp.mkdir(thumbDir, { recursive: true });
+
+  // Already rendered on some earlier run, just not on this disk.
+  try {
+    const data = await db.download(`decks/${deckId}/thumbs/v${n}/p1.png`);
+    if (data?.length) {
+      await fsp.writeFile(p1, data);
+      return p1;
+    }
+  } catch { /* not in Storage yet — render it below */ }
+
+  const pdfPath = await materializePdf(deckId, n);
+  if (pdfPath) {
+    const r = await runPython([path.join(TOOLS, "pdf-thumbs.py"), pdfPath, thumbDir]);
+    if (r.code !== 0 || !fs.existsSync(p1)) return null;
+  } else {
+    // No PDF: a social image never had one, and a version saved in the editor
+    // has none until it is printed. Screenshot page 1 from the HTML instead, so
+    // every artifact gets a picture rather than only the printed ones.
+    try {
+      const dir = await materialize(deckId, n);
+      await printElement(path.join(dir, "index.html"), p1, "png");
+    } catch { return null; }
+    if (!fs.existsSync(p1)) return null;
+  }
+
+  // Upload so this render is done once for good, not once per cache wipe.
+  try {
+    const pngs = (await fsp.readdir(thumbDir)).filter((f) => f.endsWith(".png"));
+    for (const png of pngs) {
+      await db.upload(`decks/${deckId}/thumbs/v${n}/${png}`,
+        await fsp.readFile(path.join(thumbDir, png)), "image/png");
+    }
+  } catch { /* the local copy is enough to serve this request */ }
+
+  return p1;
 }
 
 // --- the job -----------------------------------------------------------------

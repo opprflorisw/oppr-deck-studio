@@ -967,8 +967,10 @@ async function handleDeckApi(req, res, url) {
         if (!cur || v.n > cur.n) byDeck.set(v.deck_id, v);
       }
       for (const d of decks) {
-        const tp = path.join(CACHE_ROOT, d.id, "thumbs", `v${d.current_version_n}`, "p1.png");
-        d.thumb = fs.existsSync(tp) ? `/deck-cache/${d.id}/thumbs/v${d.current_version_n}/p1.png` : null;
+        // Always the lazy endpoint, never a direct cache path: the picture may
+        // not exist yet, and the endpoint renders it the first time it is asked
+        // for. The row falls back to a placeholder if it 404s.
+        d.thumb = `/api/decks/${d.id}/versions/${d.current_version_n}/thumb`;
         const v = byDeck.get(d.id);
         d.verify_report = v && v.n === d.current_version_n ? v.verify_report : null;
         d.pdf_current = Boolean(v && v.n === d.current_version_n && v.pdf_object);
@@ -1045,6 +1047,21 @@ async function handleDeckApi(req, res, url) {
       await db.update("decks", { id }, patch);
       const after = { ...rows[0], ...patch };
       return sendJson(res, 200, { ok: true, deck: after, pdf_name: pdfNameFor(after) });
+    }
+
+    // --- version thumbnail (page 1 by default) -----------------------------
+    // Rendered on demand the first time it is asked for, so CLI-published and
+    // imported artifacts get a picture too instead of a grey placeholder.
+    let tm = p.match(/^\/api\/decks\/([^/]+)\/versions\/(\d+)\/thumb$/);
+    if (tm && req.method === "GET") {
+      const [, id, nStr] = tm;
+      if (!UUID_RE.test(id)) return send(res, 400, "bad id");
+      const page = Math.max(1, Number(url.searchParams.get("page") || 1));
+      const first = await jobs.ensureThumbs(id, Number(nStr));
+      if (!first) return send(res, 404, "no thumbnail");
+      const wanted = page === 1 ? first : path.join(path.dirname(first), `p${page}.png`);
+      if (!fs.existsSync(wanted)) return send(res, 404, "no such page");
+      return serveFile(res, wanted);
     }
 
     // --- version html / view / pdf ----------------------------------------

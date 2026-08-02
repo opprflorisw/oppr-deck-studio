@@ -492,7 +492,14 @@ a.pill-status.posted:hover { background: rgba(85,116,94,.26); }
 .deck-detail-head h1 { margin: 0 0 8px; }
 .deck-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
 .badge--master { background: var(--accent); color: #fff; border-color: var(--accent); }
-.deck-thumb { width: 64px; height: 36px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); margin-right: 4px; flex: none; }
+/* The title page, big enough to recognise at a glance and aspect-agnostic:
+   a deck is 16:9, a carousel 4:5, a social image 1:1. `cover` cropped a
+   portrait carousel to a horizontal slice of its middle, which is unreadable. */
+.deck-thumb {
+  width: 74px; height: 56px; object-fit: contain; object-position: center;
+  background: var(--bg); border-radius: 4px; border: 1px solid var(--line);
+  margin-right: 6px; flex: none;
+}
 .version-row.is-current { border-color: var(--accent); }
 
 /* build status + needs-cli banners */
@@ -675,7 +682,7 @@ a.pill-status.posted:hover { background: rgba(85,116,94,.26); }
 .artifact-row .row-actions .ghost { white-space: nowrap; }
 .deck-thumb--none {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 30px; border-radius: 5px;
+  width: 74px; height: 56px; border-radius: 4px;
   background: var(--surface); border: 1px solid var(--line); color: var(--muted);
 }
 .verify-chip { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
@@ -693,3 +700,26 @@ a.pill-status.posted:hover { background: rgba(85,116,94,.26); }
 }
 .prompt-box:hover::after { content: "click to copy"; }
 .prompt-box[data-hint="copied"]::after { content: "copied"; }
+
+/* HTML source editing, beside the WYSIWYG inspector */
+.editor-source {
+  width: 460px; border-left: 1px solid var(--line); background: var(--surface);
+  padding: 14px; display: flex; flex-direction: column; gap: 8px; min-height: 0;
+}
+/* An explicit display wins over the [hidden] attribute's UA rule, so the panel
+   would sit open on load. Restore hidden's meaning. */
+.editor-source[hidden] { display: none; }
+.src-head { display: flex; align-items: center; justify-content: space-between; }
+.editor-source textarea {
+  flex: 1; min-height: 200px; resize: none;
+  font-family: var(--mono); font-size: 12px; line-height: 1.55;
+  color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+  white-space: pre-wrap; overflow-wrap: anywhere; overflow: auto; tab-size: 2;
+}
+.src-verdict { font-size: 12px; font-weight: 700; padding: 7px 10px; border-radius: 7px; }
+.src-verdict.ok   { background: rgba(85,116,94,.16); color: var(--verified); }
+.src-verdict.warn { background: rgba(166,80,50,.14); color: var(--brand, #a65032); }
+.src-verdict.bad  { background: rgba(166,80,50,.22); color: var(--brand, #a65032); }
+.src-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.editor-bar .ghost.active { background: var(--ink); color: var(--bg); }

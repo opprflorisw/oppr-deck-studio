@@ -52,6 +52,7 @@ export async function render(id, mount) {
         <span class="editor-dirty" id="dirty" hidden>unsaved changes</span>
         <div class="spacer"></div>
         <span class="editor-hint note">Click text to edit · select an element to nudge or swap</span>
+        <button class="ghost" id="html" title="Edit this ${pageWord}'s HTML directly">${ibtn("code", "HTML")}</button>
         <button class="ghost" id="discard">${ibtn("close", "Discard")}</button>
         <button class="ghost" id="regen" disabled title="Save first">${ibtn("refresh", "Regenerate")}</button>
         <button class="primary" id="save" disabled>${ibtn("save", "Save version")}</button>
@@ -64,10 +65,24 @@ export async function render(id, mount) {
         <aside class="editor-inspect" id="inspect">
           <p class="note">Select an element in the ${pageWord} to edit it.</p>
         </aside>
+        <aside class="editor-source" id="source" hidden>
+          <div class="src-head">
+            <b>HTML · <span id="src-which">${pageWord} 1</span></b>
+            <button class="ghost icon-only" id="src-close" title="Close">${icon("close")}</button>
+          </div>
+          <p class="note">The live HTML of this ${pageWord}. Edit and Apply to see it
+            immediately; Save version writes it as a new version.</p>
+          <textarea id="src-text" spellcheck="false"></textarea>
+          <div id="src-verdict" class="src-verdict"></div>
+          <div class="src-actions">
+            <button class="ghost" id="src-revert">Revert</button>
+            <button class="primary" id="src-apply">Apply</button>
+          </div>
+        </aside>
       </div>
     </div>`);
 
-  const st = { dirty: false, active: 0, sections: [], selected: null, edits: { text: 0, nudge: 0, image: 0 } };
+  const st = { dirty: false, active: 0, sections: [], selected: null, edits: { text: 0, nudge: 0, image: 0, html: 0 } };
   const frame = $("#frame", wrap);
   const stage = $("#stage", wrap);
   const inspect = $("#inspect", wrap);
@@ -82,6 +97,88 @@ export async function render(id, mount) {
   $("#discard", wrap).addEventListener("click", () => leave(() => render(id, mount), true));
   $("#save", wrap).addEventListener("click", () => save());
   $("#regen", wrap).addEventListener("click", () => go("/deck/" + id));
+  $("#html", wrap).addEventListener("click", () => toggleSource());
+  $("#src-close", wrap).addEventListener("click", () => toggleSource(false));
+  $("#src-revert", wrap).addEventListener("click", () => loadSource());
+  $("#src-apply", wrap).addEventListener("click", () => applySource());
+
+  // ---- HTML source editing --------------------------------------------------
+  //
+  // The three WYSIWYG verbs cover most fine-tuning, but not everything you can
+  // see is reachable by clicking it. This shows the active page's real HTML and
+  // writes it straight back into the live document.
+  //
+  // The wall still holds: the server re-checks every save, so a structural
+  // change is rejected there. Rather than let you find that out after typing,
+  // the verdict line below the box says so as you type.
+  const srcPanel = () => $("#source", wrap);
+
+  function toggleSource(force) {
+    const panel = srcPanel();
+    const show = force === undefined ? panel.hidden : force;
+    panel.hidden = !show;
+    $("#inspect", wrap).hidden = show;
+    $("#html", wrap).classList.toggle("active", show);
+    if (show) loadSource();
+  }
+
+  function activeSection() {
+    return st.sections[st.active] || null;
+  }
+
+  function loadSource() {
+    const sec = activeSection();
+    if (!sec) return;
+    $("#src-which", wrap).textContent = `${pageWord} ${st.active + 1}`;
+    $("#src-text", wrap).value = formatHtml(sec.outerHTML);
+    $("#src-text", wrap).dataset.original = sec.outerHTML;
+    verdict();
+  }
+
+  // Compare the tag skeleton of what is typed against what is there. This is the
+  // same question the server's fingerprint asks, answered early and locally.
+  function verdict() {
+    const box = $("#src-verdict", wrap);
+    const text = $("#src-text", wrap).value;
+    const original = $("#src-text", wrap).dataset.original || "";
+    let parsed;
+    try {
+      parsed = new DOMParser().parseFromString(text, "text/html").body.firstElementChild;
+    } catch { parsed = null; }
+    if (!parsed) {
+      box.className = "src-verdict bad";
+      box.textContent = "That is not valid HTML yet.";
+      return false;
+    }
+    const same = skeleton(parsed.outerHTML) === skeleton(original);
+    box.className = "src-verdict " + (same ? "ok" : "warn");
+    box.textContent = same
+      ? "Text and attributes only. This will save."
+      : "This changes the structure, so the save will be refused and sent to the CLI.";
+    return true;
+  }
+  $("#src-text", wrap).addEventListener("input", verdict);
+
+  function applySource() {
+    const sec = activeSection();
+    if (!sec || !verdict()) return;
+    const text = $("#src-text", wrap).value;
+    const parsed = new DOMParser().parseFromString(text, "text/html").body.firstElementChild;
+    if (!parsed) return toast("Could not parse that HTML.");
+    const doc = idoc();
+    const imported = doc.importNode(parsed, true);
+    sec.replaceWith(imported);
+    // The node list is now stale — re-read it from the live document.
+    const deckEl = doc.querySelector(PAGE_CONTAINER);
+    st.sections = [...deckEl.children].filter((c) => c.tagName === "SECTION");
+    st.selected = null;
+    st.edits.html++;
+    markDirty();
+    layout();
+    showSlide(st.active);
+    loadSource();
+    toast("Applied.");
+  }
 
   function leave(then, force) {
     if (st.dirty && !force && !confirm("Discard unsaved changes?")) return;
@@ -311,6 +408,7 @@ export async function render(id, mount) {
     if (st.edits.text) parts.push(`text ×${st.edits.text}`);
     if (st.edits.nudge) parts.push(`nudge ×${st.edits.nudge}`);
     if (st.edits.image) parts.push(`image ×${st.edits.image}`);
+    if (st.edits.html) parts.push(`html ×${st.edits.html}`);
     const note = parts.join(", ") || "fine-tune";
     try {
       const out = await api.saveDeckVersion(id, html, note);
@@ -371,6 +469,31 @@ function breadcrumb(node) {
     n = n.parentElement;
   }
   return parts.join(" › ");
+}
+
+// The tag skeleton: element names and nesting, with all text and attribute
+// VALUES dropped. Two documents with the same skeleton differ only in content,
+// which is exactly what the server's save gate allows.
+function skeleton(html) {
+  return (html.match(/<\/?[a-zA-Z][^\s/>]*/g) || []).join("").toLowerCase();
+}
+
+// Put each tag on its own line so the source is readable in a textarea. Purely
+// cosmetic: it is re-parsed before anything is applied, so the indentation never
+// reaches the saved document.
+function formatHtml(html) {
+  const out = [];
+  let depth = 0;
+  for (const part of html.replace(/>\s*</g, ">\n<").split("\n")) {
+    const line = part.trim();
+    if (!line) continue;
+    if (/^<\//.test(line)) depth = Math.max(0, depth - 1);
+    out.push("  ".repeat(depth) + line);
+    const opens = /^<[^/!]/.test(line) && !/\/>$/.test(line) && !/<\/[a-zA-Z]/.test(line)
+      && !/^<(br|img|input|hr|meta|link|source)\b/i.test(line);
+    if (opens) depth++;
+  }
+  return out.join("\n");
 }
 
 function clampProp(prop, v) {

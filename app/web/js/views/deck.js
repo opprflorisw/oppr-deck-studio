@@ -266,6 +266,9 @@ function openRename(deck, currentName, mount) {
     $("#r-preview", m).textContent = out;
   };
   $("#r-core", m).addEventListener("input", preview);
+  // Compute it up front too: the modal must show the resulting filename
+  // before you touch anything, not only after the first keystroke.
+  preview();
 
   $("#r-save", m).addEventListener("click", async () => {
     try {
