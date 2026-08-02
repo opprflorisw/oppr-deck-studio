@@ -54,7 +54,29 @@ cleared for.
 
 <!-- one line per closed ticket; the detail lives in the ticket -->
 
-_(none yet — charted 2026-08-02)_
+- [Identity and roles](tickets/identity-and-roles.md) — **Magic link, @oppr.ai
+  only, enforced by a trigger on `auth.users`** so a non-Oppr account is never
+  created. No passwords anywhere. `profiles` is the registry (email, name, role,
+  disabled, last seen), written by trigger on first sign-in. Three roles: owner
+  manages people, editor changes artifacts, viewer reads. **New colleagues
+  default to `editor`** — the domain is the gate Floris asked for, so a second
+  manual approval step was not added; an owner can demote or remove access. The
+  owner cannot remove their own.
+- [Lock the database down](tickets/lock-the-database-down.md) — grants written on
+  all ten tables and on Storage: read for any active member, write for editors,
+  delete for owners. Nothing granted to `anon`, no `using (true)`. A trigger
+  stops a member editing their own role, exempting the service role (the CLI's
+  legitimate bypass). Proved by `tools/check-access.py`, **17 adversarial checks,
+  all passing**.
+- **Who did what** — `deck_versions.author` was the literal `'floris'` in four
+  places; versions, renames, master toggles, personalizes and prints now record
+  the acting account, and `audit_log` is append-only by construction (no update
+  or delete policy exists).
+- **Subresources needed their own answer** (found while building). `/repo` and
+  `/deck-cache` serve the image library and the rendered decks, and an `<img>`,
+  `<iframe>` or download link cannot send an Authorization header. They are gated
+  by an HttpOnly session cookie instead; without it they would have been the one
+  unauthenticated hole in an otherwise closed app.
 
 ## Not yet specified (fog)
 
@@ -83,13 +105,13 @@ Frontier = open + unblocked + unclaimed.
 
 | Ticket | Type | Status / Blocked by |
 |---|---|---|
-| [Identity and roles](tickets/identity-and-roles.md) | grilling | **frontier** |
+| [Identity and roles](tickets/identity-and-roles.md) | grilling | ✅ closed 2026-08-02 |
 | [Cloud rendering](tickets/cloud-rendering.md) | prototype | **frontier** |
 | [Port the verify gate off Python](tickets/port-verify.md) | prototype | **frontier** |
-| [Lock the database down](tickets/lock-the-database-down.md) | task | blocked by Identity and roles |
-| [Where the secret key goes](tickets/where-the-secret-key-goes.md) | grilling | blocked by Identity and roles |
+| [Lock the database down](tickets/lock-the-database-down.md) | task | ✅ closed 2026-08-02 |
 | [Clearance as access control](tickets/clearance-as-access-control.md) | grilling | blocked by Identity and roles, Lock the database down |
 | [Deployment shape on Vercel](tickets/deployment-shape.md) | grilling | blocked by Cloud rendering, Where the secret key goes |
 | [The cache with no disk](tickets/cache-with-no-disk.md) | grilling | blocked by Cloud rendering |
+| [Where the secret key goes](tickets/where-the-secret-key-goes.md) | grilling | **frontier** — partly answered: the browser holds a user token, the server still holds the secret and verifies every caller. The remaining question is what changes when the server is a Vercel function. |
 | [The MCP server](tickets/the-mcp-server.md) | prototype | blocked by Where the secret key goes |
 | [Prove it before it is public](tickets/prove-it-before-public.md) | task | blocked by everything above |
