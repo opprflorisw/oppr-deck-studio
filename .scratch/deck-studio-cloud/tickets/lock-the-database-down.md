@@ -8,10 +8,17 @@ Write and prove the row-level security policies, on every table, deny by default
 
 ## The state today
 
-All eight tables have `rls_enabled: true` and **no policies that matter**, because
-the only client is the local agent using `SUPABASE_SECRET_KEY`, which bypasses RLS
-entirely. The key *is* the permission model. That is safe for one user on
-localhost and completely unsafe the moment a second person can authenticate.
+All eight tables have `rls_enabled: true` and **zero policies**, which in Postgres
+means deny everything. Measured 2026-08-02: the publishable key reads 0 rows from
+every table, and Storage refuses both that key and an unauthenticated URL. The
+only reader is the local agent using `SUPABASE_SECRET_KEY`, which bypasses RLS by
+design.
+
+**So this ticket is about granting, not locking.** The name is kept because the
+outcome is the same — a database whose rules are deliberate — but the direction
+matters: today's state is closed and safe, and every policy added from here opens
+a door. The risk lives in the grants, so each one is written to the narrowest
+thing that works and then tested by trying to get past it.
 
 Tables: `decks`, `deck_versions`, `deck_assets`, `customers`, `publish_log`,
 `build_jobs`, `social_outputs` (legacy), `reference_files`. Plus **Storage**: the

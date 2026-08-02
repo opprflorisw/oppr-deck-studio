@@ -16,9 +16,12 @@ Today clearance is checked at build time by `verify-deck.py` and at image-swap
 time by the app. Both ask "may this content be in this deck". Neither asks "may
 this person see this deck", because there has only ever been one person.
 
-A Holliday-cleared deck is currently readable by anyone who can reach the backend.
-That is fine with one user and a localhost app. It is a leak the moment a
-colleague logs in.
+A Holliday-cleared deck is currently readable only by whoever holds the secret
+key, which is Floris's machine — so there is no exposure today. The gap opens the
+moment colleagues get accounts: the first policy that lets an authenticated user
+read `decks` will, unless it says otherwise, let *every* colleague read *every*
+customer's deck. That is the leak to design against, and it does not exist until
+the grant is written.
 
 ## What a good answer settles
 

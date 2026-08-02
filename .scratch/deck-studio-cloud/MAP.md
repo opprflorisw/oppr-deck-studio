@@ -27,12 +27,17 @@ cleared for.
   - The **MCP is secondary**. It is what lets *Claude* drive Deck Studio from
     other surfaces; it does nothing for a colleague opening a link. It does not
     block hosting and hosting does not block it.
-- **The security fact this map turns on:** today every table has RLS enabled but
-  **nothing enforces it**, because the only client is `app/server.mjs` holding
-  the `SUPABASE_SECRET_KEY`, which bypasses RLS entirely. The key *is* the
-  permission model. The moment a second person authenticates, Postgres itself has
-  to start answering "may this person read this row", and today it has no rules
-  that say no.
+- **The security fact this map turns on** (measured 2026-08-02, not assumed):
+  every table has RLS enabled and **zero policies**, which in Postgres means
+  **deny everything**. Verified: the publishable key reads 0 rows from `decks`,
+  `deck_versions`, `deck_assets`, `customers` and `publish_log`, and Storage
+  refuses the same key and an unauthenticated URL. The only thing that reads
+  anything is `app/server.mjs` holding `SUPABASE_SECRET_KEY`, which bypasses RLS
+  by design.
+  So the job is **not** closing something that is open. It is the harder,
+  quieter one: **opening it exactly as far as each colleague should reach, and no
+  further**. Every policy written from here is a grant, and a grant is where the
+  leak would come from — not from the current state.
 - **Clearance changes meaning.** `allowed_entitlements` currently gates what
   *content* may go in an artifact. With several users it must also gate *who may
   open the artifact*. Those are different questions and the second one does not
