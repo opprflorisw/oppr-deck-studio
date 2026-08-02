@@ -13,7 +13,7 @@ says what superseded it.
 
 | Effort | What it decides |
 |---|---|
-| [`deck-studio-2/`](deck-studio-2/MAP.md) | **The current map.** Consolidate, standardize and prune the whole system: one store of truth, a visible CLI/app boundary, an edit → verify → PDF loop for every artifact type, and a repo with nothing unused in it. |
+| [`deck-studio-cloud/`](deck-studio-cloud/MAP.md) | **The current map.** Deck Studio reachable by colleagues who log in and edit, with rendering and verification moved off Floris's machine, deployed on Vercel, plus an MCP so Claude can drive it from other surfaces. |
 
 ## Current design rationale (still true, still cited)
 
@@ -31,6 +31,7 @@ says what superseded it.
 | `deck-app/nav-overhaul/` | **Deck Studio 2.0**. Its open tickets (archive/history, fate of the in-app builder, tab icons, action grammar, search scope, wayfinding polish) were absorbed by `deck-studio-2/tickets/navigation-and-discoverability.md`. |
 | `cloud-backend/` | **Supabase**, not GCP. The map charted a GCP-hosted backend; v3 shipped Supabase instead. Its store-of-truth reasoning fed `deck-studio-2/tickets/one-store-of-truth.md`. |
 | `deck-tool/MAP.md` | delivered; the surviving doctrine is in `SPEC.md` and the root `CLAUDE.md`. |
+| [`deck-studio-2/`](deck-studio-2/MAP.md) | **delivered 2026-08-01** and superseded as the live map by `deck-studio-cloud/`. Its decisions still stand: the one artifact model, the format-aware verify gate, print-on-demand PDFs, the unified action grammar. Its "local now, hosted-ready later" note is what the cloud map now acts on. |
 
 ## Records of one piece of work (not system design)
 
