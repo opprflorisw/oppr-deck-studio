@@ -41,4 +41,4 @@ export function previewFrame(fragmentSource, width = 640) {
 }
 
 export const fetchFragment = (id) =>
-  fetch(`/repo/library/slides/${encodeURIComponent(id)}/slide.html`).then((r) => r.text());
+  fetch(`/repo/library/slides/${encodeURIComponent(id)}/slide.html`, { credentials: "same-origin" }).then((r) => r.text());

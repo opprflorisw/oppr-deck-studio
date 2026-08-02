@@ -8,10 +8,12 @@ import { state, loadBackend } from "./state.js";
 import { route, setNotFound, startRouter, dispatch, go } from "./router.js";
 import { renderSidebar, markActive } from "./sidebar.js";
 import { areaById, areaPath } from "./areas.js";
+import { requireMember, currentMember, signOut } from "./auth.js";
 import { renderArea } from "./views/area.js";
 import * as slides from "./views/slides.js";
 import * as graphics from "./views/graphics.js";
 import * as artifacts from "./views/artifacts.js";
+import * as accounts from "./views/accounts.js";
 import * as customers from "./views/customers.js";
 import * as deck from "./views/deck.js";
 import * as editor from "./views/editor.js";
@@ -31,6 +33,7 @@ const RENDER = {
   },
   // Tab-less area: the value is the render function itself, not a tab table.
   decks: () => artifacts.renderDecks(),
+  accounts: () => accounts.render(),
   social: {
     all: () => artifacts.renderSocial("all"),
     carousel: () => artifacts.renderSocial("carousel"),
@@ -73,6 +76,12 @@ function mount(node) {
 }
 
 async function boot() {
+  // Nothing renders until we know who this is. The server refuses every /api
+  // call without a member anyway; this is what turns that refusal into a sign-in
+  // screen instead of a wall of failed requests.
+  const member = await requireMember(document.getElementById("app"));
+  if (!member) return;
+
   try {
     state.index = await api.getIndex();
   } catch {
@@ -86,6 +95,16 @@ async function boot() {
   renderSidebar();
 
   $("#refresh-btn").innerHTML = ibtn("refresh", "Refresh");
+
+  // Who you are signed in as, and the way out.
+  const who = document.createElement("div");
+  who.className = "whoami";
+  who.innerHTML = `<a class="ghost sm" href="#/accounts" title="Accounts">
+      <span class="avatar sm">${(member.full_name || member.email)[0].toUpperCase()}</span>
+      <span>${member.email}</span><span class="badge">${member.role}</span></a>
+    <button class="ghost sm" id="signout">Sign out</button>`;
+  document.querySelector(".topstrip-right")?.prepend(who);
+  document.getElementById("signout")?.addEventListener("click", signOut);
   const composeToggle = $("#compose-toggle");
   if (composeToggle) composeToggle.remove(); // composing moved to the CLI
 
@@ -121,6 +140,7 @@ async function boot() {
 
   // Area pages (title + tabs + body).
   route("/decks", () => area("decks"));            // single page, no tabs
+  route("/accounts", () => area("accounts"));
   route("/social/:tab", (tab) => area("social", tab));
   route("/library/:tab", (tab) => area("library", tab));
   route("/research/:tab", (tab) => area("research", tab));

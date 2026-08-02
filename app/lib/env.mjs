@@ -34,3 +34,11 @@ export function supabaseConfigured() {
   const e = env();
   return Boolean(e.SUPABASE_URL && e.SUPABASE_SECRET_KEY);
 }
+
+export const supabaseUrl = () => (env().SUPABASE_URL || "").replace(/\/$/, "");
+export const secretKey = () => env().SUPABASE_SECRET_KEY || "";
+
+// PUBLIC by definition: it ships to the browser so the login screen can talk to
+// Supabase Auth. It can read nothing without a signed-in @oppr.ai user — every
+// RLS policy grants to `authenticated` only, never to `anon`.
+export const anonKey = () => env().SUPABASE_ANON_KEY || "";

@@ -1,7 +1,30 @@
 // Thin fetch wrappers around the server API.
+//
+// Every call carries the signed-in member's token. The server refuses anything
+// without one, so this is the single place identity is attached — a request that
+// forgets it fails loudly rather than silently acting as nobody.
+
+import { token, ensureSession } from "./auth.js";
+
+// Wrap fetch so the header is never forgotten, and a 401 is a clear message
+// rather than a mystery.
+export async function authedFetch(url, opts = {}) {
+  await ensureSession();
+  const t = token();
+  const res = await fetch(url, {
+    ...opts,
+    headers: { ...(opts.headers || {}), ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+  });
+  if (res.status === 401) {
+    const err = new Error("Your session has expired. Reload to sign in again.");
+    err.status = 401;
+    throw err;
+  }
+  return res;
+}
 
 async function j(url, opts) {
-  const res = await fetch(url, opts);
+  const res = await authedFetch(url, opts);
   if (!res.ok) {
     let msg = res.statusText;
     try { msg = (await res.json()).error || msg; } catch {}
@@ -24,7 +47,7 @@ export const deleteDraft = (slug) =>
 
 export const slideHistory = (id) => j(`/api/history/slide/${encodeURIComponent(id)}`);
 export const slideVersion = (id, hash) =>
-  fetch(`/api/history/slide/${encodeURIComponent(id)}/${encodeURIComponent(hash)}`).then((r) => r.text());
+  authedFetch(`/api/history/slide/${encodeURIComponent(id)}/${encodeURIComponent(hash)}`).then((r) => r.text());
 
 export const importGraphics = (payload) =>
   j("/api/import-graphics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -51,7 +74,7 @@ export const customerIntake = (payload) =>
   j("/api/customer-intake", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
 
 // === Last 30 days research ==================================================
-const txt = (url) => fetch(url).then((r) => { if (!r.ok) throw new Error("not found"); return r.text(); });
+const txt = (url) => authedFetch(url).then((r) => { if (!r.ok) throw new Error("not found"); return r.text(); });
 
 export const getResearch = () => j("/api/research");
 export const getBrain = () => j("/api/research/brain");
@@ -74,7 +97,7 @@ export const researchBriefUrl = (slug) => `/repo/research/last30days/runs/${enco
 
 export const getKnowledgeTree = () => j("/api/knowledge");
 export const getKnowledgeFile = (path) =>
-  fetch(`/api/knowledge/${path.split("/").map(encodeURIComponent).join("/")}`).then((r) => {
+  authedFetch(`/api/knowledge/${path.split("/").map(encodeURIComponent).join("/")}`).then((r) => {
     if (!r.ok) throw new Error("not found");
     return r.text();
   });
@@ -87,7 +110,7 @@ export const getDecks = () => j("/api/decks");
 export const getSlideUsage = () => j("/api/slide-usage");
 export const getDeck = (id) => j(`/api/decks/${id}`);
 export const getDeckVersionHtml = (id, n) =>
-  fetch(`/api/decks/${id}/versions/${n}/html`).then((r) => { if (!r.ok) throw new Error("no version"); return r.text(); });
+  authedFetch(`/api/decks/${id}/versions/${n}/html`).then((r) => { if (!r.ok) throw new Error("no version"); return r.text(); });
 export const deckViewUrl = (id, n) => `/api/decks/${id}/versions/${n}/view`;
 export const deckPdfUrl = (id, n) => `/api/decks/${id}/versions/${n}/pdf`;
 export const saveDeckVersion = (id, html, change_note) => jpost(`/api/decks/${id}/versions`, { html, change_note });
@@ -105,7 +128,7 @@ export const renameDeck = (id, patch) =>
 // the explicit unverified download.
 export async function downloadDeckPdf(id, n, { unverified = false } = {}) {
   const url = `/api/decks/${id}/versions/${n}/pdf${unverified ? "?unverified=1" : ""}`;
-  const res = await fetch(url);
+  const res = await authedFetch(url);
   if (!res.ok) {
     let body = {};
     try { body = await res.json(); } catch {}
@@ -130,3 +153,10 @@ export async function downloadDeckPdf(id, n, { unverified = false } = {}) {
 export const getJob = (jobId) => j(`/api/jobs/${jobId}`);
 export const getCustomers2 = () => j("/api/customers2");
 export const createCustomer2 = (payload) => jpost("/api/customers2", payload);
+
+// === accounts + audit (Deck Studio cloud) ===================================
+export const getAccounts = () => j("/api/accounts");
+export const updateAccount = (id, patch) =>
+  j(`/api/accounts/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+export const getAudit = (params = {}) =>
+  j("/api/audit?" + new URLSearchParams(params).toString());

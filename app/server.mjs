@@ -33,7 +33,8 @@ import { fileURLToPath } from "node:url";
 // Deck Studio v3 backend: decks live as HTML versions in Supabase. These modules
 // hold the secret key and never reach the browser (proxy-only).
 import * as db from "./lib/supabase.mjs";
-import { supabaseConfigured } from "./lib/env.mjs";
+import { supabaseConfigured, supabaseUrl, anonKey } from "./lib/env.mjs";
+import { memberFor, bearerFrom, canWrite, isOwner, audit, touch, sessionCookie, clearedCookie } from "./lib/auth.mjs";
 import { validateSave, fingerprint } from "./lib/htmlcheck.mjs";
 import * as jobs from "./lib/jobs.mjs";
 import { pdfNameFor, printElement } from "./lib/jobs.mjs";
@@ -484,6 +485,89 @@ const listSocialDrafts = () => listDraftsIn(SOCIAL_DRAFTS_DIR, (slug, d) => ({ s
 
 async function handleApi(req, res, url) {
   const p = url.pathname;
+
+  // --- the gate ------------------------------------------------------------
+  // Everything under /api needs a signed-in @oppr.ai member, with two
+  // exceptions: /api/config tells the login screen which Supabase project to
+  // authenticate against (it returns only public values), and /api/me is how the
+  // browser asks "am I signed in?".
+  if (p === "/api/config" && req.method === "GET") {
+    return sendJson(res, 200, {
+      supabase_url: supabaseUrl(),
+      anon_key: anonKey(),
+      domain: "oppr.ai",
+      configured: Boolean(supabaseUrl() && anonKey()),
+    });
+  }
+
+  const member = await memberFor(bearerFrom(req));
+
+  if (p === "/api/me" && req.method === "GET") {
+    if (!member) {
+      res.setHeader("Set-Cookie", clearedCookie());
+      return sendJson(res, 401, { error: "not signed in" });
+    }
+    touch(member);
+    // Mirror the bearer token into an HttpOnly cookie so iframes, <img> and
+    // download links — which cannot set headers — are covered by the same gate.
+    const bearer = bearerFrom(req);
+    if (bearer) {
+      const secure = (req.headers["x-forwarded-proto"] || "").includes("https");
+      res.setHeader("Set-Cookie", sessionCookie(bearer, secure));
+    }
+    return sendJson(res, 200, { member: {
+      id: member.id, email: member.email, full_name: member.full_name, role: member.role,
+    } });
+  }
+
+  if (!member) {
+    return sendJson(res, 401, {
+      error: "Sign in with your @oppr.ai account to use Deck Studio.",
+      needs_auth: true,
+    });
+  }
+  touch(member);
+
+  // Read is open to every member; changing anything needs editor or owner.
+  if (req.method !== "GET" && !canWrite(member)) {
+    return sendJson(res, 403, {
+      error: `Your account is ${member.role}, which can view but not change anything. Ask an owner to make you an editor.`,
+    });
+  }
+  req.member = member;
+
+  // --- accounts (the registry) ---------------------------------------------
+  if (p === "/api/accounts" && req.method === "GET") {
+    const rows = await db.select("profiles", {
+      select: "id,email,full_name,role,disabled,created_at,last_seen_at",
+      order: "created_at.asc",
+    });
+    return sendJson(res, 200, { accounts: rows, me: member.id, can_manage: isOwner(member) });
+  }
+
+  let acc = p.match(/^\/api\/accounts\/([0-9a-f-]{36})$/i);
+  if (acc && req.method === "PATCH") {
+    if (!isOwner(member)) return sendJson(res, 403, { error: "only an owner may change accounts" });
+    const d = JSON.parse(await readBody(req, 20_000));
+    const patch = {};
+    if (["owner", "editor", "viewer"].includes(d.role)) patch.role = d.role;
+    if (typeof d.disabled === "boolean") patch.disabled = d.disabled;
+    if (!Object.keys(patch).length) return sendJson(res, 400, { error: "nothing to change" });
+    // An owner must not be able to lock the last owner out of the system.
+    if (acc[1] === member.id && (patch.role && patch.role !== "owner" || patch.disabled)) {
+      return sendJson(res, 400, { error: "you cannot remove your own owner access" });
+    }
+    await db.update("profiles", { id: acc[1] }, patch);
+    await audit(member, "account.update", null, { target: acc[1], ...patch });
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (p === "/api/audit" && req.method === "GET") {
+    const params = { select: "*", order: "at.desc", limit: url.searchParams.get("limit") || "100" };
+    const deckId = url.searchParams.get("deck_id");
+    if (deckId) params.deck_id = `eq.${deckId}`;
+    return sendJson(res, 200, { entries: await db.select("audit_log", params) });
+  }
 
   if (req.method === "GET" && p === "/api/index") {
     if (!fs.existsSync(INDEX_JSON)) await regenerateIndex();
@@ -1044,7 +1128,9 @@ async function handleDeckApi(req, res, url) {
       }
       if (typeof d.pdf_core === "string") patch.pdf_core = slugify(d.pdf_core).slice(0, 80);
       if (!Object.keys(patch).length) return sendJson(res, 400, { error: "nothing to change" });
+      patch.updated_by_id = req.member.id;
       await db.update("decks", { id }, patch);
+      await audit(req.member, "deck.rename", id, patch);
       const after = { ...rows[0], ...patch };
       return sendJson(res, 200, { ok: true, deck: after, pdf_name: pdfNameFor(after) });
     }
@@ -1136,8 +1222,13 @@ async function handleDeckApi(req, res, url) {
       const v = validateSave(prev, html, known);
       if (!v.ok) return sendJson(res, 400, { error: v.error, code: v.code });
       const n = cur + 1;
-      await db.insert("deck_versions", { deck_id: id, n, html, change_note: String(d.change_note || "").slice(0, 400), author: "floris" });
-      await db.update("decks", { id }, { current_version_n: n });
+      const note = String(d.change_note || "").slice(0, 400);
+      await db.insert("deck_versions", {
+        deck_id: id, n, html, change_note: note,
+        author: req.member.email, author_id: req.member.id,
+      });
+      await db.update("decks", { id }, { current_version_n: n, updated_by_id: req.member.id });
+      await audit(req.member, "version.save", id, { n, change_note: note });
       return sendJson(res, 200, { ok: true, n });
     }
 
@@ -1153,8 +1244,12 @@ async function handleDeckApi(req, res, url) {
       const src = await db.select("deck_versions", { deck_id: `eq.${id}`, n: `eq.${srcN}`, select: "html" });
       if (!src.length) return sendJson(res, 404, { error: "no such version" });
       const n = decks[0].current_version_n + 1;
-      await db.insert("deck_versions", { deck_id: id, n, html: src[0].html, change_note: `restored from v${srcN}`, author: "floris" });
-      await db.update("decks", { id }, { current_version_n: n });
+      await db.insert("deck_versions", {
+        deck_id: id, n, html: src[0].html, change_note: `restored from v${srcN}`,
+        author: req.member.email, author_id: req.member.id,
+      });
+      await db.update("decks", { id }, { current_version_n: n, updated_by_id: req.member.id });
+      await audit(req.member, "version.restore", id, { from: srcN, n });
       return sendJson(res, 200, { ok: true, n });
     }
 
@@ -1173,6 +1268,7 @@ async function handleDeckApi(req, res, url) {
       } else {
         await db.update("decks", { id }, { is_master: false });
       }
+      await audit(req.member, "deck.master", id, { is_master: Boolean(d.is_master) });
       return sendJson(res, 200, { ok: true, is_master: Boolean(d.is_master) });
     }
 
@@ -1228,6 +1324,7 @@ async function handleDeckApi(req, res, url) {
       const decks = await db.select("decks", { id: `eq.${id}`, select: "*" });
       if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
       const { jobId } = jobs.startBuild(decks[0]);
+      await audit(req.member, "build.run", id, { version: decks[0].current_version_n });
       return sendJson(res, 200, { ok: true, job_id: jobId });
     }
   } catch (e) {
@@ -1242,6 +1339,7 @@ async function handleDeckApi(req, res, url) {
 // to the master's current version, copies the master's assets, and inserts a new
 // deck + version 1 with lineage. (§5.3)
 async function personalize(req, res, masterId) {
+  const member = req.member;
   if (!UUID_RE.test(masterId)) return sendJson(res, 400, { error: "bad id" });
   const d = JSON.parse(await readBody(req, 4_000_000));
   const masters = await db.select("decks", { id: `eq.${masterId}`, select: "*" });
@@ -1279,7 +1377,8 @@ async function personalize(req, res, masterId) {
     audience_kind: audienceKind, customer_id: customerId, audience_label: audienceLabel,
     client_slug: clientSlug, allowed_entitlements: master.allowed_entitlements,
     current_version_n: 1, derived_from_deck_id: masterId, derived_from_version_n: cur,
-    created_by: "floris",
+    created_by: member.email,
+    created_by_id: member.id,
   });
   const newId = row[0].id;
 
@@ -1290,7 +1389,11 @@ async function personalize(req, res, masterId) {
     catch { /* fall back: re-upload from cache if present */ }
     await db.upsert("deck_assets", [{ deck_id: newId, filename: a.filename, storage_object: dst, entitlement: a.entitlement, sha256: a.sha256 }], "deck_id,filename");
   }
-  await db.insert("deck_versions", { deck_id: newId, n: 1, html, change_note: `personalized from ${master.slug} v${cur}`, author: "floris" });
+  await db.insert("deck_versions", {
+    deck_id: newId, n: 1, html, change_note: `personalized from ${master.slug} v${cur}`,
+    author: member.email, author_id: member.id,
+  });
+  await audit(member, "deck.personalize", newId, { from: master.slug, from_version: cur });
 
   return sendJson(res, 200, { ok: true, deck: { id: newId, slug, title } });
 }
@@ -1308,6 +1411,9 @@ const server = http.createServer(async (req, res) => {
     // file is not on local disk, fall back to Storage so the app is unchanged.
     if (p.startsWith("/repo/")) {
       if (req.method !== "GET") return send(res, 405, "method not allowed");
+      // Gated: /repo serves brand imagery and, via the Storage fallback, deck and
+      // social content. Unauthenticated it would be the whole library.
+      if (!(await memberFor(bearerFrom(req)))) return send(res, 401, "sign in first");
       const abs = safeResolve(REPO_ROOT, p.slice("/repo".length));
       if (!abs) return send(res, 403, "forbidden");
       if (fs.existsSync(abs)) return serveFile(res, abs);
@@ -1323,6 +1429,8 @@ const server = http.createServer(async (req, res) => {
     // load a version's index.html + assets from here; the agent writes it).
     if (p.startsWith("/deck-cache/")) {
       if (req.method !== "GET") return send(res, 405, "method not allowed");
+      // Gated: this is the rendered deck itself — HTML, assets and PDFs.
+      if (!(await memberFor(bearerFrom(req)))) return send(res, 401, "sign in first");
       const abs = safeResolve(CACHE_ROOT, p.slice("/deck-cache".length));
       if (!abs) return send(res, 403, "forbidden");
       return serveFile(res, abs);

@@ -16,6 +16,7 @@
 
 import { el, esc, toast } from "./util.js";
 import { icon } from "./icons.js";
+import { authedFetch } from "./api.js";
 
 const FORMATS = [
   { id: "html", label: "HTML", hint: "one self-contained file" },
@@ -26,7 +27,7 @@ const FORMATS = [
 async function fetchExport(kind, id, format, allow) {
   const qs = new URLSearchParams({ kind, id, format });
   if (allow) qs.set("allow", allow);
-  const res = await fetch(`/api/library/export?${qs}`);
+  const res = await authedFetch(`/api/library/export?${qs}`);
   if (!res.ok) {
     let body = {};
     try { body = await res.json(); } catch {}

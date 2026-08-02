@@ -111,7 +111,7 @@ export function pagesFromHtml(html, baseHref) {
 }
 
 export async function assembledPages(indexPath) {
-  const html = await (await fetch(`/repo/${indexPath}`)).text();
+  const html = await (await fetch(`/repo/${indexPath}`, { credentials: "same-origin" })).text();
   return pagesFromHtml(html, `/repo/${indexPath.replace(/[^/]+$/, "")}`);
 }
 
@@ -125,7 +125,7 @@ export async function assembledViewer(indexPath, title, pdf = null, image = null
 // Preview a BACKEND deck version: fetching the /view URL materializes the
 // version into the cache (so assets resolve) and returns its index.html.
 export async function deckVersionViewer(api, deckId, n, title, hasPdf = false) {
-  const html = await fetch(api.deckViewUrl(deckId, n)).then((r) => r.text());
+  const html = await api.authedFetch(api.deckViewUrl(deckId, n)).then((r) => r.text());
   const { pages } = pagesFromHtml(html, `/deck-cache/${deckId}/v${n}/`);
   openDeckViewer(pages, {
     title,

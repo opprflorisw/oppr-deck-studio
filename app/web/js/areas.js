@@ -28,6 +28,7 @@ export const AREAS = [
     { id: "posts", label: "Ideas", icon: "bulb" },
     { id: "performance", label: "Performance", icon: "spark" },
   ]},
+  { id: "accounts", title: "Accounts", icon: "building" },
   { id: "knowledge", title: "Knowledge", icon: "book", tabs: [
     { id: "philosophy", label: "Design philosophy", icon: "bulb" },
     { id: "best-practices", label: "Best practices", icon: "info" },
