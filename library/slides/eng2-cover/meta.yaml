@@ -1,0 +1,21 @@
+id: eng2-cover
+role: cover
+title: Make the knowledge on your shop floor visible, measurable and actionable.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+- slim-cut
+- sales
+images:
+- brand/img/hero-plate.jpg
+variables:
+- asset
+- cover_meta
+used_in:
+- engagement
+notes: Slim cut (engagement v3). v1's long-cut equivalent is the eng-* slide of the
+  same name.

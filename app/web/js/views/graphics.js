@@ -2,7 +2,7 @@
 // cross-references (which slides / decks use each graphic), a detail page, and
 // (Phase 5) an import flow. Usage is computed from the index client-side.
 
-import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
+import { $, $$, el, esc, decodeEntities, toast, ENTITLEMENTS } from "../util.js";
 import { state } from "../state.js";
 import { go } from "../router.js";
 import * as api from "../api.js";
@@ -32,7 +32,7 @@ export function renderList() {
       </div>
       <div class="filters">
         <input type="search" id="gq" placeholder="Filter…" value="${esc(gFilter.q)}">
-        <select id="gent"><option value="">Any clearance</option>${["public", "named-customer", "mutares-family"].map((r) => `<option ${gFilter.ent === r ? "selected" : ""}>${esc(r)}</option>`).join("")}</select>
+        <select id="gent"><option value="">Any clearance</option>${ENTITLEMENTS.map((r) => `<option ${gFilter.ent === r ? "selected" : ""}>${esc(r)}</option>`).join("")}</select>
         <label class="chk"><input type="checkbox" id="gun" ${gFilter.unused ? "checked" : ""}> unused only</label>
         <button class="ghost" id="gimport">${ibtn("add", "Import graphics")}</button>
       </div>

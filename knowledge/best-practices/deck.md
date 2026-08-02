@@ -23,4 +23,15 @@ being read without narration.
 
 ### Learnings
 
+- 2026-07-30 — **Decks are a ladder, and each rung must sell the next rung's
+  price, not the whole ladder's.** Showcase → Proposal → PoV document → annual
+  documents. The rule that keeps them from fighting: the showcase argues *why*,
+  the proposal argues *what, how, when, how much and how we decide*. Anything the
+  showcase spends five slides on, the proposal spends one on, because a proposal
+  is forwarded to people who never saw the showcase and must still survive
+  standalone. When two documents in the ladder describe the same commercial step
+  differently, the later one wins in the room and the earlier one looks like a
+  bait-and-switch: the Attero proposal quietly folded the € 10.000 Analyze into
+  the € 25.000 Proof, which deleted a step the showcase sells two slides earlier.
+  Check every document against the ladder's prices before sending.
 - 2026-07-22 — Seed doc from SPEC.md §9 and CLAUDE.md.

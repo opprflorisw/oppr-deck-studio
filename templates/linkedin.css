@@ -370,3 +370,49 @@ body { font-family: var(--sans); color: var(--ink); }
 /* the strip's auto margin pushes the rest of the page to the top, so a page
    carrying one needs headroom to clear the wordmark */
 .lpage:has(.lcontact) { padding-top: 168px; }
+
+/* ---------- article hero (one 1200x627 landscape card) ----------
+   A LinkedIn *article* is not a document post: the feed shows one wide banner
+   above the headline, at 1200x627. It is the only asset in this file that is
+   not 1080-wide, so it re-states its own type scale rather than inheriting the
+   carousel's (88px headlines would not fit 627px of height).
+
+   The hero is read at thumbnail size, in a scroll, by someone who has not yet
+   decided to click. So it carries the claim and nothing else: no body copy, no
+   page number, no open loop. A single optional stat does the arresting.
+   Ink ground here, unlike the single announcement card: an article banner sits
+   under a headline LinkedIn renders in its own chrome, so the dark ground is
+   what separates our asset from the platform's furniture.
+   Built by tools/build-social-image.ps1 -Width 1200 -Height 627. */
+.carousel--hero { gap: 0; padding: 0; }
+@media screen { .carousel--hero { gap: 0; padding: 0; } }
+.carousel--hero .lpage {
+  width: 1200px; height: 627px; padding: 72px 80px;
+  background: var(--ink); color: var(--bg);
+  justify-content: flex-end; page-break-after: auto;
+}
+.carousel--hero .lpage .wm { top: 56px; left: 80px; font-size: 30px; color: var(--bg); }
+.carousel--hero .lpage .wm b { color: var(--accent); }
+
+/* The claim. Two to nine words: it is a banner, not a sentence. */
+.carousel--hero h1 { font-size: 62px; line-height: 1.04; letter-spacing: -.025em; margin: 0; font-weight: 800; text-wrap: balance; max-width: 15ch; }
+
+/* Optional kicker above the claim: what this is, in the reader's vocabulary. */
+.carousel--hero .lkicker {
+  font-family: var(--mono); font-size: 22px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--accent); margin: 0 0 20px; font-weight: 500;
+}
+
+/* Optional single number, set beside the claim rather than above it, so the
+   hero stays one horizontal read at thumbnail size. */
+.carousel--hero .lhero-row { display: flex; align-items: flex-end; gap: 56px; }
+.carousel--hero .lhero-row h1 { flex: 1 1 auto; }
+.carousel--hero .lhero-stat { flex: 0 0 auto; text-align: right; }
+.carousel--hero .lhero-stat .n { font-size: 108px; font-weight: 800; letter-spacing: -.03em; line-height: .95; color: var(--accent); display: block; }
+.carousel--hero .lhero-stat .l { font-size: 20px; color: var(--muted); line-height: 1.25; display: block; margin-top: 10px; max-width: 13ch; }
+
+/* Hairline over the mark's band keeps the ink ground from reading as a void. */
+.carousel--hero .lpage::after {
+  content: ""; position: absolute; left: 80px; right: 80px; top: 112px;
+  border-top: 1px solid rgba(242,242,237,.18);
+}

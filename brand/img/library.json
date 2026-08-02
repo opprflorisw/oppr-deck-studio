@@ -5,7 +5,7 @@
       "file": "path under brand/img/",
       "type": "photo | diagram | product-screenshot | logo",
       "orientation": "landscape | portrait | square",
-      "entitlement": "public | named-customer | mutares-family  (an image may appear only in a deck cleared for its entitlement; public is always allowed)",
+      "entitlement": "public | <customer-slug>  (one slug per customer: mutares, holliday, venator, attero, keeeper, omniplast, sonneborn, host, selo, wavin. An image may appear only in a deck cleared for its entitlement; public is always allowed)",
       "description": "one sentence of meaning; also reused as the <img alt>",
       "tags": "keywords",
       "suggested_use": "message-level phrases in Oppr's own vocabulary (Capture -> Connect -> Execute, 'operators are the sensor')",
@@ -119,7 +119,7 @@
       "file": "product/logs-desktop-floorplan.png",
       "type": "product-screenshot",
       "orientation": "landscape",
-      "entitlement": "public",
+      "entitlement": "holliday",
       "description": "Setting up data collection on a plant floorplan.",
       "tags": [
         "logs",
@@ -132,13 +132,14 @@
         "Set up data collection",
         "pin log points to a floorplan",
         "every capture has a place"
-      ]
+      ],
+      "entitlement_note": "Live customer tenant state visible in the image. Dialog title \"Floorplan Holliday Factory\". Reclassified 2026-08-01."
     },
     {
       "file": "product/logs-desktop-builder.png",
       "type": "product-screenshot",
       "orientation": "landscape",
-      "entitlement": "public",
+      "entitlement": "holliday",
       "description": "Building a log to capture the right information.",
       "tags": [
         "logs",
@@ -151,13 +152,14 @@
         "Build the logs",
         "compose the exact checks, no code",
         "configuring what gets captured"
-      ]
+      ],
+      "entitlement_note": "Live customer tenant state visible in the image. Sidebar \"Holliday Demo Project\", HOL-OPS-PROJ-0001, HOL-OPS-LOG-003. Reclassified 2026-08-01."
     },
     {
       "file": "product/logs-app-schedule.png",
       "type": "product-screenshot",
       "orientation": "portrait",
-      "entitlement": "public",
+      "entitlement": "holliday",
       "description": "The operator's schedule of rounds and checks for the shift, on the phone.",
       "tags": [
         "logs",
@@ -170,13 +172,14 @@
         "what the operator is guided to do",
         "rounds and checks for the shift",
         "start of the mobile logs flow"
-      ]
+      ],
+      "entitlement_note": "Live customer tenant state visible in the image. Round names \"Pre-Kiln inspection Round - Holliday Demo\" and \"Vergisting Ronde - HoSt\". Reclassified 2026-08-01."
     },
     {
       "file": "product/logs-app-round.png",
       "type": "product-screenshot",
       "orientation": "portrait",
-      "entitlement": "public",
+      "entitlement": "holliday",
       "description": "An operator taking a round in the field.",
       "tags": [
         "logs",
@@ -189,13 +192,14 @@
         "Take a round",
         "guided station to station",
         "the operator's daily flow"
-      ]
+      ],
+      "entitlement_note": "Shows live customer tenant state (asset codes / search text) visible in the image itself. Reclassified 2026-08-01."
     },
     {
       "file": "product/logs-app-capture.png",
       "type": "product-screenshot",
       "orientation": "portrait",
-      "entitlement": "public",
+      "entitlement": "holliday",
       "description": "Capturing information from the field.",
       "tags": [
         "logs",
@@ -208,13 +212,14 @@
         "Capture in the field",
         "twenty seconds in any language",
         "the mobile capture moment"
-      ]
+      ],
+      "entitlement_note": "Shows live customer tenant state (asset codes / search text) visible in the image itself. Reclassified 2026-08-01."
     },
     {
       "file": "product/logs-app-review.png",
       "type": "product-screenshot",
       "orientation": "portrait",
-      "entitlement": "public",
+      "entitlement": "holliday",
       "description": "Reviewing captured entries on the phone before they sync.",
       "tags": [
         "logs",
@@ -227,7 +232,8 @@
         "review what was captured",
         "the operator confirms the record",
         "closing the mobile logs flow"
-      ]
+      ],
+      "entitlement_note": "Live customer tenant state visible in the image. French \"PRESSE A BRIQUETTES - LIGNE 1\" HMI, the Holliday briquette press. Reclassified 2026-08-01."
     },
     {
       "file": "product/ida-laptop-production-metrics.png",
@@ -309,7 +315,7 @@
       "file": "customers/mutares.svg",
       "type": "logo",
       "orientation": "landscape",
-      "entitlement": "mutares-family",
+      "entitlement": "mutares",
       "description": "Mutares logo (portfolio owner).",
       "tags": [
         "logo",
@@ -324,7 +330,7 @@
       "file": "customers/holliday.png",
       "type": "logo",
       "orientation": "landscape",
-      "entitlement": "mutares-family",
+      "entitlement": "holliday",
       "description": "Holliday (Venator) customer logo.",
       "tags": [
         "logo",
@@ -339,7 +345,7 @@
       "file": "customers/attero.png",
       "type": "logo",
       "orientation": "landscape",
-      "entitlement": "named-customer",
+      "entitlement": "attero",
       "description": "Attero customer / partner logo.",
       "tags": [
         "logo",
@@ -354,7 +360,7 @@
       "file": "customers/host.png",
       "type": "logo",
       "orientation": "landscape",
-      "entitlement": "named-customer",
+      "entitlement": "host",
       "description": "HOST customer / partner logo.",
       "tags": [
         "logo",
@@ -369,7 +375,7 @@
       "file": "customers/omniplast.png",
       "type": "logo",
       "orientation": "landscape",
-      "entitlement": "named-customer",
+      "entitlement": "omniplast",
       "description": "Omniplast customer / partner logo.",
       "tags": [
         "logo",
@@ -384,7 +390,7 @@
       "file": "customers/selo.svg",
       "type": "logo",
       "orientation": "landscape",
-      "entitlement": "named-customer",
+      "entitlement": "selo",
       "description": "Selo customer / partner logo.",
       "tags": [
         "logo",
@@ -399,7 +405,7 @@
       "file": "customers/sonneborn.png",
       "type": "logo",
       "orientation": "landscape",
-      "entitlement": "named-customer",
+      "entitlement": "sonneborn",
       "description": "Sonneborn customer / partner logo.",
       "tags": [
         "logo",
@@ -414,7 +420,7 @@
       "file": "customers/keeeper.webp",
       "type": "logo",
       "orientation": "landscape",
-      "entitlement": "named-customer",
+      "entitlement": "keeeper",
       "description": "keeeper customer / partner logo.",
       "tags": [
         "logo",
@@ -562,7 +568,7 @@
       "file": "product/logs-app-round-guided.png",
       "type": "product-screenshot",
       "orientation": "portrait",
-      "entitlement": "public",
+      "entitlement": "attero",
       "description": "The operator's guided round on the phone: walk to the next station, scan the code, continue.",
       "tags": [
         "logs",
@@ -575,7 +581,8 @@
       "suggested_use": [
         "Capture inside the round they already walk",
         "how little the system asks of an operator"
-      ]
+      ],
+      "entitlement_note": "Shows live customer tenant state (asset codes / search text) visible in the image itself. Reclassified 2026-08-01."
     },
     {
       "file": "product/ida-desktop-assistant-charts.png",
@@ -600,7 +607,7 @@
       "file": "product/app-home-operator.png",
       "type": "product-screenshot",
       "orientation": "portrait",
-      "entitlement": "public",
+      "entitlement": "holliday",
       "description": "The operator app home: scan a code, ask the assistant, open the SOP for the asset in front of you.",
       "tags": [
         "mobile",
@@ -613,13 +620,14 @@
       "suggested_use": [
         "Execute: the standard in the operator's hand",
         "one place for the asset, the doc and the question"
-      ]
+      ],
+      "entitlement_note": "Shows live customer tenant state (asset codes / search text) visible in the image itself. Reclassified 2026-08-01."
     },
     {
       "file": "product/docs-desktop-library.png",
       "type": "product-screenshot",
       "orientation": "landscape",
-      "entitlement": "public",
+      "entitlement": "holliday",
       "description": "The document library on the desktop: SOPs published, recently updated and needing attention.",
       "tags": [
         "docs",
@@ -632,13 +640,14 @@
       "suggested_use": [
         "Execute: the fix returning as standard practice",
         "keeping standards current after a finding"
-      ]
+      ],
+      "entitlement_note": "Live customer tenant state visible in the image. Library lists \"Daily handover SOP - Pigment Line\" and the briquette press, the Holliday process. Reclassified 2026-08-01."
     },
     {
       "file": "product/logs-desktop-floorplan-assets.png",
       "type": "product-screenshot",
       "orientation": "landscape",
-      "entitlement": "public",
+      "entitlement": "unclassified",
       "description": "A production line mapped as a flow, with each asset on it linked to the log that captures it.",
       "tags": [
         "logs",
@@ -651,7 +660,8 @@
       "suggested_use": [
         "showing a line modelled asset by asset",
         "where capture points sit on a real line"
-      ]
+      ],
+      "entitlement_note": "Live customer tenant state visible in the image. Line layout \"Lijn 8\" with VEG-OPS-LOG-* asset codes; owner not identified. Needs Floris to classify. Reclassified 2026-08-01."
     },
     {
       "file": "floor-round-overlay.png",

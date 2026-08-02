@@ -1,0 +1,19 @@
+id: eng2-outcomes
+role: outcomes
+title: Three potential outcomes.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+- v2
+- sales
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: v2 (slimmed, sales-facing). v1 equivalent kept as eng-* for reference.

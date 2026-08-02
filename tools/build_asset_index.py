@@ -22,7 +22,11 @@ MANIFEST = IMG_ROOT / "library.json"
 
 EXomit = {".html", ".json"}
 IMG_EXT = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".avif"}
-BADGE = {"public": "#55745e", "named-customer": "#a65032", "mutares-family": "#3e6874"}
+# Clearance badge: green for public, terracotta for anything else. Slugs are
+# per-customer and open-ended now, so the map cannot enumerate them; what the
+# reader needs at a glance is only "public or restricted".
+BADGE = {"public": "#55745e"}
+BADGE_RESTRICTED = "#a65032"
 
 HEAD = """<!DOCTYPE html>
 <html lang="en">
@@ -102,7 +106,7 @@ def main() -> int:
                 if m.get("suggested_use"):
                     fig.append("<div class='su'>" +
                                html.escape(" · ".join(m["suggested_use"])) + "</div>")
-                col = BADGE.get(m.get("entitlement", ""), "#5f6965")
+                col = BADGE.get(m.get("entitlement", ""), BADGE_RESTRICTED)
                 fig.append(f"<span class='ent' style='background:{col}'>"
                            f"{html.escape(m.get('entitlement',''))}</span>")
             else:

@@ -1,0 +1,28 @@
+{
+  "posts": {
+    "2026-07-29-article-everyone-says-the-same-six-things": {
+      "slug": "2026-07-29-article-everyone-says-the-same-six-things",
+      "title": "Everyone in industrial AI now says the same six things",
+      "kind": "linkedin-article",
+      "source_idea": "05-article-everyone-says-the-same-six-things.md",
+      "themes": [
+        "crowded-phrasebook"
+      ],
+      "posted_date": "",
+      "url": "",
+      "samples": []
+    },
+    "2026-07-29-retirement-cliff": {
+      "slug": "2026-07-29-retirement-cliff",
+      "title": "A quarter of the shop floor is over 55",
+      "kind": "linkedin-post",
+      "source_idea": "01-retirement-cliff.md",
+      "themes": [
+        "demographic-demand-driver"
+      ],
+      "posted_date": "",
+      "url": "",
+      "samples": []
+    }
+  }
+}

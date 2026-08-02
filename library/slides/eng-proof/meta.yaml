@@ -1,0 +1,19 @@
+id: eng-proof
+role: evidence
+title: The method already has a track record.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+- evidence
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: One quote + the verified reference stats, for the reader who never saw the
+  showcase. Verify WARNs on the verbatim 55,000 quote.

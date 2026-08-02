@@ -1,0 +1,22 @@
+id: eng-cover
+role: cover
+title: Make the knowledge on your floor visible, measurable and actionable.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- cover
+- engagement
+images:
+- brand/img/hero-plate.jpg
+variables:
+- asset
+- cover_meta
+- prepared_for
+- scope_line
+used_in:
+- engagement
+notes: Proposal cover. Hero + scrim, no footer (role cover). prepared_for + scope_line
+  are the personalization slots.

@@ -1,0 +1,19 @@
+id: eng-three-steps
+role: engagement
+title: A staggered path. Each step decides the next.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- commercial
+- engagement
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: 'The key proposal slide: the same rungs as engagement-ladder, but stating what
+  is signed NOW versus later.'

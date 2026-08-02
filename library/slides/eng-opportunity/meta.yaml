@@ -1,0 +1,20 @@
+id: eng-opportunity
+role: why-now
+title: Cause and effect never end up on the same timeline.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+- problem
+images: []
+variables:
+- deck_footer
+- scope_line
+- total
+used_in:
+- engagement
+notes: 'Compressed why-now for the proposal: the showcase spends five slides here,
+  the proposal spends one.'

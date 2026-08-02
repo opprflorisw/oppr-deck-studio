@@ -1,0 +1,19 @@
+id: eng-annex-a
+role: annex
+title: The Proof of Value document.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- annex
+- engagement
+- legal
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: What the self-contained PoV/SOW document contains. Optional in a lean cut.

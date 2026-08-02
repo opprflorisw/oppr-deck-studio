@@ -35,5 +35,10 @@ export function toast(msg) {
   toastTimer = setTimeout(() => (t.hidden = true), 2600);
 }
 
-export const ENTITLEMENT_RANK = { public: 0, "named-customer": 1, "mutares-family": 1 };
+// Clearance slugs offered in the UI. Per customer since 2026-08-01: the old
+// public|named-customer|mutares-family buckets let one customer's deck carry
+// another customer's material. Derived from the image manifest at runtime so a
+// new customer needs no code change; this is only the fallback ordering.
+export const ENTITLEMENTS = ["public", "mutares", "holliday", "venator", "attero",
+  "keeeper", "omniplast", "sonneborn", "host", "selo", "wavin"];
 export const todayISO = () => new Date().toISOString().slice(0, 10);

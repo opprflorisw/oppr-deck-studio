@@ -1,0 +1,20 @@
+id: eng2-step1
+role: step-detail
+title: We start with the data you already have.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+- slim-cut
+- sales
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: Slim cut (engagement v3). v1's long-cut equivalent is the eng-* slide of the
+  same name.

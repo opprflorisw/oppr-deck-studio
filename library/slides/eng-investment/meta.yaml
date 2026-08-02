@@ -1,0 +1,20 @@
+id: eng-investment
+role: investment
+title: One number to a verified improvement.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- commercial
+- engagement
+- pricing
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: 'The fee equation: 10.000 + 25.000 - 10.000 credited = 25.000. Verify against
+  BRAND.md before reuse.'

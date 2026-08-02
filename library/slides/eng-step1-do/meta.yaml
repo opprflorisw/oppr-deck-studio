@@ -1,0 +1,17 @@
+id: eng-step1-do
+role: step-detail
+title: We start with the data you already have.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: ''

@@ -1,0 +1,17 @@
+id: eng-step1-get
+role: step-detail
+title: Six things you keep, whatever you decide next.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: ''

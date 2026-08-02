@@ -1,0 +1,20 @@
+id: eng2-idea
+role: idea
+title: Oppr captures what your operators see, and connects it to your machine data.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+- slim-cut
+- sales
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: Slim cut (engagement v3). v1's long-cut equivalent is the eng-* slide of the
+  same name.

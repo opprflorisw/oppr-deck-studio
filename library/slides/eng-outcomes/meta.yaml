@@ -1,0 +1,18 @@
+id: eng-outcomes
+role: outcomes
+title: Exactly three outcomes. All three leave you better off.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- commercial
+- engagement
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: Convert / Extend / Wind down. Mirrors step3-scale, written for the proposal.

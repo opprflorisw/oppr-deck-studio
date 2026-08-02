@@ -1,7 +1,7 @@
 id: idea-one-sentence
 role: idea
-title: Capture what your operators see, the moment it happens, and connect it to your machine data so
-  you can see what actually drives performance on the floor.
+title: Capture what your operators see, the moment it happens, and connect it to your
+  machine data so you can see what actually drives performance on the floor.
 css:
 - deck.css
 - showcase.css
@@ -18,4 +18,5 @@ variables:
 - total
 used_in:
 - product-showcase
+- engagement
 notes: One-sentence lede + three capture/connect/execute cards.

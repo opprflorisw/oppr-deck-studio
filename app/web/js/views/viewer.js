@@ -9,6 +9,7 @@ import { $, $$, el, esc } from "../util.js";
 import { fillPreviewVars, fetchFragment } from "../preview.js";
 import { pageHtmlFor } from "./carousel-build.js";
 import { icon, ibtn } from "../icons.js";
+import { go } from "../router.js";
 
 // Wrap body content in a shell that scales its slide/section to fit the iframe.
 export function scaledDoc(headExtra, bodyInner, w, h) {
@@ -28,7 +29,7 @@ setTimeout(fit,20);setTimeout(fit,120);fit();})();</script>
 </body></html>`;
 }
 
-export function openDeckViewer(pages, { title = "", pdf = null, image = null, pdfUrl = null } = {}) {
+export function openDeckViewer(pages, { title = "", pdf = null, image = null, pdfUrl = null, onEdit = null } = {}) {
   if (!pages.length) return;
   let i = 0;
 
@@ -42,6 +43,7 @@ export function openDeckViewer(pages, { title = "", pdf = null, image = null, pd
           <b>${esc(title)}</b>
           <span class="viewer-count mono"></span>
           <div class="spacer"></div>
+          ${onEdit ? `<button class="primary edit-here">${ibtn("compose", "Edit")}</button>` : ""}
           ${pdfHref ? `<a class="ghost" href="${pdfHref}" download>${ibtn("download", "PDF")}</a>` : ""}
           ${image ? `<a class="ghost" href="/repo/${esc(image)}" download>${ibtn("download", "PNG")}</a>` : ""}
           <button class="ghost icon-only close" title="Close (Esc)">${icon("close")}</button>
@@ -78,6 +80,7 @@ export function openDeckViewer(pages, { title = "", pdf = null, image = null, pd
   };
   const close = () => { m.remove(); document.removeEventListener("keydown", onKey); };
   $(".close", m).addEventListener("click", close);
+  $(".edit-here", m)?.addEventListener("click", () => { close(); onEdit(i); });
   m.addEventListener("click", (e) => { if (e.target === m) close(); });
   document.addEventListener("keydown", onKey);
 
@@ -124,7 +127,14 @@ export async function assembledViewer(indexPath, title, pdf = null, image = null
 export async function deckVersionViewer(api, deckId, n, title, hasPdf = false) {
   const html = await fetch(api.deckViewUrl(deckId, n)).then((r) => r.text());
   const { pages } = pagesFromHtml(html, `/deck-cache/${deckId}/v${n}/`);
-  openDeckViewer(pages, { title, pdfUrl: hasPdf ? api.deckPdfUrl(deckId, n) : null });
+  openDeckViewer(pages, {
+    title,
+    // Always offer the PDF: the endpoint prints on demand when this version has
+    // never been printed, so there is no state where looking at a page leaves
+    // you unable to take it.
+    pdfUrl: api.deckPdfUrl(deckId, n),
+    onEdit: () => go(`/deck/${deckId}/edit`),
+  });
 }
 
 // A draft deck: library slides render live; new-slide slots show a placeholder.

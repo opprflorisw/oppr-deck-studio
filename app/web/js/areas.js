@@ -22,6 +22,12 @@ export const AREAS = [
     { id: "icons", label: "Icons", icon: "spark" },
     { id: "design-system", label: "Design system", icon: "grid" },
   ]},
+  { id: "research", title: "Last 30 days", icon: "brain", tabs: [
+    { id: "brain", label: "Brain", icon: "brain" },
+    { id: "runs", label: "Runs", icon: "history" },
+    { id: "posts", label: "Ideas", icon: "bulb" },
+    { id: "performance", label: "Performance", icon: "spark" },
+  ]},
   { id: "knowledge", title: "Knowledge", icon: "book", tabs: [
     { id: "philosophy", label: "Design philosophy", icon: "bulb" },
     { id: "best-practices", label: "Best practices", icon: "info" },

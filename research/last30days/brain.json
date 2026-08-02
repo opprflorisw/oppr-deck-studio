@@ -1,0 +1,934 @@
+{
+  "generated": "2026-07-29",
+  "generator": "tools/research-brain.py",
+  "runs": [
+    {
+      "slug": "2026-07-29-connected-worker-platform",
+      "date": "2026-07-29",
+      "topic": "connected worker platform manufacturing",
+      "question": "What topics and words are people using around AI in industry, connected worker platforms, human data capture and tribal knowledge?",
+      "domain": "category",
+      "verdict": "thin-social-rich-web",
+      "headline": "Tribal knowledge has won the terminology war; the loudest number in the category is now the failure rate.",
+      "engine": {
+        "version": "3.18.4",
+        "window": "2026-06-29..2026-07-29",
+        "depth": "deep",
+        "plan_subqueries": [
+          "connected worker platform manufacturing",
+          "tribal knowledge retiring operators manufacturing",
+          "AI shop floor manufacturing operators skeptical",
+          "Tulip Augmentir Poka digital work instructions MES"
+        ]
+      },
+      "sources": {
+        "active": [
+          "reddit",
+          "hackernews",
+          "github",
+          "youtube",
+          "web"
+        ],
+        "missing": [
+          "x",
+          "tiktok",
+          "instagram"
+        ],
+        "degraded": [
+          "reddit"
+        ],
+        "counts": {
+          "reddit": 13,
+          "hackernews": 25,
+          "github": 3,
+          "youtube": 5,
+          "polymarket": 0,
+          "web": 7
+        },
+        "engagement": {
+          "reddit_upvotes": 580,
+          "reddit_comments": 746,
+          "hn_points": 9433,
+          "hn_comments": 7741,
+          "youtube_views": 14472
+        }
+      },
+      "findings": [
+        {
+          "claim": "'Tribal knowledge' is the highest-intent phrase in the category and every vendor has already built a glossary page against it.",
+          "evidence": "Augmentir, Matterport, DataProphet, Manual.to, Dirac, OrcaLean and RFQ USA all run dedicated glossary or pillar pages on the exact phrase.",
+          "source": "Augmentir",
+          "url": "https://www.augmentir.com/glossary/what-is-tribal-knowledge"
+        },
+        {
+          "claim": "Three labels coexist for one thing, and each belongs to a different audience.",
+          "evidence": "Gartner says Augmented Connected Workforce (ACWF). Frost and Sullivan says Augmented Connected Worker (ACW). Buyers and comparison sites say 'connected worker platform'. Search says 'tribal knowledge'.",
+          "source": "Gartner",
+          "url": "https://www.gartner.com/en/experts/top-tech-trends-unpacked-series/augmented-connected-workforce-will-drive-productivity"
+        },
+        {
+          "claim": "The failure-rate statistics now travel further than the promise statistics.",
+          "evidence": "Deloitte: 87% of manufacturers started a generative AI pilot, only 24% reached facility-level adoption. IDC: 4 of every 33 pilots reach production. Gartner: over 40% of agentic AI projects cancelled by end of 2027.",
+          "source": "Deloitte",
+          "url": "https://www.deloitte.com/ch/en/services/consulting/perspectives/digital-shopfloor-excellence.html"
+        },
+        {
+          "claim": "The winning argument has moved from 'capture the knowledge' to 'capture it inside the work'.",
+          "evidence": "Tulip frames value as troubleshooting at the station, quality decisions in the workflow, operator guidance in context, documentation captured as the process happens. Standalone knowledge bases are being argued against.",
+          "source": "Tulip",
+          "url": "https://tulip.co/blog/how-to-integrate-ai-across-manufacturing-operations/"
+        },
+        {
+          "claim": "Shop-floor communities are AI-suspicious by default and reward visible proof of human hands.",
+          "evidence": "The single biggest industrial thread in the window was a Japanese machine shop owner filming himself to prove his posts were not AI-generated. It drew 2.359 upvotes.",
+          "source": "r/Machinists",
+          "url": "https://www.reddit.com/r/Machinists/comments/1v7wtzx/i_run_a_small_machine_shop_in_japan_a_few_of_you/"
+        },
+        {
+          "claim": "Six vendors own the comparison surface and share a near-identical vocabulary.",
+          "evidence": "Independent roundups from Reliamag, Fabrico and Innovapptive name the same set: Poka, Augmentir, Tulip, Parsable, Innovapptive, SafetyCulture. Pitch language is close to interchangeable across all of them.",
+          "source": "Reliamag",
+          "url": "https://reliamag.com/guides/best-connected-worker-platforms-2026/"
+        },
+        {
+          "claim": "The category's demand driver is demographic, not technological.",
+          "evidence": "Frost and Sullivan names the three drivers verbatim as labour shortages, aging workforce demographics and increasing operational complexity. Every vendor pillar page opens on the same retirement cliff.",
+          "source": "Frost and Sullivan",
+          "url": "https://www.youtube.com/watch?v=yRpNWAlBmr8"
+        }
+      ],
+      "caveats": [
+        "A first attempt on the full comma-separated phrase returned polluted results (manhwa recaps, a city council stream) because the topic string broke the relevance floor. Re-run on a tighter anchor. The polluted output is archived, not counted as a run.",
+        "Reddit went partial after 13 items with HTTP 429, so absence of Reddit discussion on a sub-topic is not proven.",
+        "X/Twitter was not searched at all. The substance leans on web and analyst sources rather than raw community chatter."
+      ],
+      "has_raw": true,
+      "has_brief": true,
+      "counts": {
+        "findings": 7,
+        "themes": 7,
+        "vocabulary": 12,
+        "stats": 10,
+        "entities": 9,
+        "quotes": 3
+      }
+    },
+    {
+      "slug": "2026-07-29-oppr-ai",
+      "date": "2026-07-29",
+      "topic": "oppr.ai",
+      "question": "What are users saying about my tool oppr.ai?",
+      "domain": "own-brand",
+      "verdict": "no-community-evidence",
+      "headline": "Nobody is talking about oppr.ai in public, and that silence is itself the finding.",
+      "engine": {
+        "version": "3.18.4",
+        "window": "2026-06-29..2026-07-29",
+        "depth": "balanced",
+        "plan_subqueries": [
+          "oppr.ai",
+          "Oppr digital operator platform manufacturing",
+          "operator knowledge capture shop floor digital SOP software"
+        ]
+      },
+      "sources": {
+        "active": [
+          "reddit",
+          "hackernews",
+          "github",
+          "youtube",
+          "polymarket",
+          "web"
+        ],
+        "missing": [
+          "x",
+          "tiktok",
+          "instagram"
+        ],
+        "degraded": [],
+        "counts": {
+          "reddit": 5,
+          "hackernews": 11,
+          "github": 1,
+          "youtube": 0,
+          "polymarket": 0,
+          "web": 6
+        },
+        "engagement": {
+          "reddit_upvotes": 27,
+          "reddit_comments": 18,
+          "hn_points": 97,
+          "hn_comments": 11
+        }
+      },
+      "findings": [
+        {
+          "claim": "Zero evidence clusters cleared the engine's relevance floor in a 30 day window.",
+          "evidence": "17 items returned across Reddit, Hacker News and GitHub; every visible cluster failed the positive, non-entity-miss relevance floor. The result is honest silence, not negative sentiment.",
+          "source": "last30days engine",
+          "url": ""
+        },
+        {
+          "claim": "The brand owns 100% of its own search surface, which means there is no independent voice to calibrate against.",
+          "evidence": "Pre-research and three web supplements returned only oppr.ai pages: home, blog, solutions, how-it-works, FAQ, insights. The only GitHub signal was the company's own Oppr-AI-org/oppr-website repo.",
+          "source": "web",
+          "url": "https://www.oppr.ai/"
+        },
+        {
+          "claim": "All genuine third-party coverage predates the research window by months.",
+          "evidence": "UNIIQ proof-of-concept investment of EUR 350.000 covered October 2025; MWC Open Innovation Challenge participation was 2-5 March 2026 in Barcelona.",
+          "source": "Silicon Canals",
+          "url": "https://siliconcanals.com/oppr-ai-and-stemx-bio-secure-e350k-each/"
+        },
+        {
+          "claim": "There is no software review-site footprint at all.",
+          "evidence": "No G2 listing, no Capterra listing, no Trustpilot page for the domain. A prospect searching 'oppr.ai reviews' during evaluation finds nothing.",
+          "source": "G2 / Capterra",
+          "url": "https://www.g2.com/"
+        },
+        {
+          "claim": "Oppr's own positioning is the Digital Operator Platform that adds the missing human data layer to manufacturing.",
+          "evidence": "Four named tools: LOGS (20 second operator capture by voice, photo or text), IDA (pattern and failure analysis in plain language), DOCS (SOPs at the point of work via QR), Insights (AI-structured improvement priorities). Deployment claim: weeks not months, no IT project required.",
+          "source": "oppr.ai",
+          "url": "https://www.oppr.ai/how-it-works"
+        }
+      ],
+      "caveats": [
+        "X/Twitter was not searched: browser-cookie auth was skipped at setup and Windows only supports Firefox for that path.",
+        "TikTok and Instagram were not searched: no ScrapeCreators key, and both are low-value for industrial B2B anyway."
+      ],
+      "has_raw": true,
+      "has_brief": true,
+      "counts": {
+        "findings": 5,
+        "themes": 3,
+        "vocabulary": 3,
+        "stats": 2,
+        "entities": 3,
+        "quotes": 0
+      }
+    }
+  ],
+  "themes": [
+    {
+      "id": "three-label-split",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "topics": [
+        "connected worker platform manufacturing"
+      ],
+      "label": "Analysts, buyers and searchers use three different words",
+      "summary": "ACWF is analyst language, connected worker platform is buyer and comparison-site language, tribal knowledge is search language. Writing needs to pick a register deliberately rather than mixing all three.",
+      "stance": "actionable",
+      "first_seen": "2026-07-29",
+      "last_seen": "2026-07-29",
+      "seen": 1,
+      "confidence": "emerging",
+      "validation": null,
+      "audience": "untested"
+    },
+    {
+      "id": "in-the-workflow-not-dashboard",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "topics": [
+        "connected worker platform manufacturing"
+      ],
+      "label": "In the workflow, not in a dashboard",
+      "summary": "Value arguments that survive are the ones where the software appears at the station during the work. Separate knowledge bases and analytics dashboards are being argued against by vendors themselves.",
+      "stance": "actionable",
+      "first_seen": "2026-07-29",
+      "last_seen": "2026-07-29",
+      "seen": 1,
+      "confidence": "emerging",
+      "validation": null,
+      "audience": "untested"
+    },
+    {
+      "id": "pilot-purgatory-scepticism",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "topics": [
+        "connected worker platform manufacturing"
+      ],
+      "label": "Pilot purgatory is the default objection",
+      "summary": "The category's most-shared numbers are now about AI projects failing to reach production. Any pitch has to clear that objection before it can make a promise.",
+      "stance": "actionable",
+      "first_seen": "2026-07-29",
+      "last_seen": "2026-07-29",
+      "seen": 1,
+      "confidence": "emerging",
+      "validation": null,
+      "audience": "untested"
+    },
+    {
+      "id": "shop-floor-ai-suspicion",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "topics": [
+        "connected worker platform manufacturing"
+      ],
+      "label": "Shop floors are AI-suspicious and reward human proof",
+      "summary": "Industrial communities treat generated-looking content as a red flag and reward demonstrable human hands and maintained equipment. Tone matters more here than in software-buyer channels.",
+      "stance": "actionable",
+      "first_seen": "2026-07-29",
+      "last_seen": "2026-07-29",
+      "seen": 1,
+      "confidence": "emerging",
+      "validation": null,
+      "audience": "untested"
+    },
+    {
+      "id": "demographic-demand-driver",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "topics": [
+        "connected worker platform manufacturing"
+      ],
+      "label": "The demand driver is demographic, not technological",
+      "summary": "The retirement cliff, not AI capability, is what makes buyers act. Openers that lead with demographics land; openers that lead with model capability do not.",
+      "stance": "actionable",
+      "first_seen": "2026-07-29",
+      "last_seen": "2026-07-29",
+      "seen": 1,
+      "confidence": "emerging",
+      "validation": null,
+      "audience": "untested"
+    },
+    {
+      "id": "no-social-proof-surface",
+      "runs": [
+        "2026-07-29-oppr-ai"
+      ],
+      "topics": [
+        "oppr.ai"
+      ],
+      "label": "No social proof for evaluators to find",
+      "summary": "With no review-site listing and no third-party mentions, an evaluating buyer has nothing to corroborate the vendor's own claims. First-party pages carry the entire burden of proof.",
+      "stance": "risk",
+      "first_seen": "2026-07-29",
+      "last_seen": "2026-07-29",
+      "seen": 1,
+      "confidence": "emerging",
+      "validation": null,
+      "audience": "untested"
+    },
+    {
+      "id": "crowded-phrasebook",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "topics": [
+        "connected worker platform manufacturing"
+      ],
+      "label": "The vendor phrasebook is crowded and interchangeable",
+      "summary": "Six vendors describe themselves in nearly identical language, so wording alone cannot differentiate. Differentiation has to come from proof: named plants, real numbers, specific failure modes solved.",
+      "stance": "risk",
+      "first_seen": "2026-07-29",
+      "last_seen": "2026-07-29",
+      "seen": 1,
+      "confidence": "emerging",
+      "validation": null,
+      "audience": "untested"
+    },
+    {
+      "id": "press-not-voice",
+      "runs": [
+        "2026-07-29-oppr-ai"
+      ],
+      "topics": [
+        "oppr.ai"
+      ],
+      "label": "Funding press is not user voice",
+      "summary": "Funding and event coverage reads as validation internally but says nothing about whether users like the product. The two are different evidence classes and should not be conflated in positioning.",
+      "stance": "caution",
+      "first_seen": "2026-07-29",
+      "last_seen": "2026-07-29",
+      "seen": 1,
+      "confidence": "emerging",
+      "validation": null,
+      "audience": "untested"
+    },
+    {
+      "id": "brand-invisibility",
+      "runs": [
+        "2026-07-29-oppr-ai"
+      ],
+      "topics": [
+        "oppr.ai"
+      ],
+      "label": "Category-stage brand invisibility",
+      "summary": "A seed-stage industrial B2B tool can be entirely absent from public community discussion while still being commercially real. Absence of chatter is a stage signal, not a quality signal.",
+      "stance": "observed",
+      "first_seen": "2026-07-29",
+      "last_seen": "2026-07-29",
+      "seen": 1,
+      "confidence": "emerging",
+      "validation": null,
+      "audience": "untested"
+    },
+    {
+      "id": "tribal-knowledge-is-the-term",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "topics": [
+        "connected worker platform manufacturing"
+      ],
+      "label": "Tribal knowledge is the category's search term",
+      "summary": "The phrase practitioners and search engines use is 'tribal knowledge', not any vendor's coined category name. Content that wants to be found writes to that phrase.",
+      "stance": "observed",
+      "first_seen": "2026-07-29",
+      "last_seen": "2026-07-29",
+      "seen": 1,
+      "confidence": "emerging",
+      "validation": null,
+      "audience": "untested"
+    }
+  ],
+  "performance": {
+    "posts": [
+      {
+        "slug": "2026-07-29-article-everyone-says-the-same-six-things",
+        "title": "Everyone in industrial AI now says the same six things",
+        "kind": "linkedin-article",
+        "source_idea": "05-article-everyone-says-the-same-six-things.md",
+        "themes": [
+          "crowded-phrasebook"
+        ],
+        "posted_date": "",
+        "url": "",
+        "samples": []
+      },
+      {
+        "slug": "2026-07-29-retirement-cliff",
+        "title": "A quarter of the shop floor is over 55",
+        "kind": "linkedin-post",
+        "source_idea": "01-retirement-cliff.md",
+        "themes": [
+          "demographic-demand-driver"
+        ],
+        "posted_date": "",
+        "url": "",
+        "samples": []
+      }
+    ],
+    "posted": 0,
+    "measured": 0,
+    "by_theme": {}
+  },
+  "vocabulary": [
+    {
+      "term": "tribal knowledge",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "Highest-intent phrase. Every vendor has a glossary page. Use it verbatim in titles."
+      ],
+      "kind": "search-term",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "connected worker platform",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "What buyers and comparison sites call the category."
+      ],
+      "kind": "category-term",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "digital work instructions",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "The concrete artifact buyers shop for."
+      ],
+      "kind": "category-term",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "frontline workers / frontline operations",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "The people-side label used across vendor copy."
+      ],
+      "kind": "category-term",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "skills gap / skills management",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "Augmentir's chosen wedge into the same problem."
+      ],
+      "kind": "category-term",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "Augmented Connected Worker (ACW)",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "Frost and Sullivan's variant of the same idea."
+      ],
+      "kind": "analyst-term",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "Augmented Connected Workforce (ACWF)",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "Gartner's label. Use when writing to CIO / analyst audiences."
+      ],
+      "kind": "analyst-term",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "closed-loop digital twin",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "Gartner's 2030 manufacturing framing alongside semi-autonomous agents."
+      ],
+      "kind": "analyst-term",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "industrial brain drain",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "FP360's framing for the retirement cliff. Emotive, quotable."
+      ],
+      "kind": "framing",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "pilot purgatory",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "Implied by the 87 / 24 split. The objection to clear first."
+      ],
+      "kind": "framing",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "point of work",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "Where capture and guidance must happen for the value argument to survive."
+      ],
+      "kind": "framing",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "agentic AI",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "notes": [
+        "Now a formal Gartner Peer Insights market for manufacturing. Carries its own cancellation statistic."
+      ],
+      "kind": "hype-term",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "Digital Operator Platform",
+      "runs": [
+        "2026-07-29-oppr-ai"
+      ],
+      "notes": [
+        "Oppr's self-description; not a term the market searches for yet."
+      ],
+      "kind": "own-positioning",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "human data layer",
+      "runs": [
+        "2026-07-29-oppr-ai"
+      ],
+      "notes": [
+        "Oppr's differentiator phrase against machine data."
+      ],
+      "kind": "own-positioning",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    },
+    {
+      "term": "LOGS / IDA / DOCS / Insights",
+      "runs": [
+        "2026-07-29-oppr-ai"
+      ],
+      "notes": [
+        "Internal product names. BRAND.md warns these are never the story; Capture, Connect, Execute is."
+      ],
+      "kind": "own-product",
+      "first_seen": "2026-07-29",
+      "seen": 1
+    }
+  ],
+  "stats": [
+    {
+      "value": "25%",
+      "label": "Share of the manufacturing workforce over 55, up from 14% in 2000",
+      "source": "FP360",
+      "url": "https://fp360group.com/industrial-brain-drain-knowledge-gaps-manufacturing/",
+      "date": "2026",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "value": "26%",
+      "label": "Share of the manufacturing workforce expected to retire by 2030, leaving 1,5 million roles vacant",
+      "source": "FP360",
+      "url": "https://fp360group.com/industrial-brain-drain-knowledge-gaps-manufacturing/",
+      "date": "2026",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "value": "97%",
+      "label": "Manufacturers expressing significant concern about the brain drain of retiring workers",
+      "source": "FP360",
+      "url": "https://fp360group.com/industrial-brain-drain-knowledge-gaps-manufacturing/",
+      "date": "2026",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "value": "75%",
+      "label": "Manufacturers reporting a skill deficit, costing an average 11% annual earnings loss",
+      "source": "FP360",
+      "url": "https://fp360group.com/industrial-brain-drain-knowledge-gaps-manufacturing/",
+      "date": "2026",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "value": "87% vs 24%",
+      "label": "Manufacturers who started a generative AI pilot versus those who reached facility-level adoption",
+      "source": "Deloitte",
+      "url": "https://www.deloitte.com/ch/en/services/consulting/perspectives/digital-shopfloor-excellence.html",
+      "date": "2025",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "value": "4 of 33",
+      "label": "AI pilots that reach production",
+      "source": "IDC",
+      "url": "https://www.deloitte.com/ch/en/services/consulting/perspectives/digital-shopfloor-excellence.html",
+      "date": "2025",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "value": "40%",
+      "label": "Enterprise apps expected to carry task-specific AI agents by 2026, up from under 5% in 2025",
+      "source": "Gartner",
+      "url": "https://www.gartner.com/en/newsroom/press-releases/2025-08-26-gartner-predicts-40-percent-of-enterprise-apps-will-feature-task-specific-ai-agents-by-2026-up-from-less-than-5-percent-in-2025",
+      "date": "2025-08",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "value": "over 40%",
+      "label": "Agentic AI projects Gartner expects to be cancelled by end of 2027",
+      "source": "Gartner",
+      "url": "https://www.gartner.com/en/newsroom/press-releases/2025-08-26-gartner-predicts-40-percent-of-enterprise-apps-will-feature-task-specific-ai-agents-by-2026-up-from-less-than-5-percent-in-2025",
+      "date": "2025-08",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "value": "25%",
+      "label": "CIOs Gartner expects to run augmented connected workforce initiatives through 2027",
+      "source": "Gartner",
+      "url": "https://www.gartner.com/en/experts/top-tech-trends-unpacked-series/augmented-connected-workforce-will-drive-productivity",
+      "date": "2026",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "value": "81%",
+      "label": "Manufacturing task hours expected to remain human-driven",
+      "source": "Tulip",
+      "url": "https://tulip.co/blog/how-to-integrate-ai-across-manufacturing-operations/",
+      "date": "2026",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "value": "EUR 350.000",
+      "label": "UNIIQ proof-of-concept investment in Oppr.ai",
+      "source": "Silicon Canals",
+      "url": "https://siliconcanals.com/oppr-ai-and-stemx-bio-secure-e350k-each/",
+      "date": "2025-10",
+      "runs": [
+        "2026-07-29-oppr-ai"
+      ],
+      "seen": 1
+    },
+    {
+      "value": "0",
+      "label": "Evidence clusters about oppr.ai clearing the relevance floor in 30 days",
+      "source": "last30days engine",
+      "url": "",
+      "date": "2026-07",
+      "runs": [
+        "2026-07-29-oppr-ai"
+      ],
+      "seen": 1
+    }
+  ],
+  "entities": [
+    {
+      "name": "Poka",
+      "kind": "vendor",
+      "note": "Positioned on tribal knowledge capture and multimedia SOPs. Closest direct competitor on the knowledge angle.",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "name": "Augmentir",
+      "kind": "vendor",
+      "note": "AI skills management and personalised work guidance. Owns the glossary SEO for both tribal knowledge and ACWF.",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "name": "Tulip",
+      "kind": "vendor",
+      "note": "No-code manufacturing apps. Publishes the strongest 'AI in the workflow' argument.",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "name": "Parsable",
+      "kind": "vendor",
+      "note": "Digitising complex SOPs with conditional logic and compliance traceability.",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "name": "Innovapptive",
+      "kind": "vendor",
+      "note": "AI-agent frontline execution. Also publishes the category roundup that names its own rivals.",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "name": "SafetyCulture",
+      "kind": "vendor",
+      "note": "Inspection-centric compliance. Adjacent rather than head-on.",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "name": "Gartner",
+      "kind": "analyst",
+      "note": "Owns the ACWF label and the agentic-AI cancellation statistic.",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "name": "Frost and Sullivan",
+      "kind": "analyst",
+      "note": "Uses ACW; named the three demand drivers verbatim in a July 2026 video.",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "name": "Deloitte",
+      "kind": "analyst",
+      "note": "Source of the 87 / 24 pilot-to-adoption gap.",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "name": "Oppr.ai",
+      "kind": "own-brand",
+      "note": "The Hague, NL. Founder and CEO Floris Wyers.",
+      "runs": [
+        "2026-07-29-oppr-ai"
+      ],
+      "seen": 1
+    },
+    {
+      "name": "UNIIQ",
+      "kind": "investor",
+      "note": "South Holland proof-of-concept fund. EUR 350.000, Oct 2025.",
+      "runs": [
+        "2026-07-29-oppr-ai"
+      ],
+      "seen": 1
+    },
+    {
+      "name": "StemX Bio",
+      "kind": "co-announced",
+      "note": "Received the same UNIIQ ticket in the same announcement.",
+      "runs": [
+        "2026-07-29-oppr-ai"
+      ],
+      "seen": 1
+    }
+  ],
+  "quotes": [
+    {
+      "text": "I run a small machine shop in Japan. A few of you thought my posts were AI, so here is me in the shop, showing the wire EDM that cuts our lantern cages.",
+      "author": "r/Machinists post title",
+      "weight": "2.359 upvotes",
+      "url": "https://www.reddit.com/r/Machinists/comments/1v7wtzx/i_run_a_small_machine_shop_in_japan_a_few_of_you/",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "text": "Good eye. Yes, it is an older Mitsubishi. We put money into maintenance every year to keep it running, so it still holds tolerance and works every day. No reason to replace it.",
+      "author": "u/SakakiGearJP",
+      "weight": "215 upvotes",
+      "url": "https://reddit.com/r/Machinists/comments/1v7wtzx/comment/p01bx78/",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    },
+    {
+      "text": "Everyday critical operations rely on disconnected paper records, slow, fragile, and impossible to track in real time.",
+      "author": "inSis Suite (connected worker demo)",
+      "weight": "1.431 views",
+      "url": "https://www.youtube.com/watch?v=5-M5_xRtBQY",
+      "runs": [
+        "2026-07-29-connected-worker-platform"
+      ],
+      "seen": 1
+    }
+  ],
+  "open_questions": [
+    {
+      "question": "X/Twitter is where vendor and analyst chatter in this category concentrates, and it was never searched.",
+      "run": "2026-07-29-connected-worker-platform",
+      "topic": "connected worker platform manufacturing"
+    },
+    {
+      "question": "Does the r/manufacturing 429 rate limit hide a materially larger body of practitioner discussion?",
+      "run": "2026-07-29-connected-worker-platform",
+      "topic": "connected worker platform manufacturing"
+    },
+    {
+      "question": "Is there a European-specific vocabulary for this category, given the run indexed mostly US sources?",
+      "run": "2026-07-29-connected-worker-platform",
+      "topic": "connected worker platform manufacturing"
+    },
+    {
+      "question": "Does X/Twitter carry any unsolicited oppr.ai mentions? The run never searched it.",
+      "run": "2026-07-29-oppr-ai",
+      "topic": "oppr.ai"
+    },
+    {
+      "question": "Would a G2 or Capterra listing change anything at this stage, or is the buyer journey entirely relationship-led?",
+      "run": "2026-07-29-oppr-ai",
+      "topic": "oppr.ai"
+    },
+    {
+      "question": "Do pilot customers talk about the product internally in language that differs from the site copy?",
+      "run": "2026-07-29-oppr-ai",
+      "topic": "oppr.ai"
+    }
+  ],
+  "coverage": {
+    "items_by_source": {
+      "hackernews": 36,
+      "reddit": 18,
+      "web": 13,
+      "youtube": 5,
+      "github": 4,
+      "polymarket": 0
+    },
+    "total_items": 76,
+    "missing_in_runs": {
+      "x": 2,
+      "tiktok": 2,
+      "instagram": 2
+    },
+    "degraded_in_runs": {
+      "reddit": 1
+    }
+  }
+}

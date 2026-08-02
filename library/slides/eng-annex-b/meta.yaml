@@ -1,0 +1,19 @@
+id: eng-annex-b
+role: annex
+title: The annual-subscription documents.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- annex
+- engagement
+- legal
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: The document set that applies on conversion. Optional in a lean cut.

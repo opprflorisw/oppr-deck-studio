@@ -1,0 +1,18 @@
+id: eng-needs
+role: requirements
+title: We build the project team together. It grows with the step.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+- requirements
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: The full-slide version of the engagement-ladder need-strip.

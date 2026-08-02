@@ -1,0 +1,18 @@
+id: eng-step2-get
+role: step-detail
+title: A working system, a proven change, and a way to repeat it.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- deliverables
+- engagement
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: Six deliverables on the grid3 block. Keep card copy to three lines.

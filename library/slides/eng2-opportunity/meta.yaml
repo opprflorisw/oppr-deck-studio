@@ -1,0 +1,20 @@
+id: eng2-opportunity
+role: why-now
+title: Cause and effect never end up on the same timeline.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+- slim-cut
+- sales
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: Slim cut (engagement v3). v1's long-cut equivalent is the eng-* slide of the
+  same name.

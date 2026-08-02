@@ -1,0 +1,19 @@
+id: eng-criteria
+role: criteria
+title: How the Proof of Value is judged.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- criteria
+- engagement
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: Four signed success criteria, each with how it is measured. Carries the EU
+  AI Act line.

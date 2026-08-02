@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>last30days · connected worker platform manufacturing</title>
+<style>
+:root {
+  --bg: #0e0e10;
+  --bg-elev: #18181b;
+  --fg: #fafafa;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #71717a;
+  --accent: #a855f7;
+  --accent-soft: #c4b5fd;
+  --border: #27272a;
+  --code-bg: #1a1a1d;
+  --max-w: 720px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff;
+    --bg-elev: #fafafa;
+    --fg: #18181b;
+    --fg-muted: #52525b;
+    --fg-subtle: #71717a;
+    --accent: #7c3aed;
+    --accent-soft: #6d28d9;
+    --border: #e4e4e7;
+    --code-bg: #f4f4f5;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 4rem 1.5rem 6rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.4rem 0.85rem;
+  margin-bottom: 2.5rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  letter-spacing: 0;
+}
+
+.badge .accent { color: var(--accent); }
+
+.meta {
+  margin: -1.5rem 0 2.5rem;
+  color: var(--fg-subtle);
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  margin: 0 0 1.5rem;
+  color: var(--fg);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+h2,
+.prose-label {
+  margin: 2.75rem 0 1.25rem;
+  color: var(--fg);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.badge + h2,
+.badge + .prose-label { margin-top: 0.5rem; }
+
+h3 {
+  margin: 2rem 0 0.85rem;
+  color: var(--fg);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+p {
+  margin: 0 0 1.4rem;
+  color: var(--fg-muted);
+}
+
+p strong,
+li strong,
+td strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+a:hover { border-bottom-color: var(--accent); }
+
+ul,
+ol {
+  margin: 0 0 1.6rem;
+  padding-left: 1.5rem;
+  color: var(--fg-muted);
+}
+
+li {
+  margin: 0.6rem 0;
+  padding-left: 0.4rem;
+}
+
+li::marker {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+blockquote {
+  margin: 1.5rem 0;
+  padding-left: 1rem;
+  border-left: 3px solid var(--accent);
+  color: var(--fg-muted);
+}
+
+hr {
+  margin: 2.5rem 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+code {
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  font-size: 0.92em;
+  background: var(--code-bg);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  color: var(--accent-soft);
+}
+
+pre {
+  margin: 1.4rem 0;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  color: var(--fg);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 15px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+th {
+  color: var(--fg-muted);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+td { color: var(--fg-muted); }
+td:first-child { color: var(--fg); font-weight: 500; }
+
+.engine-footer {
+  margin: 3rem 0 2.5rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--fg-muted);
+}
+
+.engine-footer pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.75;
+  color: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.colophon {
+  margin-top: 4rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+  color: var(--fg-subtle);
+  font-size: 13px;
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  line-height: 1.7;
+}
+
+.colophon .rerun {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  margin-left: 0.25rem;
+  background: var(--code-bg);
+  border-radius: 4px;
+  color: var(--accent-soft);
+  font-size: 0.95em;
+}
+
+.library-hero {
+  padding: 1.5rem 0 2.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.library-hero h1 { margin-bottom: 0.65rem; }
+.library-hero p { max-width: 42rem; color: var(--fg-muted); }
+.library-hero .subscribe { font-weight: 700; }
+
+.library-topic { margin-top: 3rem; }
+
+.library-topic-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.library-topic-heading h2 { margin-bottom: 0.65rem; }
+.library-topic-heading a { font-size: 0.85rem; }
+
+.library-entry {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  column-gap: 1.25rem;
+  padding: 1.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.library-entry time {
+  grid-row: 1 / span 2;
+  color: var(--fg-subtle);
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.8rem;
+}
+
+.library-entry h3 { margin: 0 0 0.35rem; font-size: 1.1rem; }
+.library-entry p { margin: 0; color: var(--fg-muted); }
+.library-empty { padding: 3rem 0; }
+
+@media print {
+  :root {
+    --bg: #ffffff;
+    --bg-elev: #f5f5f5;
+    --fg: #000000;
+    --fg-muted: #1f2937;
+    --fg-subtle: #4b5563;
+    --accent: #6d28d9;
+    --accent-soft: #6d28d9;
+    --border: #d4d4d8;
+    --code-bg: #f4f4f5;
+  }
+
+  @page { size: A4; margin: 1.5cm 2cm; }
+
+  body {
+    max-width: none;
+    padding: 0;
+    font-size: 11pt;
+  }
+
+  a {
+    color: inherit;
+    border-bottom: 0;
+    text-decoration: underline;
+  }
+
+  a[href]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: var(--fg-subtle);
+  }
+
+  .engine-footer { page-break-inside: avoid; }
+}
+
+@media (max-width: 600px) {
+  body {
+    padding: 2.5rem 1.25rem 4rem;
+    font-size: 16px;
+  }
+
+  h1 { font-size: 25px; }
+  .badge { font-size: 12px; }
+  th, td { padding: 0.65rem 0.5rem; }
+  .library-entry { grid-template-columns: 1fr; }
+  .library-entry time { grid-row: auto; margin-bottom: 0.5rem; }
+}
+</style>
+</head>
+<body>
+<div class="badge"><span class="accent">🌐</span> last30days v3.18.4 · synced 2026-07-29</div>
+<div class="meta">2026-06-29 to 2026-07-29 · GitHub, Hacker News, Reddit, YouTube</div>
+<h2>What I learned</h2>
+<p><strong>&quot;Tribal knowledge&quot; has won the terminology war, and it now travels with a number attached.</strong> It is the single highest-intent phrase in this space: <a href="https://www.augmentir.com/glossary/what-is-tribal-knowledge" rel="noopener noreferrer">Augmentir</a>, <a href="https://matterport.com/blog/manufacturing-tribal-knowledge" rel="noopener noreferrer">Matterport</a>, <a href="https://dataprophet.com/tribal-knowledge-recruitment-and-retention-in-manufacturing/" rel="noopener noreferrer">DataProphet</a>, <a href="https://manual.to/the-tribal-knowledge-crisis-in-manufacturing/" rel="noopener noreferrer">Manual.to</a> and <a href="https://www.diracinc.com/resources/the-ticking-clock-capturing-your-factorys-tribal-knowledge-before-its-gone-forever" rel="noopener noreferrer">Dirac</a> all run dedicated glossary or pillar pages on it. The stats that ride along are consistent: 25% of the manufacturing workforce is over 55, up from 14% in 2000; 26% retire by 2030 leaving 1,5 million roles vacant; 97% of manufacturers say they are worried about the &quot;brain drain&quot;, per <a href="https://fp360group.com/industrial-brain-drain-knowledge-gaps-manufacturing/" rel="noopener noreferrer">FP360</a>.</p>
+<p><strong>The analyst label and the buyer label are different words, and that split matters for how you write.</strong> <a href="https://www.gartner.com/en/experts/top-tech-trends-unpacked-series/augmented-connected-workforce-will-drive-productivity" rel="noopener noreferrer">Gartner</a> calls it Augmented Connected Workforce (ACWF) and predicts 25% of CIOs will run ACWF initiatives through 2027. Frost and Sullivan&#x27;s July video uses Augmented Connected Worker (ACW) and names the drivers verbatim as labour shortages, aging workforce demographics and increasing operational complexity. Practitioners and comparison sites, meanwhile, say &quot;connected worker platform&quot;. Analysts buy ACWF, plants buy connected worker, and everyone searches tribal knowledge.</p>
+<p><strong>The loudest number in the category is now the failure rate, not the promise.</strong> <a href="https://www.deloitte.com/ch/en/services/consulting/perspectives/digital-shopfloor-excellence.html" rel="noopener noreferrer">Deloitte</a> found 87% of manufacturers have started a generative AI pilot but only 24% reached facility-level adoption, and IDC puts it at 4 of every 33 pilots reaching production. <a href="https://www.gartner.com/en/newsroom/press-releases/2025-08-26-gartner-predicts-40-percent-of-enterprise-apps-will-feature-task-specific-ai-agents-by-2026-up-from-less-than-5-percent-in-2025" rel="noopener noreferrer">Gartner</a> simultaneously forecasts 40% of enterprise apps carrying task-specific AI agents by 2026 and over 40% of agentic AI projects being cancelled by end of 2027. Pilot-purgatory scepticism is now the default posture, and it is the objection any pitch has to clear first.</p>
+<p><strong>The winning argument has moved from &quot;capture the knowledge&quot; to &quot;capture it inside the work&quot;.</strong> <a href="https://tulip.co/blog/how-to-integrate-ai-across-manufacturing-operations/" rel="noopener noreferrer">Tulip</a> frames it as troubleshooting at the station, quality decisions in the workflow, operator guidance in context and documentation captured as the process happens, and pairs it with the figure that 81% of manufacturing task hours stay human-driven. Standalone knowledge bases are being argued against; point-of-work capture is the position that survives.</p>
+<p><strong>The community&#x27;s real relationship with AI showed up in the sharpest possible way this month.</strong> The top industrial thread in the window was not about platforms at all: a Japanese shop owner posted to <a href="https://www.reddit.com/r/Machinists/comments/1v7wtzx/i_run_a_small_machine_shop_in_japan_a_few_of_you/" rel="noopener noreferrer">r/Machinists</a> under the title &quot;I run a small machine shop in Japan. A few of you thought my posts were AI, so here is me in the shop, showing the wire EDM that cuts our lantern cages&quot; and pulled 2.359 upvotes for proving he was a human. In the thread, u/SakakiGearJP explains the machine: &quot;Good eye. Yes, it is an older Mitsubishi. We put money into maintenance every year to keep it running, so it still holds tolerance and works every day. No reason to replace it.&quot; That is the audience in two lines: default suspicion of anything that smells generated, and maintain-what-works over replace-with-new.</p>
+<p><strong>Vendor vocabulary has converged on six names and one near-identical script.</strong> Independent roundups from <a href="https://reliamag.com/guides/best-connected-worker-platforms-2026/" rel="noopener noreferrer">Reliamag</a>, <a href="https://www.fabrico.io/blog/best-connected-worker-platforms/" rel="noopener noreferrer">Fabrico</a> and <a href="https://www.innovapptive.com/blog/best-connected-worker-platforms" rel="noopener noreferrer">Innovapptive</a> name the same set: Poka for tribal knowledge capture, Augmentir for AI skills management, Tulip for no-code apps, Parsable for SOPs with conditional logic, Innovapptive for AI-agent frontline execution, SafetyCulture for inspection compliance. The pitch language is close to interchangeable. A connected worker demo published this window opens on &quot;disconnected paper records, slow, fragile, and impossible to track&quot; and closes on &quot;clear instructions, confident actions, all in one intuitive digital platform&quot;, per inSis Suite on YouTube. Anyone writing in this category is writing inside a crowded phrasebook.</p>
+<h2>Key patterns from the research</h2>
+<ol>
+<li>&quot;Tribal knowledge&quot; is the highest-intent phrase and the one every vendor has already built a glossary page against, per <a href="https://www.augmentir.com/glossary/what-is-tribal-knowledge" rel="noopener noreferrer">Augmentir</a></li>
+<li>Three labels coexist for one thing: ACWF (analysts), connected worker platform (buyers and comparison sites), tribal knowledge (search)</li>
+<li>The retirement-cliff stat set is the standard opener: 25% over 55, 26% retiring by 2030, 1,5M unfilled roles, 97% concerned, per <a href="https://fp360group.com/industrial-brain-drain-knowledge-gaps-manufacturing/" rel="noopener noreferrer">FP360</a></li>
+<li>Failure-rate numbers now travel further than promise numbers, per <a href="https://www.deloitte.com/ch/en/services/consulting/perspectives/digital-shopfloor-excellence.html" rel="noopener noreferrer">Deloitte</a></li>
+<li>&quot;In the workflow, not in a dashboard&quot; is the argument currently winning, per <a href="https://tulip.co/blog/how-to-integrate-ai-across-manufacturing-operations/" rel="noopener noreferrer">Tulip</a></li>
+<li>Shop-floor communities are AI-suspicious by default and reward proof of human hands, per <a href="https://www.reddit.com/r/Machinists/comments/1v7wtzx/i_run_a_small_machine_shop_in_japan_a_few_of_you/" rel="noopener noreferrer">r/Machinists</a></li>
+<li>Six vendors own the comparison surface and share a near-identical vocabulary, so differentiation has to come from proof rather than phrasing</li>
+</ol>
+<div class="engine-footer"><pre>---
+✅ All agents reported back!
+├─ 🟠 Reddit: 13 threads │ 580 upvotes │ 746 comments │ ⚠ partial after 13 items: HTTP 429: Too Many Requests (run doctor for fixes)
+├─ 🔴 YouTube: 5 videos │ 14,472 views │ 5/5 with transcripts
+├─ 🟡 HN: 25 storys │ 9,433 points │ 7,346 comments
+├─ 🐙 GitHub: 3 items │ 217 comments
+└─ 🗣️ Top voices: r/manufacturing
+---</pre></div>
+<div class="colophon">
+  Generated 2026-07-29 by /last30days v3.18.4 · topic: connected worker platform manufacturing<br>
+  Re-run for fresh data: <span class="rerun">/last30days connected worker platform manufacturing</span>
+</div>
+</body>
+</html>
+

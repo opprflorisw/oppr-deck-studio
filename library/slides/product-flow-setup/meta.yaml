@@ -22,3 +22,9 @@ variables:
 used_in:
 - product-showcase
 notes: Floorplan -> log builder -> take a round. Product screenshots.
+blocked: >
+  2026-08-01: all three screenshots on this slide (logs-desktop-floorplan,
+  logs-desktop-builder, logs-app-round) show live Holliday tenant state and
+  were reclassified from public to `holliday`. The slide cannot be composed
+  into a public deck until it is reshot from a demo tenant with fictional
+  names (carousel playbook A4).

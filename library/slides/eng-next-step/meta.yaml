@@ -1,0 +1,18 @@
+id: eng-next-step
+role: cta
+title: Three moments, and only the first one needs a diary.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- cta
+- engagement
+images: []
+variables:
+- deck_footer
+- start_target
+used_in:
+- engagement
+notes: Ink CTA timeline, no footer (role cta). Carries start_target.

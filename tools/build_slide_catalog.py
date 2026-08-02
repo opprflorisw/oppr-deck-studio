@@ -39,9 +39,17 @@ CATALOG = ROOT / "library" / "catalog.html"
 PREVIEW_VARS = {
     "deck_footer": "Operator Intelligence &middot; Preview &middot; July 2026",
     "cover_meta": "Preview &nbsp;&middot;&nbsp; July 2026 &nbsp;&middot;&nbsp; Confidential &nbsp;&middot;&nbsp; oppr.ai",
+    # proposal slots (types/proposal/recipe.md)
+    "prepared_for": "Prepared for the operations team",
+    "scope_line": "the line in scope",
+    "start_target": "the date we agree",
 }
 
-BADGE = {"public": "#55745e", "named-customer": "#a65032", "mutares-family": "#3e6874"}
+# Clearance badge: green for public, terracotta for anything else. Slugs are
+# per-customer and open-ended now, so the map cannot enumerate them; what the
+# reader needs at a glance is only "public or restricted".
+BADGE = {"public": "#55745e"}
+BADGE_RESTRICTED = "#a65032"
 
 PS_ORDER = [
     "cover", "idea-one-sentence", "why-now", "recognize-problems", "when-time-matters",
@@ -168,7 +176,7 @@ def build_catalog_html(order: list[str]) -> None:
             m = metas[sid]
             thumb = f"slides/{sid}/thumb.png"
             ent = m.get("entitlement", "public")
-            col = BADGE.get(ent, "#5f6965")
+            col = BADGE.get(ent, BADGE_RESTRICTED)
             used = ", ".join(m.get("used_in", []) or [])
             out.append(
                 f"<figure><a href='{thumb}'><img loading='lazy' src='{thumb}'></a>"

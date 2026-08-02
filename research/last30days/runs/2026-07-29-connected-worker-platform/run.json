@@ -1,0 +1,179 @@
+{
+  "slug": "2026-07-29-connected-worker-platform",
+  "date": "2026-07-29",
+  "topic": "connected worker platform manufacturing",
+  "question": "What topics and words are people using around AI in industry, connected worker platforms, human data capture and tribal knowledge?",
+  "query_type": "GENERAL",
+  "domain": "category",
+  "engine": {
+    "version": "3.18.4",
+    "window": "2026-06-29..2026-07-29",
+    "depth": "deep",
+    "plan_subqueries": ["connected worker platform manufacturing", "tribal knowledge retiring operators manufacturing", "AI shop floor manufacturing operators skeptical", "Tulip Augmentir Poka digital work instructions MES"]
+  },
+  "sources": {
+    "active": ["reddit", "hackernews", "github", "youtube", "web"],
+    "missing": ["x", "tiktok", "instagram"],
+    "degraded": ["reddit"],
+    "counts": { "reddit": 13, "hackernews": 25, "github": 3, "youtube": 5, "polymarket": 0, "web": 7 },
+    "engagement": { "reddit_upvotes": 580, "reddit_comments": 746, "hn_points": 9433, "hn_comments": 7741, "youtube_views": 14472 }
+  },
+  "verdict": "thin-social-rich-web",
+  "headline": "Tribal knowledge has won the terminology war; the loudest number in the category is now the failure rate.",
+  "findings": [
+    {
+      "claim": "'Tribal knowledge' is the highest-intent phrase in the category and every vendor has already built a glossary page against it.",
+      "evidence": "Augmentir, Matterport, DataProphet, Manual.to, Dirac, OrcaLean and RFQ USA all run dedicated glossary or pillar pages on the exact phrase.",
+      "source": "Augmentir",
+      "url": "https://www.augmentir.com/glossary/what-is-tribal-knowledge"
+    },
+    {
+      "claim": "Three labels coexist for one thing, and each belongs to a different audience.",
+      "evidence": "Gartner says Augmented Connected Workforce (ACWF). Frost and Sullivan says Augmented Connected Worker (ACW). Buyers and comparison sites say 'connected worker platform'. Search says 'tribal knowledge'.",
+      "source": "Gartner",
+      "url": "https://www.gartner.com/en/experts/top-tech-trends-unpacked-series/augmented-connected-workforce-will-drive-productivity"
+    },
+    {
+      "claim": "The failure-rate statistics now travel further than the promise statistics.",
+      "evidence": "Deloitte: 87% of manufacturers started a generative AI pilot, only 24% reached facility-level adoption. IDC: 4 of every 33 pilots reach production. Gartner: over 40% of agentic AI projects cancelled by end of 2027.",
+      "source": "Deloitte",
+      "url": "https://www.deloitte.com/ch/en/services/consulting/perspectives/digital-shopfloor-excellence.html"
+    },
+    {
+      "claim": "The winning argument has moved from 'capture the knowledge' to 'capture it inside the work'.",
+      "evidence": "Tulip frames value as troubleshooting at the station, quality decisions in the workflow, operator guidance in context, documentation captured as the process happens. Standalone knowledge bases are being argued against.",
+      "source": "Tulip",
+      "url": "https://tulip.co/blog/how-to-integrate-ai-across-manufacturing-operations/"
+    },
+    {
+      "claim": "Shop-floor communities are AI-suspicious by default and reward visible proof of human hands.",
+      "evidence": "The single biggest industrial thread in the window was a Japanese machine shop owner filming himself to prove his posts were not AI-generated. It drew 2.359 upvotes.",
+      "source": "r/Machinists",
+      "url": "https://www.reddit.com/r/Machinists/comments/1v7wtzx/i_run_a_small_machine_shop_in_japan_a_few_of_you/"
+    },
+    {
+      "claim": "Six vendors own the comparison surface and share a near-identical vocabulary.",
+      "evidence": "Independent roundups from Reliamag, Fabrico and Innovapptive name the same set: Poka, Augmentir, Tulip, Parsable, Innovapptive, SafetyCulture. Pitch language is close to interchangeable across all of them.",
+      "source": "Reliamag",
+      "url": "https://reliamag.com/guides/best-connected-worker-platforms-2026/"
+    },
+    {
+      "claim": "The category's demand driver is demographic, not technological.",
+      "evidence": "Frost and Sullivan names the three drivers verbatim as labour shortages, aging workforce demographics and increasing operational complexity. Every vendor pillar page opens on the same retirement cliff.",
+      "source": "Frost and Sullivan",
+      "url": "https://www.youtube.com/watch?v=yRpNWAlBmr8"
+    }
+  ],
+  "themes": [
+    {
+      "id": "tribal-knowledge-is-the-term",
+      "label": "Tribal knowledge is the category's search term",
+      "summary": "The phrase practitioners and search engines use is 'tribal knowledge', not any vendor's coined category name. Content that wants to be found writes to that phrase.",
+      "stance": "observed"
+    },
+    {
+      "id": "three-label-split",
+      "label": "Analysts, buyers and searchers use three different words",
+      "summary": "ACWF is analyst language, connected worker platform is buyer and comparison-site language, tribal knowledge is search language. Writing needs to pick a register deliberately rather than mixing all three.",
+      "stance": "actionable"
+    },
+    {
+      "id": "pilot-purgatory-scepticism",
+      "label": "Pilot purgatory is the default objection",
+      "summary": "The category's most-shared numbers are now about AI projects failing to reach production. Any pitch has to clear that objection before it can make a promise.",
+      "stance": "actionable"
+    },
+    {
+      "id": "in-the-workflow-not-dashboard",
+      "label": "In the workflow, not in a dashboard",
+      "summary": "Value arguments that survive are the ones where the software appears at the station during the work. Separate knowledge bases and analytics dashboards are being argued against by vendors themselves.",
+      "stance": "actionable"
+    },
+    {
+      "id": "shop-floor-ai-suspicion",
+      "label": "Shop floors are AI-suspicious and reward human proof",
+      "summary": "Industrial communities treat generated-looking content as a red flag and reward demonstrable human hands and maintained equipment. Tone matters more here than in software-buyer channels.",
+      "stance": "actionable"
+    },
+    {
+      "id": "crowded-phrasebook",
+      "label": "The vendor phrasebook is crowded and interchangeable",
+      "summary": "Six vendors describe themselves in nearly identical language, so wording alone cannot differentiate. Differentiation has to come from proof: named plants, real numbers, specific failure modes solved.",
+      "stance": "risk"
+    },
+    {
+      "id": "demographic-demand-driver",
+      "label": "The demand driver is demographic, not technological",
+      "summary": "The retirement cliff, not AI capability, is what makes buyers act. Openers that lead with demographics land; openers that lead with model capability do not.",
+      "stance": "actionable"
+    }
+  ],
+  "vocabulary": [
+    { "term": "tribal knowledge", "kind": "search-term", "note": "Highest-intent phrase. Every vendor has a glossary page. Use it verbatim in titles." },
+    { "term": "Augmented Connected Workforce (ACWF)", "kind": "analyst-term", "note": "Gartner's label. Use when writing to CIO / analyst audiences." },
+    { "term": "Augmented Connected Worker (ACW)", "kind": "analyst-term", "note": "Frost and Sullivan's variant of the same idea." },
+    { "term": "connected worker platform", "kind": "category-term", "note": "What buyers and comparison sites call the category." },
+    { "term": "industrial brain drain", "kind": "framing", "note": "FP360's framing for the retirement cliff. Emotive, quotable." },
+    { "term": "digital work instructions", "kind": "category-term", "note": "The concrete artifact buyers shop for." },
+    { "term": "point of work", "kind": "framing", "note": "Where capture and guidance must happen for the value argument to survive." },
+    { "term": "frontline workers / frontline operations", "kind": "category-term", "note": "The people-side label used across vendor copy." },
+    { "term": "agentic AI", "kind": "hype-term", "note": "Now a formal Gartner Peer Insights market for manufacturing. Carries its own cancellation statistic." },
+    { "term": "closed-loop digital twin", "kind": "analyst-term", "note": "Gartner's 2030 manufacturing framing alongside semi-autonomous agents." },
+    { "term": "pilot purgatory", "kind": "framing", "note": "Implied by the 87 / 24 split. The objection to clear first." },
+    { "term": "skills gap / skills management", "kind": "category-term", "note": "Augmentir's chosen wedge into the same problem." }
+  ],
+  "stats": [
+    { "value": "25%", "label": "Share of the manufacturing workforce over 55, up from 14% in 2000", "source": "FP360", "url": "https://fp360group.com/industrial-brain-drain-knowledge-gaps-manufacturing/", "date": "2026" },
+    { "value": "26%", "label": "Share of the manufacturing workforce expected to retire by 2030, leaving 1,5 million roles vacant", "source": "FP360", "url": "https://fp360group.com/industrial-brain-drain-knowledge-gaps-manufacturing/", "date": "2026" },
+    { "value": "97%", "label": "Manufacturers expressing significant concern about the brain drain of retiring workers", "source": "FP360", "url": "https://fp360group.com/industrial-brain-drain-knowledge-gaps-manufacturing/", "date": "2026" },
+    { "value": "75%", "label": "Manufacturers reporting a skill deficit, costing an average 11% annual earnings loss", "source": "FP360", "url": "https://fp360group.com/industrial-brain-drain-knowledge-gaps-manufacturing/", "date": "2026" },
+    { "value": "87% vs 24%", "label": "Manufacturers who started a generative AI pilot versus those who reached facility-level adoption", "source": "Deloitte", "url": "https://www.deloitte.com/ch/en/services/consulting/perspectives/digital-shopfloor-excellence.html", "date": "2025" },
+    { "value": "4 of 33", "label": "AI pilots that reach production", "source": "IDC", "url": "https://www.deloitte.com/ch/en/services/consulting/perspectives/digital-shopfloor-excellence.html", "date": "2025" },
+    { "value": "40%", "label": "Enterprise apps expected to carry task-specific AI agents by 2026, up from under 5% in 2025", "source": "Gartner", "url": "https://www.gartner.com/en/newsroom/press-releases/2025-08-26-gartner-predicts-40-percent-of-enterprise-apps-will-feature-task-specific-ai-agents-by-2026-up-from-less-than-5-percent-in-2025", "date": "2025-08" },
+    { "value": "over 40%", "label": "Agentic AI projects Gartner expects to be cancelled by end of 2027", "source": "Gartner", "url": "https://www.gartner.com/en/newsroom/press-releases/2025-08-26-gartner-predicts-40-percent-of-enterprise-apps-will-feature-task-specific-ai-agents-by-2026-up-from-less-than-5-percent-in-2025", "date": "2025-08" },
+    { "value": "25%", "label": "CIOs Gartner expects to run augmented connected workforce initiatives through 2027", "source": "Gartner", "url": "https://www.gartner.com/en/experts/top-tech-trends-unpacked-series/augmented-connected-workforce-will-drive-productivity", "date": "2026" },
+    { "value": "81%", "label": "Manufacturing task hours expected to remain human-driven", "source": "Tulip", "url": "https://tulip.co/blog/how-to-integrate-ai-across-manufacturing-operations/", "date": "2026" }
+  ],
+  "entities": [
+    { "name": "Poka", "kind": "vendor", "note": "Positioned on tribal knowledge capture and multimedia SOPs. Closest direct competitor on the knowledge angle." },
+    { "name": "Augmentir", "kind": "vendor", "note": "AI skills management and personalised work guidance. Owns the glossary SEO for both tribal knowledge and ACWF." },
+    { "name": "Tulip", "kind": "vendor", "note": "No-code manufacturing apps. Publishes the strongest 'AI in the workflow' argument." },
+    { "name": "Parsable", "kind": "vendor", "note": "Digitising complex SOPs with conditional logic and compliance traceability." },
+    { "name": "Innovapptive", "kind": "vendor", "note": "AI-agent frontline execution. Also publishes the category roundup that names its own rivals." },
+    { "name": "SafetyCulture", "kind": "vendor", "note": "Inspection-centric compliance. Adjacent rather than head-on." },
+    { "name": "Gartner", "kind": "analyst", "note": "Owns the ACWF label and the agentic-AI cancellation statistic." },
+    { "name": "Frost and Sullivan", "kind": "analyst", "note": "Uses ACW; named the three demand drivers verbatim in a July 2026 video." },
+    { "name": "Deloitte", "kind": "analyst", "note": "Source of the 87 / 24 pilot-to-adoption gap." }
+  ],
+  "quotes": [
+    {
+      "text": "I run a small machine shop in Japan. A few of you thought my posts were AI, so here is me in the shop, showing the wire EDM that cuts our lantern cages.",
+      "author": "r/Machinists post title",
+      "weight": "2.359 upvotes",
+      "url": "https://www.reddit.com/r/Machinists/comments/1v7wtzx/i_run_a_small_machine_shop_in_japan_a_few_of_you/"
+    },
+    {
+      "text": "Good eye. Yes, it is an older Mitsubishi. We put money into maintenance every year to keep it running, so it still holds tolerance and works every day. No reason to replace it.",
+      "author": "u/SakakiGearJP",
+      "weight": "215 upvotes",
+      "url": "https://reddit.com/r/Machinists/comments/1v7wtzx/comment/p01bx78/"
+    },
+    {
+      "text": "Everyday critical operations rely on disconnected paper records, slow, fragile, and impossible to track in real time.",
+      "author": "inSis Suite (connected worker demo)",
+      "weight": "1.431 views",
+      "url": "https://www.youtube.com/watch?v=5-M5_xRtBQY"
+    }
+  ],
+  "open_questions": [
+    "X/Twitter is where vendor and analyst chatter in this category concentrates, and it was never searched.",
+    "Does the r/manufacturing 429 rate limit hide a materially larger body of practitioner discussion?",
+    "Is there a European-specific vocabulary for this category, given the run indexed mostly US sources?"
+  ],
+  "caveats": [
+    "A first attempt on the full comma-separated phrase returned polluted results (manhwa recaps, a city council stream) because the topic string broke the relevance floor. Re-run on a tighter anchor. The polluted output is archived, not counted as a run.",
+    "Reddit went partial after 13 items with HTTP 429, so absence of Reddit discussion on a sub-topic is not proven.",
+    "X/Twitter was not searched at all. The substance leans on web and analyst sources rather than raw community chatter."
+  ],
+  "artifacts": { "raw": "raw.md", "brief": "brief.html" }
+}

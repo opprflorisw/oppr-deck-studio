@@ -1,0 +1,21 @@
+id: eng-plan
+role: plan
+title: Two to three weeks to know. Ten weeks to prove.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+- plan
+- timeline
+images: []
+variables:
+- deck_footer
+- start_target
+- total
+used_in:
+- engagement
+notes: 'Gated phase timeline: Analyze as gate 1, the four Proof phases as gate 2.
+  Week bands match step2-prove.'

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Blocks" -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Oppr DS · LinkedIn article hero (1200&times;627)</title>
+<link rel="stylesheet" href="../../../templates/linkedin.css">
+<style>
+  /* Specimen only: the real hero renders alone at exactly 1200x627. Scaled here
+     so the card fits a browsable page next to the other block specimens. */
+  body { background: #d9d5cc; padding: 24px; }
+  .ds-note { font-family: "Archivo", Arial, sans-serif; color: #5f6965; font-size: 13px; max-width: 62ch; margin: 0 0 16px; }
+  .ds-scale { transform: scale(.62); transform-origin: top left; height: 400px; }
+</style>
+</head>
+<body>
+
+<p class="ds-note"><b>LinkedIn article hero</b> &middot; <code>.carousel--hero</code> &middot; 1200&times;627.
+The banner above a LinkedIn <em>article</em> (not a document post). Ink ground, because the
+banner sits under a headline LinkedIn renders in its own chrome. Claim only: no body copy,
+no page number, no open loop. One optional stat sits beside the claim so the hero stays a
+single horizontal read at thumbnail size. Built by
+<code>tools/build-social-image.ps1 -Width 1200 -Height 627</code>.</p>
+
+<div class="ds-scale">
+<div class="carousel carousel--hero">
+  <section class="lpage">
+    <span class="wm">oppr<b>.</b></span>
+    <p class="lkicker">Industrial AI &middot; July 2026</p>
+    <div class="lhero-row">
+      <h1>Everyone in industrial AI now says the same six things</h1>
+      <div class="lhero-stat">
+        <span class="n">24%</span>
+        <span class="l">of AI pilots reach a plant</span>
+      </div>
+    </div>
+  </section>
+</div>
+</div>
+
+<p class="ds-note" style="margin-top:24px"><b>Without a stat.</b> Drop <code>.lhero-stat</code> and the
+claim takes the full width. Use this when the article has no single arresting number, or when the
+number needs the article to earn it.</p>
+
+<div class="ds-scale">
+<div class="carousel carousel--hero">
+  <section class="lpage">
+    <span class="wm">oppr<b>.</b></span>
+    <p class="lkicker">Operator knowledge</p>
+    <div class="lhero-row">
+      <h1>The people who know why the line stops are retiring</h1>
+    </div>
+  </section>
+</div>
+</div>
+
+</body>
+</html>

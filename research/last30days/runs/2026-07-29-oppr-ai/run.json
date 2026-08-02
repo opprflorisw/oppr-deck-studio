@@ -1,0 +1,100 @@
+{
+  "slug": "2026-07-29-oppr-ai",
+  "date": "2026-07-29",
+  "topic": "oppr.ai",
+  "question": "What are users saying about my tool oppr.ai?",
+  "query_type": "GENERAL",
+  "domain": "own-brand",
+  "engine": {
+    "version": "3.18.4",
+    "window": "2026-06-29..2026-07-29",
+    "depth": "balanced",
+    "plan_subqueries": ["oppr.ai", "Oppr digital operator platform manufacturing", "operator knowledge capture shop floor digital SOP software"]
+  },
+  "sources": {
+    "active": ["reddit", "hackernews", "github", "youtube", "polymarket", "web"],
+    "missing": ["x", "tiktok", "instagram"],
+    "degraded": [],
+    "counts": { "reddit": 5, "hackernews": 11, "github": 1, "youtube": 0, "polymarket": 0, "web": 6 },
+    "engagement": { "reddit_upvotes": 27, "reddit_comments": 18, "hn_points": 97, "hn_comments": 11 }
+  },
+  "verdict": "no-community-evidence",
+  "headline": "Nobody is talking about oppr.ai in public, and that silence is itself the finding.",
+  "findings": [
+    {
+      "claim": "Zero evidence clusters cleared the engine's relevance floor in a 30 day window.",
+      "evidence": "17 items returned across Reddit, Hacker News and GitHub; every visible cluster failed the positive, non-entity-miss relevance floor. The result is honest silence, not negative sentiment.",
+      "source": "last30days engine",
+      "url": ""
+    },
+    {
+      "claim": "The brand owns 100% of its own search surface, which means there is no independent voice to calibrate against.",
+      "evidence": "Pre-research and three web supplements returned only oppr.ai pages: home, blog, solutions, how-it-works, FAQ, insights. The only GitHub signal was the company's own Oppr-AI-org/oppr-website repo.",
+      "source": "web",
+      "url": "https://www.oppr.ai/"
+    },
+    {
+      "claim": "All genuine third-party coverage predates the research window by months.",
+      "evidence": "UNIIQ proof-of-concept investment of EUR 350.000 covered October 2025; MWC Open Innovation Challenge participation was 2-5 March 2026 in Barcelona.",
+      "source": "Silicon Canals",
+      "url": "https://siliconcanals.com/oppr-ai-and-stemx-bio-secure-e350k-each/"
+    },
+    {
+      "claim": "There is no software review-site footprint at all.",
+      "evidence": "No G2 listing, no Capterra listing, no Trustpilot page for the domain. A prospect searching 'oppr.ai reviews' during evaluation finds nothing.",
+      "source": "G2 / Capterra",
+      "url": "https://www.g2.com/"
+    },
+    {
+      "claim": "Oppr's own positioning is the Digital Operator Platform that adds the missing human data layer to manufacturing.",
+      "evidence": "Four named tools: LOGS (20 second operator capture by voice, photo or text), IDA (pattern and failure analysis in plain language), DOCS (SOPs at the point of work via QR), Insights (AI-structured improvement priorities). Deployment claim: weeks not months, no IT project required.",
+      "source": "oppr.ai",
+      "url": "https://www.oppr.ai/how-it-works"
+    }
+  ],
+  "themes": [
+    {
+      "id": "brand-invisibility",
+      "label": "Category-stage brand invisibility",
+      "summary": "A seed-stage industrial B2B tool can be entirely absent from public community discussion while still being commercially real. Absence of chatter is a stage signal, not a quality signal.",
+      "stance": "observed"
+    },
+    {
+      "id": "no-social-proof-surface",
+      "label": "No social proof for evaluators to find",
+      "summary": "With no review-site listing and no third-party mentions, an evaluating buyer has nothing to corroborate the vendor's own claims. First-party pages carry the entire burden of proof.",
+      "stance": "risk"
+    },
+    {
+      "id": "press-not-voice",
+      "label": "Funding press is not user voice",
+      "summary": "Funding and event coverage reads as validation internally but says nothing about whether users like the product. The two are different evidence classes and should not be conflated in positioning.",
+      "stance": "caution"
+    }
+  ],
+  "vocabulary": [
+    { "term": "Digital Operator Platform", "kind": "own-positioning", "note": "Oppr's self-description; not a term the market searches for yet." },
+    { "term": "human data layer", "kind": "own-positioning", "note": "Oppr's differentiator phrase against machine data." },
+    { "term": "LOGS / IDA / DOCS / Insights", "kind": "own-product", "note": "Internal product names. BRAND.md warns these are never the story; Capture, Connect, Execute is." }
+  ],
+  "stats": [
+    { "value": "EUR 350.000", "label": "UNIIQ proof-of-concept investment in Oppr.ai", "source": "Silicon Canals", "url": "https://siliconcanals.com/oppr-ai-and-stemx-bio-secure-e350k-each/", "date": "2025-10" },
+    { "value": "0", "label": "Evidence clusters about oppr.ai clearing the relevance floor in 30 days", "source": "last30days engine", "url": "", "date": "2026-07" }
+  ],
+  "entities": [
+    { "name": "Oppr.ai", "kind": "own-brand", "note": "The Hague, NL. Founder and CEO Floris Wyers." },
+    { "name": "UNIIQ", "kind": "investor", "note": "South Holland proof-of-concept fund. EUR 350.000, Oct 2025." },
+    { "name": "StemX Bio", "kind": "co-announced", "note": "Received the same UNIIQ ticket in the same announcement." }
+  ],
+  "quotes": [],
+  "open_questions": [
+    "Does X/Twitter carry any unsolicited oppr.ai mentions? The run never searched it.",
+    "Would a G2 or Capterra listing change anything at this stage, or is the buyer journey entirely relationship-led?",
+    "Do pilot customers talk about the product internally in language that differs from the site copy?"
+  ],
+  "caveats": [
+    "X/Twitter was not searched: browser-cookie auth was skipped at setup and Windows only supports Firefox for that path.",
+    "TikTok and Instagram were not searched: no ScrapeCreators key, and both are low-value for industrial B2B anyway."
+  ],
+  "artifacts": { "raw": "raw.md", "brief": "brief.html" }
+}

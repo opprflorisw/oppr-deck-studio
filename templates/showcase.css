@@ -31,6 +31,17 @@
   .cover .lede { color: rgba(242,242,237,0.82); max-width: 50ch; margin-top: 22px; }
   .cover .meta { font-family: var(--mono); font-size: 12px; color: rgba(242,242,237,0.66); }
 
+  /* Open cover: the standard scrim stacks three dark layers and lands at ~74%
+     black over the photograph, which loses the plant entirely. This variant
+     keeps the left column dark enough for the white headline (~98%) and opens
+     the right side to ~40% so the operator and the line stay readable. */
+  .cover--open .scrim {
+    background:
+      linear-gradient(90deg, rgba(15,22,20,0.93) 22%, rgba(15,22,20,0.56) 58%, rgba(15,22,20,0.30) 100%),
+      linear-gradient(0deg, rgba(15,22,20,0.72) 0%, rgba(15,22,20,0.05) 52%),
+      rgba(15,22,20,0.10);
+  }
+
   /* --- The idea in one sentence (ink setup) -------------------------- */
   .setup h2 { font-size: 40px; max-width: 30ch; color: var(--bg); line-height: 1.14; margin-bottom: 42px; }
   .setup h2 .hl { color: var(--accent); }
@@ -215,6 +226,155 @@
   /* --- Icon chip for 2x2 grid cards --------------------------------- */
   .g2ico { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: var(--accent); margin-bottom: 14px; }
   .g2ico svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ===================================================================
+     Proposal blocks
+     The proposal deck type answers "what, how, when, how much" rather than
+     "why", so it needs four shapes the showcase never asked for: a six-card
+     deliverables grid, a phase timeline that shows two decision gates, a fee
+     equation, and a document list for the annexes.
+     =================================================================== */
+
+  /* --- 3x2 card grid (what you get · annex A) ------------------------- */
+  /* Six is the natural length of a deliverables list. Six .grid2 cards run to
+     634px and punch straight through the footer, so six cards get three
+     columns and two rows instead. Keep card copy to three lines. */
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 4px; }
+  .grid3 .card { min-height: 200px; padding: 20px 22px; }
+  .grid3 .card h3 { font-size: 20px; margin-bottom: 8px; }
+  .grid3 .card p { font-size: 15.5px; color: var(--muted); line-height: 1.45; }
+  .g3ico { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px;
+           border-radius: 50%; background: var(--accent); margin-bottom: 14px; }
+  .g3ico svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* --- Gated phase timeline (how we run it) --------------------------- */
+  /* The engagement is decided twice, so the plan cannot be one flat row of
+     phases: the gate boundary is the point of the slide. Gate colours match
+     the step bands (sb1 for Analyze, accent for the Proof) so the same step
+     is the same colour wherever it appears in the deck. */
+  .gates { display: flex; gap: 26px; margin-top: 20px; align-items: stretch; min-height: 320px; }
+  .gate { display: flex; flex-direction: column; }
+  .gate--1 { flex: 0 0 250px; }
+  .gate--2 { flex: 1; }
+  .gate-lbl { display: flex; justify-content: space-between; gap: 12px;
+              font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.11em;
+              text-transform: uppercase; color: #fff; background: var(--accent);
+              padding: 9px 16px; border-radius: 6px; margin-bottom: 14px; }
+  .gate--1 .gate-lbl { background: #b57150; }
+  .gate-lbl .gl-fee { font-weight: 500; letter-spacing: 0.05em; opacity: 0.92; }
+  .gate-in { display: flex; gap: 14px; flex: 1; align-items: stretch; }
+  /* each phase is a card so the plan carries the same weight as the rest of the
+     deck; the 3px top rule keeps the gate's colour on every column */
+  .ph { flex: 1; background: var(--surface); border: 1px solid var(--line);
+        border-top: 3px solid var(--accent); border-radius: 0 0 10px 10px; padding: 14px 18px 18px; }
+  .gate--1 .ph { border-top-color: #b57150; }
+  .ph .ph-n { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--accent); }
+  .gate--1 .ph .ph-n { color: #b57150; }
+  .ph h3 { font-size: 21px; margin: 9px 0 5px; }
+  .ph .wk { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+            color: var(--muted); margin-bottom: 12px; }
+  .ph p { font-size: 15.5px; color: var(--muted); line-height: 1.45; }
+
+  /* --- The fee equation (investment) ---------------------------------- */
+  /* Two fees and a credit that resolve to one number. Written as an equation
+     because the total, not the line items, is the thing to remember. */
+  .priceline { display: flex; align-items: stretch; gap: 12px; margin-top: 8px; }
+  .pb { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+        padding: 22px; display: flex; flex-direction: column; }
+  .pb-lbl { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
+            text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  .pb-val { font-family: var(--mono); font-size: 34px; font-weight: 600; letter-spacing: -0.03em;
+            color: var(--ink); line-height: 1; }
+  .pb-note { font-size: 13.5px; color: var(--muted); line-height: 1.45; margin-top: 12px; }
+  .pb--op { flex: 0 0 30px; background: none; border: none; padding: 0;
+            align-items: center; justify-content: center;
+            font-family: var(--mono); font-size: 26px; color: var(--muted); }
+  .pb--credit .pb-val { color: var(--verified); }
+  .pb--total { background: var(--accent); border-color: var(--accent); }
+  .pb--total .pb-lbl { color: rgba(255,255,255,0.88); }
+  .pb--total .pb-val { color: #fff; font-size: 38px; }
+  .pb--total .pb-note { color: rgba(255,255,255,0.88); }
+
+  /* --- Success criteria as a four-across stat row --------------------- */
+  /* .statcards is sized for a half-width column; on a full-width slide the
+     four signed criteria read as one row, each carrying how it is measured. */
+  .statcards--row { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .statcards--row .card { padding: 22px; }
+  .statcards--row strong { font-size: 40px; }
+  .statcards--row span { font-size: 15px; line-height: 1.4; }
+  .sc-how { display: block; margin-top: 14px; padding-top: 11px; border-top: 1px solid var(--line);
+            font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.05em;
+            text-transform: uppercase; color: var(--accent); }
+
+  /* --- Split success criteria (what you must hold up / what we prove) -- */
+  /* Two groups, because the four criteria are not the same kind of thing: two
+     are conditions the customer has to meet for the data to be trustworthy,
+     two are what Oppr is judged on. Flattening them into one row of four
+     hides exactly the distinction the slide exists to make. */
+  .critcols { display: flex; gap: 40px; margin-top: 14px; }
+  .critcol { flex: 1; }
+  .crit-lbl { font-family: var(--mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em;
+              text-transform: uppercase; color: var(--accent);
+              padding-bottom: 11px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .crit-list { display: flex; flex-direction: column; gap: 12px; }
+  .crit-list .card { display: flex; gap: 20px; align-items: baseline; padding: 15px 22px; }
+  .crit-list .cv { flex: 0 0 92px; font-family: var(--mono); font-size: 29px; font-weight: 600;
+                   letter-spacing: -0.02em; color: var(--accent); }
+  .crit-list .ct h3 { font-size: 19px; margin-bottom: 5px; }
+  .crit-list .ct p { font-size: 14.5px; color: var(--muted); line-height: 1.45; }
+
+  /* --- Compact quote list (running projects) --------------------------- */
+  /* Three short customer voices beside one verified case. The full .quotes
+     card is too heavy at three-up; this keeps the claim and the attribution
+     and drops everything else. */
+  .qlist { display: flex; flex-direction: column; gap: 12px; }
+  .qlist .q { background: var(--surface); border: 1px solid var(--line);
+              border-left: 3px solid var(--accent); border-radius: 8px; padding: 15px 18px; }
+  .qlist blockquote { margin: 0 0 9px; font-size: 15px; line-height: 1.45; letter-spacing: -0.005em; }
+  .qlist .att { margin: 0; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.02em; color: var(--accent); }
+
+  /* --- Interlocking chevron path (scope expansion) --------------------- */
+  /* Reads left to right as one movement rather than three separate boxes.
+     Colours ascend with the step bands (sb1 / accent / sb3), so "further
+     along the path" and "darker terracotta" mean the same thing everywhere. */
+  .pathflow { display: flex; margin-top: 26px; min-height: 268px; }
+  .pf { flex: 1; margin-left: -30px; padding: 26px 40px 26px 56px; color: var(--bg);
+        display: flex; flex-direction: column;
+        clip-path: polygon(0 0, calc(100% - 30px) 0, 100% 50%, calc(100% - 30px) 100%, 0 100%, 30px 50%);
+        -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pf:first-child { margin-left: 0; padding-left: 36px;
+        clip-path: polygon(0 0, calc(100% - 30px) 0, 100% 50%, calc(100% - 30px) 100%, 0 100%); }
+  .pf1 { background: #c98a6f; } .pf2 { background: var(--accent); } .pf3 { background: #7d3a24; }
+  .pf .pf-n { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.13em;
+              text-transform: uppercase; opacity: 0.92; margin-bottom: 12px; }
+  .pf h3 { font-size: 26px; color: var(--bg); margin-bottom: 8px; }
+  .pf .pf-scope { font-family: var(--mono); font-size: 13px; font-weight: 600; margin-bottom: 12px; opacity: 0.95; }
+  .pf p { font-size: 14.5px; line-height: 1.45; opacity: 0.93; }
+  .pf .pf-fee { margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(242,242,237,0.3);
+                font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+
+  /* --- Document list (annexes) ---------------------------------------- */
+  .doclist { list-style: none; padding: 0; margin: 8px 0 0; }
+  .doclist li { position: relative; padding-left: 18px; font-size: 15px; line-height: 1.45;
+                margin-bottom: 7px; color: var(--muted); }
+  .doclist li:last-child { margin-bottom: 0; }
+  .doclist li::before { content: ""; position: absolute; left: 0; top: 8px; width: 6px; height: 6px;
+                        border-radius: 50%; background: var(--accent); }
+  .doclist li b { color: var(--ink); font-weight: 600; }
+
+  /* --- .steps at management size (deck.css block, scaled up) ---------- */
+  /* Card-bodied so a three-item path fills the slide; the fee is pinned to the
+     bottom of each card, which keeps the three prices on one reading line. */
+  .steps--lg { gap: 20px; margin-top: 24px; }
+  .steps--lg > li { display: flex; flex-direction: column; min-height: 290px;
+                    background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+                    padding: 22px 26px 24px; }
+  .steps--lg > li::before { font-size: 14px; padding-bottom: 11px; margin-bottom: 18px; }
+  .steps--lg h3 { font-size: 25px; margin-bottom: 10px; }
+  .steps--lg p { font-size: 17px; line-height: 1.5; }
+  .steps--lg .st-fee { display: block; margin-top: auto; padding-top: 16px;
+                       border-top: 1px solid var(--line);
+                       font-family: var(--mono); font-size: 13.5px; font-weight: 600; color: var(--accent); }
 
   /* --- Reusable icon helper (library/icons/ via {{icon:NAME}}) ---------
      Stroke-only 24x24 icons; colour comes from `color` (currentColor),

@@ -1,0 +1,17 @@
+id: eng-step2-do
+role: step-detail
+title: Ten weeks. One line. One clear question.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- engagement
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: ''
