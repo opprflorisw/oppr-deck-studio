@@ -36,7 +36,7 @@ export function markActive() {
 
 // Short/legacy routes (e.g. /slides, /draft) still light up their area button.
 const ALIASES = {
-  library: ["/slides", "/graphics", "/icons", "/design-system"],
+  library: ["/slides", "/graphics", "/icons", "/design-system", "/brand"],
   decks: ["/output/masters"],
   social: ["/social-out", "/output/social"],
   knowledge: ["/knowledge", "/config"],

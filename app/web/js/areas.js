@@ -21,6 +21,7 @@ export const AREAS = [
     { id: "graphics", label: "Graphics", icon: "image" },
     { id: "icons", label: "Icons", icon: "spark" },
     { id: "design-system", label: "Design system", icon: "grid" },
+    { id: "brand", label: "Brand", icon: "brandmark" },
   ]},
   { id: "research", title: "Last 30 days", icon: "brain", tabs: [
     { id: "brain", label: "Brain", icon: "brain" },

@@ -752,3 +752,52 @@ button.primary.full { width: 100%; justify-content: center; }
   border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px;
 }
 .acct-note { margin: 4px 0 0 34px; }
+
+/* ---------------------------------------------------------------- brand kit
+   Library > Brand. The preview stages deliberately use the literal brand
+   grounds rather than the theme tokens: a light-background wordmark is ink and
+   would disappear on the dark theme's surface. You are looking at the asset on
+   the ground it was drawn for, not at the app's chrome. */
+.bk-group { margin-bottom: 34px; }
+.bk-tag {
+  margin-left: 10px; font-family: var(--mono, ui-monospace, monospace); font-size: 9.5px;
+  letter-spacing: .1em; text-transform: uppercase; border-radius: 999px;
+  padding: 3px 8px; vertical-align: 2px; font-weight: 500;
+}
+.bk-tag--rec { background: color-mix(in srgb, var(--verified) 16%, transparent); color: var(--verified); }
+.bk-tag--leg { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+.bk-note { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0 0 14px; max-width: 660px; }
+.bk-cards { display: flex; flex-wrap: wrap; gap: 16px; }
+.bk-card {
+  flex: 1 1 320px; min-width: 280px; border: 1px solid var(--line);
+  border-radius: 12px; overflow: hidden; background: var(--surface);
+}
+.bk-stage {
+  display: flex; align-items: center; justify-content: center;
+  padding: 30px; min-height: 150px; background: #f2f2ed;
+}
+.bk-stage--ink { background: #15201e; }
+.bk-stage img { max-width: 240px; max-height: 96px; height: auto; }
+.bk-meta { padding: 12px 14px; border-top: 1px solid var(--line); }
+.bk-label { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.bk-files { display: flex; flex-wrap: wrap; gap: 6px; }
+.bk-pill {
+  font-family: var(--mono, ui-monospace, monospace); font-size: 10.5px; letter-spacing: .02em;
+  text-decoration: none; color: var(--ink); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 10px; transition: border-color .15s, color .15s;
+}
+.bk-pill:hover { border-color: var(--accent); color: var(--accent); }
+.bk-pill--png { color: var(--muted); }
+.bk-clear { display: inline-block; border: 1px dashed var(--accent); border-radius: 4px; }
+.bk-swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.bk-swatch {
+  display: flex; align-items: flex-start; gap: 12px; text-align: left;
+  border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  background: var(--surface); color: var(--ink); cursor: pointer; font: inherit;
+}
+.bk-swatch:hover { border-color: var(--accent); }
+.bk-chip { width: 32px; height: 32px; border-radius: 7px; border: 1px solid var(--line); flex: none; }
+.bk-swatch-t b { display: block; font-size: 11.5px; }
+.bk-swatch-t > span { display: block; font-size: 11px; color: var(--muted); }
+.bk-swatch-t em { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.bk-spec { font-size: 11.5px; color: var(--muted); line-height: 1.8; margin: 0; }

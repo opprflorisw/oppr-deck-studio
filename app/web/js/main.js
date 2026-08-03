@@ -21,6 +21,7 @@ import * as knowledge from "./views/knowledge.js";
 import * as research from "./views/research.js";
 import * as designsystem from "./views/design-system.js";
 import * as iconsView from "./views/icons-view.js";
+import * as brand from "./views/brand.js";
 
 // Which body each area/tab renders. The area frame supplies the title + tabbar.
 // (Customers is a home area with no tabs — routed directly, not through here.)
@@ -30,6 +31,7 @@ const RENDER = {
     graphics: () => graphics.renderList(),
     icons: () => iconsView.render(),
     "design-system": () => designsystem.render(),
+    brand: () => brand.render(),
   },
   // Tab-less area: the value is the render function itself, not a tab table.
   decks: () => artifacts.renderDecks(),
@@ -157,6 +159,7 @@ async function boot() {
   route("/graphics", () => area("library", "graphics"));
   route("/icons", () => area("library", "icons"));
   route("/design-system", () => area("library", "design-system"));
+  route("/brand", () => area("library", "brand"));
   route("/output/masters", () => go("/decks"));     // Output was split into
   route("/output/social", () => go("/social/all")); // Decks + Social output
   route("/output", () => go("/decks"));

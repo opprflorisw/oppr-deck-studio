@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Oppr brand kit</title>
+<link rel="icon" href="assets/favicon.svg">
+<style>
+:root {
+  --ground:#f2f2ed; --ink:#15201e; --human:#a65032; --machine:#3e6874; --verified:#55745e;
+  --line:rgba(21,32,30,.12); --muted:rgba(21,32,30,.55);
+}
+@font-face { font-family:'Archivo'; src:url('fonts/Archivo-var.woff2') format('woff2');
+             font-weight:100 900; font-display:swap; }
+@font-face { font-family:'JetBrains Mono'; src:url('fonts/JetBrainsMono-var.woff2') format('woff2');
+             font-weight:100 800; font-display:swap; }
+*, *::before, *::after { box-sizing:border-box; }
+body { margin:0; background:var(--ground); color:var(--ink);
+       font-family:'Archivo',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+.wrap { max-width:1080px; margin:0 auto; padding:56px 32px 96px; }
+.kicker { font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.16em;
+          text-transform:uppercase; color:var(--human); margin:0 0 12px; }
+h1 { font-weight:700; font-size:38px; letter-spacing:-.03em; margin:0 0 10px; }
+.lede { font-size:16px; line-height:1.6; color:var(--muted); max-width:640px; margin:0 0 8px; }
+h2 { font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:.14em;
+     text-transform:uppercase; color:var(--muted); font-weight:500;
+     margin:56px 0 8px; padding-top:20px; border-top:1px solid var(--line); }
+.sub { font-size:14px; line-height:1.6; color:var(--muted); max-width:640px; margin:0 0 18px; }
+.tag { display:inline-block; font-family:'JetBrains Mono',monospace; font-size:10px;
+       letter-spacing:.1em; text-transform:uppercase; border-radius:999px; padding:3px 9px;
+       margin-left:8px; vertical-align:3px; }
+.tag.rec { background:rgba(85,116,94,.14); color:var(--verified); }
+.tag.leg { background:rgba(166,80,50,.12); color:var(--human); }
+.row { display:flex; flex-wrap:wrap; gap:18px; }
+.card { border-radius:12px; border:1px solid var(--line); display:flex; align-items:center;
+        justify-content:center; padding:34px; min-height:132px; flex:1 1 300px; }
+.card.dark { background:var(--ink); border-color:transparent; }
+.card img { max-width:100%; height:auto; }
+.icons { display:flex; align-items:flex-end; gap:22px; flex-wrap:wrap; }
+.icons figure { margin:0; display:flex; flex-direction:column; align-items:center; gap:8px; }
+.icons figcaption { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); }
+.card.dark .icons figcaption { color:rgba(242,242,237,.55); }
+.dl { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; align-items:center; }
+.dl-label { font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:.1em;
+            text-transform:uppercase; color:var(--muted); margin-right:2px; }
+.dl a { font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.04em;
+        text-decoration:none; color:var(--ink); border:1px solid var(--line);
+        border-radius:999px; padding:7px 13px; transition:border-color .15s,color .15s; }
+.dl a:hover { border-color:var(--human); color:var(--human); }
+.swatches { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; }
+.swatch { display:flex; align-items:flex-start; gap:12px; border:1px solid var(--line);
+          border-radius:10px; padding:12px 14px; }
+.chip { width:34px; height:34px; border-radius:7px; border:1px solid var(--line); flex:none; }
+.swatch b { display:block; font-family:'JetBrains Mono',monospace; font-size:12px; }
+.swatch span { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); }
+.swatch em { display:block; font-style:normal; font-size:11px; color:var(--muted); margin-top:2px; }
+.clearbox { display:inline-block; border:1px dashed var(--human); border-radius:4px; }
+.clearbox img { display:block; }
+.rules { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; }
+.rule { border:1px solid var(--line); border-radius:10px; padding:16px 18px; }
+.rule h3 { margin:0 0 8px; font-family:'JetBrains Mono',monospace; font-size:11px;
+           letter-spacing:.12em; text-transform:uppercase; font-weight:500; }
+.rule.do h3 { color:var(--verified); }
+.rule.dont h3 { color:var(--human); }
+.rule ul { margin:0; padding-left:18px; }
+.rule li { font-size:14px; line-height:1.65; margin-bottom:6px; }
+.type-note { font-size:15px; line-height:1.75; max-width:660px; }
+.type-note b { color:var(--human); }
+.spec { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--muted);
+        margin-top:10px; line-height:1.7; }
+footer { margin-top:64px; padding-top:20px; border-top:1px solid var(--line);
+         font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); line-height:1.8; }
+@media (max-width:640px) { .wrap { padding:40px 20px 72px; } h1 { font-size:30px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="kicker">Oppr brand kit</p>
+  <h1>oppr. and the o-monogram</h1>
+  <p class="lede">The wordmark stays the baseline <strong>oppr.</strong> with its terracotta
+    period. The icon is the first letter <strong>o</strong> carrying that same terracotta dot.
+    One accent, everywhere.</p>
+  <p class="lede">Everything here is ready to use as-is. Nothing needs a font installed,
+    and every file has a transparent background unless its name says otherwise.</p>
+
+<h2>Wordmark (outlined)<span class="tag rec">use this</span></h2>
+<p class="sub">Font-independent paths, transparent, cropped to the mark. Use these unless you have a reason not to.</p>
+<div class="row"><div class="card"><img src="assets/wordmark-light-outline.svg" alt="Light backgrounds" style="width:240px"></div><div class="card dark"><img src="assets/wordmark-dark-outline.svg" alt="Dark backgrounds" style="width:240px"></div></div>
+<div class="dl"><span class="dl-label">svg</span><a href="assets/wordmark-light-outline.svg" download>wordmark-light-outline.svg</a><a href="assets/wordmark-dark-outline.svg" download>wordmark-dark-outline.svg</a></div>
+<div class="dl"><span class="dl-label">png &middot; light backgrounds</span><a href="png/wordmark-light-400.png" download>400px</a><a href="png/wordmark-light-800.png" download>800px</a><a href="png/wordmark-light-1200.png" download>1200px</a></div><div class="dl"><span class="dl-label">png &middot; dark backgrounds</span><a href="png/wordmark-dark-400.png" download>400px</a><a href="png/wordmark-dark-800.png" download>800px</a><a href="png/wordmark-dark-1200.png" download>1200px</a></div>
+
+<h2>Wordmark (original)<span class="tag leg">legacy</span></h2>
+<p class="sub">Live text needing Archivo installed, in a 200x52 box the mark does not fill. Kept so anything already pointing at them keeps working; prefer the outlined pair for anyone outside Oppr.</p>
+<div class="row"><div class="card"><img src="assets/wordmark-light.svg" alt="Light backgrounds" style="width:240px"></div><div class="card dark"><img src="assets/wordmark-dark.svg" alt="Dark backgrounds (opaque)" style="width:240px"></div></div>
+<div class="dl"><span class="dl-label">svg</span><a href="assets/wordmark-light.svg" download>wordmark-light.svg</a><a href="assets/wordmark-dark.svg" download>wordmark-dark.svg</a></div>
+
+
+  <h2>Icon / favicon<span class="tag rec">use this</span></h2>
+  <p class="sub">The o-monogram on the ink tile. Pure geometry, so it needs no font and
+    stays legible down to 16px.</p>
+  <div class="row"><div class="card"><div class="icons"><figure><img src="assets/icon-tile.svg" width="96" height="96" alt=""><figcaption>96</figcaption></figure><figure><img src="assets/icon-tile.svg" width="64" height="64" alt=""><figcaption>64</figcaption></figure><figure><img src="assets/icon-tile.svg" width="48" height="48" alt=""><figcaption>48</figcaption></figure><figure><img src="assets/icon-tile.svg" width="32" height="32" alt=""><figcaption>32</figcaption></figure><figure><img src="assets/icon-tile.svg" width="16" height="16" alt=""><figcaption>16</figcaption></figure></div></div></div>
+  <div class="dl"><span class="dl-label">svg</span><a href="assets/icon-tile.svg" download>icon-tile.svg</a><a href="assets/favicon.svg" download>favicon.svg</a></div>
+  <div class="dl"><span class="dl-label">png</span><a href="assets/png/icon-tile-512.png" download>512px</a><a href="assets/png/icon-tile-256.png" download>256px</a><a href="assets/png/icon-tile-128.png" download>128px</a><a href="assets/png/icon-tile-64.png" download>64px</a><a href="assets/png/icon-tile-32.png" download>32px</a><a href="assets/png/icon-tile-16.png" download>16px</a></div>
+
+<h2>Bare o. (no tile)<span class="tag rec">use this</span></h2>
+<p class="sub">For inline use or wherever a transparent background is needed.</p>
+<div class="row"><div class="card"><img src="assets/icon-bare-light.svg" alt="Light backgrounds" style="width:240px"></div><div class="card dark"><img src="assets/icon-bare-dark.svg" alt="Dark backgrounds" style="width:240px"></div></div>
+<div class="dl"><span class="dl-label">svg</span><a href="assets/icon-bare-light.svg" download>icon-bare-light.svg</a><a href="assets/icon-bare-dark.svg" download>icon-bare-dark.svg</a></div>
+<div class="dl"><span class="dl-label">png &middot; light backgrounds</span><a href="png/icon-bare-light-512.png" download>512px</a></div><div class="dl"><span class="dl-label">png &middot; dark backgrounds</span><a href="png/icon-bare-dark-512.png" download>512px</a></div>
+
+  <h2>Clear space</h2>
+  <p class="sub">Keep at least the height of the <strong>o</strong> clear on every side
+    (22 units at the mark's own scale). The dashed line is the minimum, not a
+    border to draw.</p>
+  <div class="row"><div class="card">
+    <span class="clearbox" style="padding:60.6px">
+      <img src="assets/wordmark-light-outline.svg" alt="" style="width:260px">
+    </span>
+  </div></div>
+
+  <h2>Colours</h2>
+  <p class="sub">One accent per element. No gradients, and no shadows on the mark.</p>
+  <div class="swatches"><div class="swatch"><span class="chip" style="background:#f2f2ed"></span><div><b>GROUND</b><span>#f2f2ed</span><em>warm paper background</em></div></div><div class="swatch"><span class="chip" style="background:#15201e"></span><div><b>INK</b><span>#15201e</span><em>near-black text and structure</em></div></div><div class="swatch"><span class="chip" style="background:#a65032"></span><div><b>HUMAN</b><span>#a65032</span><em>terracotta, the operator's voice (the dot)</em></div></div><div class="swatch"><span class="chip" style="background:#3e6874"></span><div><b>MACHINE</b><span>#3e6874</span><em>teal, the machine's voice</em></div></div><div class="swatch"><span class="chip" style="background:#55745e"></span><div><b>VERIFIED</b><span>#55745e</span><em>green, a verified result</em></div></div></div>
+
+  <h2>Type</h2>
+  <p class="type-note"><b>Archivo</b> 700, lowercase, letter-spacing -0.04em for the wordmark.
+    <b>JetBrains Mono</b> for UI labels, eyebrows and numbers. Both are open source under the
+    SIL Open Font License and available from Google Fonts; copies are bundled in
+    <code>fonts/</code> so this page renders correctly offline.</p>
+  <p class="spec">Wordmark geometry &middot; Archivo 700 at 40px,
+    letter-spacing -1.5, terracotta period r=4<br>
+    Outlined artboard &middot; 94.47 &times; 28.67 units, cropped to the mark</p>
+
+  <h2>Using it</h2>
+  <div class="rules">
+    <div class="rule do"><h3>Do</h3><ul>
+      <li>Use the outlined wordmark for anything leaving Oppr.</li>
+      <li>Keep the wordmark lowercase, always.</li>
+      <li>Keep the terracotta period. It is the signature.</li>
+      <li>Pick the light or dark file to suit the background it sits on.</li>
+      <li>Scale proportionally, and leave the clear space above.</li>
+    </ul></div>
+    <div class="rule dont"><h3>Don't</h3><ul>
+      <li>Recolour the period, or drop it.</li>
+      <li>Capitalise it, or set it in another typeface.</li>
+      <li>Add a gradient, shadow, outline or second accent.</li>
+      <li>Stretch, skew, rotate or condense the mark.</li>
+      <li>Place the light wordmark on a dark ground, or the reverse.</li>
+      <li>Rebuild the mark by typing "oppr." and adding a dot.</li>
+    </ul></div>
+  </div>
+
+  <footer>
+    Oppr B.V. &middot; brand kit &middot; questions to floris@oppr.ai<br>
+    Generated by <code>tools/build-brand-kit.py</code>. The outlined wordmarks are paths taken
+    from Archivo at weight 700, so they render identically with no font installed.
+  </footer>
+</div>
+</body>
+</html>

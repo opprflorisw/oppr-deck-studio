@@ -131,6 +131,10 @@ CONTENT_TYPES = {
     ".webp": "image/webp", ".gif": "image/gif", ".svg": "image/svg+xml",
     ".woff2": "font/woff2", ".woff": "font/woff", ".ttf": "font/ttf",
     ".pdf": "application/pdf", ".html": "text/html; charset=utf-8",
+    # A stylesheet served as octet-stream is refused outright by browsers, and a
+    # .zip served as one is what makes a downloaded brand kit arrive unopenable.
+    ".css": "text/css; charset=utf-8", ".json": "application/json",
+    ".txt": "text/plain; charset=utf-8", ".zip": "application/zip",
 }
 
 

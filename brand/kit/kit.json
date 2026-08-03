@@ -1,0 +1,202 @@
+{
+  "generated_by": "tools/build-brand-kit.py",
+  "wordmark": {
+    "word": "oppr",
+    "font": "Archivo",
+    "weight": 700,
+    "font_size": 40.0,
+    "letter_spacing": -1.5,
+    "tight_box": {
+      "w": 94.47,
+      "h": 28.67
+    },
+    "clear_space": 22.02
+  },
+  "colours": [
+    {
+      "name": "GROUND",
+      "hex": "#f2f2ed",
+      "note": "warm paper background"
+    },
+    {
+      "name": "INK",
+      "hex": "#15201e",
+      "note": "near-black text and structure"
+    },
+    {
+      "name": "HUMAN",
+      "hex": "#a65032",
+      "note": "terracotta, the operator's voice (the dot)"
+    },
+    {
+      "name": "MACHINE",
+      "hex": "#3e6874",
+      "note": "teal, the machine's voice"
+    },
+    {
+      "name": "VERIFIED",
+      "hex": "#55745e",
+      "note": "green, a verified result"
+    }
+  ],
+  "groups": [
+    {
+      "id": "wordmark-outline",
+      "title": "Wordmark (outlined)",
+      "recommended": true,
+      "note": "Font-independent paths, transparent, cropped to the mark. Use these unless you have a reason not to.",
+      "items": [
+        {
+          "file": "wordmark-light-outline.svg",
+          "label": "Light backgrounds",
+          "bg": "ground"
+        },
+        {
+          "file": "wordmark-dark-outline.svg",
+          "label": "Dark backgrounds",
+          "bg": "ink"
+        }
+      ]
+    },
+    {
+      "id": "wordmark-original",
+      "title": "Wordmark (original)",
+      "recommended": false,
+      "note": "Live text needing Archivo installed, in a 200x52 box the mark does not fill. Kept so anything already pointing at them keeps working; prefer the outlined pair for anyone outside Oppr.",
+      "items": [
+        {
+          "file": "wordmark-light.svg",
+          "label": "Light backgrounds",
+          "bg": "ground"
+        },
+        {
+          "file": "wordmark-dark.svg",
+          "label": "Dark backgrounds (opaque)",
+          "bg": "ink"
+        }
+      ]
+    },
+    {
+      "id": "icon",
+      "title": "Icon / favicon",
+      "recommended": true,
+      "note": "The o-monogram on the ink tile. Pure geometry, so it needs no font.",
+      "items": [
+        {
+          "file": "icon-tile.svg",
+          "label": "Icon tile",
+          "bg": "ground"
+        },
+        {
+          "file": "favicon.svg",
+          "label": "Favicon (identical)",
+          "bg": "ground"
+        }
+      ]
+    },
+    {
+      "id": "icon-bare",
+      "title": "Bare o. (no tile)",
+      "recommended": true,
+      "note": "For inline use or wherever a transparent background is needed.",
+      "items": [
+        {
+          "file": "icon-bare-light.svg",
+          "label": "Light backgrounds",
+          "bg": "ground"
+        },
+        {
+          "file": "icon-bare-dark.svg",
+          "label": "Dark backgrounds",
+          "bg": "ink"
+        }
+      ]
+    }
+  ],
+  "png": [
+    {
+      "file": "png/wordmark-light-400.png",
+      "from": "wordmark-light-outline.svg",
+      "w": 400,
+      "h": 121
+    },
+    {
+      "file": "png/wordmark-light-800.png",
+      "from": "wordmark-light-outline.svg",
+      "w": 800,
+      "h": 243
+    },
+    {
+      "file": "png/wordmark-light-1200.png",
+      "from": "wordmark-light-outline.svg",
+      "w": 1200,
+      "h": 364
+    },
+    {
+      "file": "png/wordmark-dark-400.png",
+      "from": "wordmark-dark-outline.svg",
+      "w": 400,
+      "h": 121
+    },
+    {
+      "file": "png/wordmark-dark-800.png",
+      "from": "wordmark-dark-outline.svg",
+      "w": 800,
+      "h": 243
+    },
+    {
+      "file": "png/wordmark-dark-1200.png",
+      "from": "wordmark-dark-outline.svg",
+      "w": 1200,
+      "h": 364
+    },
+    {
+      "file": "png/icon-tile-512.png",
+      "from": "icon-tile.svg",
+      "w": 512,
+      "h": 512
+    },
+    {
+      "file": "png/icon-tile-256.png",
+      "from": "icon-tile.svg",
+      "w": 256,
+      "h": 256
+    },
+    {
+      "file": "png/icon-tile-128.png",
+      "from": "icon-tile.svg",
+      "w": 128,
+      "h": 128
+    },
+    {
+      "file": "png/icon-tile-64.png",
+      "from": "icon-tile.svg",
+      "w": 64,
+      "h": 64
+    },
+    {
+      "file": "png/icon-tile-32.png",
+      "from": "icon-tile.svg",
+      "w": 32,
+      "h": 32
+    },
+    {
+      "file": "png/icon-tile-16.png",
+      "from": "icon-tile.svg",
+      "w": 16,
+      "h": 16
+    },
+    {
+      "file": "png/icon-bare-light-512.png",
+      "from": "icon-bare-light.svg",
+      "w": 512,
+      "h": 512
+    },
+    {
+      "file": "png/icon-bare-dark-512.png",
+      "from": "icon-bare-dark.svg",
+      "w": 512,
+      "h": 512
+    }
+  ]
+}

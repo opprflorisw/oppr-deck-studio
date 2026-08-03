@@ -32,6 +32,11 @@ TREES = [
     ("brand/img", {".png", ".jpg", ".jpeg", ".webp", ".svg", ".json"}),
     ("brand/fonts", {".woff2", ".woff", ".ttf"}),
     ("brand", {".svg"}),                       # wordmark + icon, top level only
+    # The shareable brand kit. The Library's Brand tab reads kit.json and then
+    # links every file in it, so the whole tree has to be here or the tab is
+    # empty everywhere except this laptop — including the .zip, which is the
+    # point of the kit.
+    ("brand/kit", {".svg", ".png", ".woff2", ".json", ".html", ".txt", ".zip"}),
     ("library/slides", {".png"}),              # thumbnails
     ("library/design-system", {".html", ".css"}),
     ("library/icons", {".svg", ".json"}),
