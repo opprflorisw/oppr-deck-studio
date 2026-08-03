@@ -34,7 +34,8 @@ import { fileURLToPath } from "node:url";
 // hold the secret key and never reach the browser (proxy-only).
 import * as db from "./lib/supabase.mjs";
 import { supabaseConfigured, supabaseUrl, anonKey } from "./lib/env.mjs";
-import { memberFor, bearerFrom, canWrite, isOwner, audit, touch, sessionCookie, clearedCookie } from "./lib/auth.mjs";
+import { memberFor, bearerFrom, canWrite, isOwner, audit, touch, sessionCookie, clearedCookie,
+  createAccount, setAccountPassword, setOwnPassword, passwordProblem } from "./lib/auth.mjs";
 import { validateSave, fingerprint } from "./lib/htmlcheck.mjs";
 import * as jobs from "./lib/jobs.mjs";
 import { pdfNameFor, printElement } from "./lib/jobs.mjs";
@@ -531,6 +532,22 @@ async function handleApi(req, res, url) {
   }
   touch(member);
 
+  // Changing your own password sits above the editor gate on purpose: a viewer
+  // may not touch an artifact, but must always be able to look after their own
+  // account.
+  if (p === "/api/password" && req.method === "POST") {
+    const d = JSON.parse(await readBody(req, 4_000));
+    const problem = passwordProblem(d.password);
+    if (problem) return sendJson(res, 400, { error: problem });
+    try {
+      await setOwnPassword(member.token, d.password);
+      await audit(member, "account.password", null, { target: member.id, self: true });
+      return sendJson(res, 200, { ok: true });
+    } catch (e) {
+      return sendJson(res, 400, { error: e.message });
+    }
+  }
+
   // Read is open to every member; changing anything needs editor or owner.
   if (req.method !== "GET" && !canWrite(member)) {
     return sendJson(res, 403, {
@@ -546,6 +563,47 @@ async function handleApi(req, res, url) {
       order: "created_at.asc",
     });
     return sendJson(res, 200, { accounts: rows, me: member.id, can_manage: isOwner(member) });
+  }
+
+  // Create a colleague's account, with the password they will first sign in
+  // with. There is no self-serve signup: the domain rule says who *may* have an
+  // account, an owner says who *does*.
+  if (p === "/api/accounts" && req.method === "POST") {
+    if (!isOwner(member)) return sendJson(res, 403, { error: "only an owner may add accounts" });
+    const d = JSON.parse(await readBody(req, 20_000));
+    const email = String(d.email || "").trim().toLowerCase();
+    if (!email.endsWith("@oppr.ai")) {
+      return sendJson(res, 400, { error: "Only @oppr.ai addresses can have an account." });
+    }
+    const problem = passwordProblem(d.password);
+    if (problem) return sendJson(res, 400, { error: problem });
+    const role = ["owner", "editor", "viewer"].includes(d.role) ? d.role : "editor";
+    try {
+      const user = await createAccount({
+        email, password: d.password, full_name: d.full_name, invited_by: member.id,
+      });
+      // The trigger on auth.users writes the profile; role is ours to set.
+      if (role !== "editor") await db.update("profiles", { id: user.id }, { role });
+      await audit(member, "account.create", null, { target: user.id, email, role });
+      return sendJson(res, 200, { ok: true, id: user.id, email, role });
+    } catch (e) {
+      return sendJson(res, 400, { error: e.message });
+    }
+  }
+
+  let pw = p.match(/^\/api\/accounts\/([0-9a-f-]{36})\/password$/i);
+  if (pw && req.method === "POST") {
+    if (!isOwner(member)) return sendJson(res, 403, { error: "only an owner may reset a password" });
+    const d = JSON.parse(await readBody(req, 4_000));
+    const problem = passwordProblem(d.password);
+    if (problem) return sendJson(res, 400, { error: problem });
+    try {
+      await setAccountPassword(pw[1], d.password);
+      await audit(member, "account.password", null, { target: pw[1] });
+      return sendJson(res, 200, { ok: true });
+    } catch (e) {
+      return sendJson(res, 400, { error: e.message });
+    }
   }
 
   let acc = p.match(/^\/api\/accounts\/([0-9a-f-]{36})$/i);

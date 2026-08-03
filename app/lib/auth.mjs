@@ -62,6 +62,116 @@ export async function memberFor(token) {
   return member;
 }
 
+// --- accounts and passwords -------------------------------------------------
+//
+// Sign-in is email + password (2026-08-03, replacing magic links). Accounts stay
+// invitation-only: there is no public signup route, so an owner creates each one
+// here with its first password. These calls use the SECRET key and therefore run
+// only in the local agent, never in the browser.
+
+const MIN_PASSWORD = 8;
+
+function admin(path, extra = {}) {
+  return fetch(`${supabaseUrl()}${path}`, {
+    ...extra,
+    headers: {
+      apikey: secretKey(),
+      Authorization: `Bearer ${secretKey()}`,
+      "Content-Type": "application/json",
+      ...(extra.headers || {}),
+    },
+  });
+}
+
+// Turn Supabase's failure into something an owner can act on. The @oppr.ai rule
+// is a database CHECK, so violating it surfaces as an opaque 500 — that case is
+// the one most worth translating.
+async function authFail(r, fallback) {
+  const b = await r.json().catch(() => ({}));
+  const text = b.msg || b.error_description || b.message || b.error || "";
+  if (/restricted to @oppr\.ai/i.test(text)) return "Only @oppr.ai addresses can have an account.";
+  if (/already been registered|already exists/i.test(text)) return "That address already has an account.";
+  if (/weak.?password|at least/i.test(text)) return `Use a password of at least ${MIN_PASSWORD} characters.`;
+  return text || fallback;
+}
+
+export function passwordProblem(password) {
+  if (typeof password !== "string" || password.length < MIN_PASSWORD) {
+    return `Use a password of at least ${MIN_PASSWORD} characters.`;
+  }
+  return "";
+}
+
+// Create an account with its first password. `email_confirm` is set because an
+// owner vouching for a colleague is the confirmation — there is no inbox round
+// trip anywhere in this flow any more.
+//
+// The database refuses an uninvited address, so the invitation is written first
+// and torn down again if the account does not get created. The trigger that
+// writes the profile consumes the invitation, which is what makes it single use.
+export async function createAccount({ email, password, full_name, invited_by }) {
+  const inv = await admin("/rest/v1/invited_emails?on_conflict=email", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify({ email, invited_by: invited_by || null }),
+  });
+  if (!inv.ok) throw new Error(await authFail(inv, "Could not record the invitation."));
+
+  let r;
+  try {
+    r = await admin("/auth/v1/admin/users", {
+      method: "POST",
+      body: JSON.stringify({
+        email, password, email_confirm: true,
+        user_metadata: { full_name: full_name || "" },
+      }),
+    });
+  } catch (e) {
+    await revokeInvite(email);
+    throw e;
+  }
+  if (!r.ok) {
+    const why = await authFail(r, "Could not create the account.");
+    await revokeInvite(email);
+    throw new Error(why);
+  }
+  return r.json();
+}
+
+// Leaving a live invitation behind after a failed create would be a standing
+// permission nobody asked for.
+async function revokeInvite(email) {
+  try {
+    await admin(`/rest/v1/invited_emails?email=eq.${encodeURIComponent(email)}`, { method: "DELETE" });
+  } catch { /* the trigger still refuses anything the domain rule refuses */ }
+}
+
+// Reset someone else's password (owner) — the way back in when one is forgotten.
+export async function setAccountPassword(userId, password) {
+  const r = await admin(`/auth/v1/admin/users/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify({ password }),
+  });
+  if (!r.ok) throw new Error(await authFail(r, "Could not set the password."));
+  return true;
+}
+
+// Change your own password, acting as yourself rather than as the secret key, so
+// Supabase applies its own rules and revokes what it should.
+export async function setOwnPassword(token, password) {
+  const r = await fetch(`${supabaseUrl()}/auth/v1/user`, {
+    method: "PUT",
+    headers: {
+      apikey: anonKey() || secretKey(),
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ password }),
+  });
+  if (!r.ok) throw new Error(await authFail(r, "Could not change the password."));
+  return true;
+}
+
 export const COOKIE = "oppr_sess";
 
 export function bearerFrom(req) {

@@ -78,19 +78,41 @@ def main() -> int:
 
     # 3. Signup from a non-@oppr.ai address must be refused by the DATABASE, so
     #    the account is never created rather than created-then-cleaned-up.
-    r = requests.post(f"{url}/auth/v1/otp", headers={**pub, "Content-Type": "application/json"},
-                      json={"email": f"intruder-{uuid.uuid4().hex[:6]}@gmail.com",
-                            "create_user": True}, timeout=25)
+    #
+    #    These probe /auth/v1/signup rather than /auth/v1/otp: sign-in is email +
+    #    password since 2026-08-03, so signup is the self-serve surface an
+    #    attacker actually has.
+    def signup(email: str):
+        return requests.post(
+            f"{url}/auth/v1/signup", headers={**pub, "Content-Type": "application/json"},
+            json={"email": email, "password": "AttackerChosen12345"}, timeout=25)
+
+    r = signup(f"intruder-{uuid.uuid4().hex[:6]}@gmail.com")
     refused = r.status_code >= 400 or "oppr.ai" in r.text.lower()
     check(refused, "non-@oppr.ai signup is refused", f"HTTP {r.status_code} {r.text[:90]}")
 
     # 4. A lookalike domain must not slip past the suffix check.
-    r = requests.post(f"{url}/auth/v1/otp", headers={**pub, "Content-Type": "application/json"},
-                      json={"email": f"x-{uuid.uuid4().hex[:6]}@oppr.ai.attacker.com",
-                            "create_user": True}, timeout=25)
+    r = signup(f"x-{uuid.uuid4().hex[:6]}@oppr.ai.attacker.com")
     refused = r.status_code >= 400 or "oppr.ai" in r.text.lower()
     check(refused, "lookalike domain @oppr.ai.attacker.com is refused",
           f"HTTP {r.status_code} {r.text[:90]}")
+
+    # 4b. The right domain is not enough. A password proves nothing about owning
+    #     the mailbox, so an account only exists when an owner invited it — which
+    #     is why this case matters more since magic links went away.
+    r = signup(f"uninvited-{uuid.uuid4().hex[:6]}@oppr.ai")
+    check(r.status_code >= 400, "uninvited @oppr.ai signup is refused",
+          f"HTTP {r.status_code} {r.text[:90]}")
+
+    # 4c. The invitation list is the gate itself: reading or writing it with the
+    #     public key would let an attacker invite themselves.
+    r = requests.get(f"{url}/rest/v1/invited_emails", headers=pub,
+                     params={"select": "*"}, timeout=20)
+    rows = r.json() if r.ok and r.text.startswith("[") else []
+    check(len(rows) == 0, "anon cannot read invited_emails", f"HTTP {r.status_code}, {len(rows)} rows")
+    r = requests.post(f"{url}/rest/v1/invited_emails", headers={**pub, "Content-Type": "application/json"},
+                      json={"email": f"selfinvite-{uuid.uuid4().hex[:6]}@oppr.ai"}, timeout=20)
+    check(r.status_code in (401, 403, 404), "anon cannot invite themselves", f"HTTP {r.status_code}")
 
     # 5. Storage must refuse both the public key and a bare URL. A deck's PDF is
     #    the whole deck.

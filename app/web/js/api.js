@@ -158,5 +158,8 @@ export const createCustomer2 = (payload) => jpost("/api/customers2", payload);
 export const getAccounts = () => j("/api/accounts");
 export const updateAccount = (id, patch) =>
   j(`/api/accounts/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+export const createAccount = (payload) => jpost("/api/accounts", payload);
+export const resetAccountPassword = (id, password) =>
+  jpost(`/api/accounts/${id}/password`, { password });
 export const getAudit = (params = {}) =>
   j("/api/audit?" + new URLSearchParams(params).toString());

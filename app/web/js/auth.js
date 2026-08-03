@@ -1,9 +1,14 @@
 // Signing in (Deck Studio cloud).
 //
-// Supabase Auth, email magic link. No password is ever typed, stored or sent —
-// you get a one-time link at your @oppr.ai address. Only @oppr.ai accounts can
-// exist at all: the database refuses to create any other, so a wrong address
-// fails at signup rather than getting in and being cleaned up later.
+// Email and password, against Supabase Auth. This replaced email magic links
+// (2026-08-03): a link is one round trip through an inbox for every sign-in, it
+// is single-use so a second click reads as "broken", and the email rate limit
+// locks you out of your own tool for an hour. A password is typed once and the
+// session then lasts a week.
+//
+// Accounts are still not self-serve. Only @oppr.ai addresses can exist at all
+// (the database refuses any other), and an owner creates each one with its first
+// password, on the Accounts page or with `python tools\manage-users.py`.
 //
 // The session token lives in localStorage and rides on every /api call as an
 // Authorization header. The server resolves it to a member on each request.
@@ -41,6 +46,23 @@ async function api(path, opts = {}) {
   });
 }
 
+// Supabase reports failures in two shapes depending on the endpoint's age:
+// {error, error_description} and {error_code, msg}. Read both, then say
+// something a person can act on.
+function authError(body, fallback) {
+  const code = body?.error_code || body?.error || "";
+  const text = body?.msg || body?.error_description || body?.message || "";
+  if (/invalid_credentials|invalid_grant/.test(code) || /Invalid login credentials/i.test(text)) {
+    return "That email and password do not match.";
+  }
+  if (/email_not_confirmed/.test(code)) return "That account has not been confirmed yet. Ask an owner.";
+  if (/over_request_rate_limit|rate limit/i.test(code + text)) {
+    return "Too many attempts just now. Wait a minute and try again.";
+  }
+  if (/weak_password/.test(code)) return "That password is too weak. Use at least 8 characters.";
+  return text || fallback;
+}
+
 // Swap an expiring session for a fresh one. Without this you are signed out
 // roughly hourly, which for an app you leave open all day is the whole
 // difference between usable and not.
@@ -72,27 +94,21 @@ export async function signOut() {
   location.reload();
 }
 
-// Resolve the magic-link fragment the browser lands on after clicking the email.
-function consumeLinkFragment() {
-  const h = location.hash || "";
-  const at = h.indexOf("access_token=");
-  if (at === -1) return false;
-  const params = new URLSearchParams(h.slice(h.indexOf("#", 1) === -1 ? 1 : h.indexOf("#") + 1));
-  const access_token = params.get("access_token");
-  if (!access_token) return false;
-  save({
-    access_token,
-    refresh_token: params.get("refresh_token") || "",
-    expires_at: Number(params.get("expires_at") || 0),
+// Change your own password. Goes through the local agent rather than straight to
+// Supabase so it lands in the audit log like every other consequential action.
+export async function changePassword(password) {
+  const r = await fetch("/api/password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+    body: JSON.stringify({ password }),
   });
-  // Strip the tokens out of the address bar so they are not in history or in a
-  // screenshot.
-  history.replaceState(null, "", location.pathname + location.search + "#/customers");
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.error || "Could not change the password.");
   return true;
 }
 
-// Boot: returns the signed-in member, or renders the sign-in screen and never
-// resolves (the page reloads when the link is used).
+// Boot: returns the signed-in member, or renders the sign-in screen and returns
+// null (the page reloads once a sign-in succeeds).
 export async function requireMember(mountEl) {
   config = await fetch("/api/config").then((r) => r.json()).catch(() => null);
   if (!config?.configured) {
@@ -105,7 +121,6 @@ export async function requireMember(mountEl) {
     return null;
   }
 
-  consumeLinkFragment();
   load();
 
   if (await ensureSession()) {
@@ -121,19 +136,23 @@ export async function requireMember(mountEl) {
   return null;
 }
 
-function renderSignIn(mountEl) {
+function renderSignIn(mountEl, notice = "") {
   const box = el(`
     <div class="signin">
       <div class="signin-box">
         <div class="signin-brand"><span class="wm">oppr<b>.</b></span> <span class="side-app">Deck Studio</span></div>
         <h1>Sign in</h1>
-        <p class="note">Deck Studio is for <b>@${esc(config.domain)}</b> accounts. Enter your work
-          address and we will email you a link — there is no password.</p>
+        <p class="note">Deck Studio is for <b>@${esc(config.domain)}</b> accounts. An owner creates
+          your account and gives you its first password; you can change it once you are in.</p>
         <div class="field">
           <label for="si-email">Work email</label>
-          <input id="si-email" type="email" autocomplete="email" placeholder="you@${esc(config.domain)}">
+          <input id="si-email" type="email" autocomplete="username" placeholder="you@${esc(config.domain)}">
         </div>
-        <button class="primary full" id="si-go">Email me a sign-in link</button>
+        <div class="field">
+          <label for="si-pass">Password</label>
+          <input id="si-pass" type="password" autocomplete="current-password">
+        </div>
+        <button class="primary full" id="si-go">Sign in</button>
         <p class="note" id="si-msg"></p>
       </div>
     </div>`);
@@ -146,31 +165,47 @@ function renderSignIn(mountEl) {
 
   const send = async () => {
     const email = box.querySelector("#si-email").value.trim().toLowerCase();
+    const password = box.querySelector("#si-pass").value;
     if (!email.endsWith("@" + config.domain)) {
       return msg(`That is not an @${config.domain} address.`, true);
     }
+    if (!password) return msg("Enter your password.", true);
+
     box.querySelector("#si-go").disabled = true;
-    msg("Sending…");
+    msg("Signing in…");
     try {
-      const r = await api("/auth/v1/otp", {
+      const r = await api("/auth/v1/token?grant_type=password", {
         method: "POST",
-        body: JSON.stringify({ email, create_user: true,
-          options: { email_redirect_to: location.origin } }),
+        body: JSON.stringify({ email, password }),
       });
-      if (r.ok) msg(`Check ${email} for the link. You can close this tab.`);
-      else {
-        const b = await r.json().catch(() => ({}));
-        msg(b.msg || b.message || "Could not send the link.", true);
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        box.querySelector("#si-go").disabled = false;
+        return msg(authError(body, "Could not sign in."), true);
       }
+      save(body);
+
+      // The password was right, which is not the same as being allowed in: the
+      // account may be disabled. Say which of the two it is.
+      const me = await fetch("/api/me", { headers: { Authorization: `Bearer ${token()}` } });
+      if (!me.ok) {
+        save(null);
+        box.querySelector("#si-go").disabled = false;
+        return msg("That password is right, but this account has no access to Deck Studio. Ask an owner to restore it.", true);
+      }
+      location.reload();
     } catch (e) {
-      msg(e.message || "Could not send the link.", true);
-    } finally {
       box.querySelector("#si-go").disabled = false;
+      msg(e.message || "Could not sign in.", true);
     }
   };
 
+  if (notice) msg(notice, true);
+
   box.querySelector("#si-go").addEventListener("click", send);
-  box.querySelector("#si-email").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  for (const id of ["#si-email", "#si-pass"]) {
+    box.querySelector(id).addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  }
   // #app is a sidebar grid; the sign-in screen is a full page, so drop the
   // grid or the card renders inside the 220px sidebar column.
   mountEl.classList.add("signed-out");

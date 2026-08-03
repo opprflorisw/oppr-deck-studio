@@ -23,15 +23,39 @@ It also needs **Python on PATH** (library index, verify, element export),
 
 ## Signing in
 
-Supabase Auth, email magic link. **Only @oppr.ai addresses can have an account**,
-and that is enforced by a trigger on `auth.users`, not by the UI — a wrong domain
-is refused at signup, so the account never exists. No password is typed, stored
-or sent.
+Supabase Auth, **email and password**. This replaced email magic links on
+2026-08-03: a link meant a round trip through an inbox on every sign-in, it is
+single-use so a second click reads as "broken", and the email rate limit could
+lock you out of your own tool for an hour.
+
+Two rules decide who can have an account, both enforced by triggers on
+`auth.users` rather than by the UI, so neither depends on a dashboard setting:
+
+1. **Only @oppr.ai addresses.** A wrong domain is refused at signup, so the
+   account never exists rather than being created and cleaned up later.
+2. **Only accounts an owner invited.** A password proves nothing about owning
+   the mailbox, which a magic link did implicitly. So an owner records the
+   invitation (`invited_emails`) and creates the account with its first
+   password; creating it consumes the invitation, making it single use. There is
+   no self-serve signup.
 
 `profiles` is the account registry (email, name, role, disabled, last seen).
 Roles: **owner** manages people, **editor** changes artifacts, **viewer** reads.
-New colleagues arrive as `editor`, because the domain is the gate; an owner can
+New colleagues arrive as `editor` unless the owner picks otherwise; an owner can
 demote or remove access on the Accounts page, but not their own.
+
+Add people on the **Accounts** page, or from the CLI when nobody can sign in yet
+(a fresh deploy, a forgotten password):
+
+```powershell
+python tools\manage-users.py list
+python tools\manage-users.py add colleague@oppr.ai --name "Their Name" --role editor
+python tools\manage-users.py password colleague@oppr.ai
+```
+
+`add` and `password` generate a password and print it once. Pass it on; the
+person changes it on the Accounts page. Anyone may change their own password,
+including a viewer, because that sits above the editor gate.
 
 Every `/api` call carries the session token. `/repo` and `/deck-cache` are gated
 by an HttpOnly cookie instead, because an `<img>`, an `<iframe>` and a download
