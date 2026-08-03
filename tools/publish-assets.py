@@ -45,6 +45,52 @@ TREES = [
 
 STATE = REPO_ROOT / ".scratch" / ".asset-hashes.json"
 
+# The Knowledge/Config docs. Hosted there is no repo on disk, so without these
+# every doc in the app reads "not whitelisted" and the area is empty.
+#
+# This mirrors knowledgeFiles() in app/server.mjs, which is the rule locally.
+# Keep the two in step: a file missing here is a doc that exists on the laptop
+# and nowhere else. The manifest is what the hosted server trusts as the
+# whitelist, so it can never widen access beyond what is listed.
+KNOWLEDGE_MANIFEST = "knowledge/_manifest.json"
+SKIP_DIRS = {".git", "node_modules", "__pycache__", ".tmp-verify", ".tmp-catalog"}
+FIXED_DOCS = [
+    "brand/BRAND.md", ".env.example", "CLAUDE.md",
+    ".scratch/deck-tool/SPEC.md", ".scratch/deck-app/APP-SPEC.md",
+    ".scratch/deck-app/V2-SPEC.md",
+]
+
+
+def knowledge_files() -> list[str]:
+    out: set[str] = set()
+    for rel in FIXED_DOCS:
+        if (REPO_ROOT / rel).exists():
+            out.add(rel)
+
+    def walk(rel_dir: str, depth: int) -> None:
+        if depth > 6:
+            return
+        try:
+            entries = sorted((REPO_ROOT / rel_dir).iterdir()) if rel_dir else sorted(REPO_ROOT.iterdir())
+        except OSError:
+            return
+        for p in entries:
+            if p.name in SKIP_DIRS:
+                continue
+            rel = f"{rel_dir}/{p.name}" if rel_dir else p.name
+            if p.is_dir():
+                walk(rel, depth + 1)
+            elif (
+                p.name == "CLAUDE.md"
+                or (rel.startswith("knowledge/") and p.name.endswith(".md"))
+                or (rel.startswith("types/") and p.name == "recipe.md")
+                or (rel.startswith(".claude/commands/") and p.name.endswith(".md"))
+            ):
+                out.add(rel)
+
+    walk("", 0)
+    return sorted(out)
+
 
 def files_to_publish() -> list[Path]:
     out: list[Path] = []
@@ -57,6 +103,7 @@ def files_to_publish() -> list[Path]:
         for p in it:
             if p.is_file() and p.suffix.lower() in suffixes:
                 out.append(p)
+    out += [REPO_ROOT / rel for rel in knowledge_files()]
     # dedupe (brand/img is inside brand)
     seen, uniq = set(), []
     for p in sorted(out):
@@ -93,6 +140,13 @@ def main() -> int:
         sb.upload(rel, data, content_type_for(p.name))
         uploaded += 1
         print(f"  {rel}  ({len(data):,} bytes)")
+
+    # The whitelist the hosted server reads. Written last and always, so it can
+    # never name a doc that failed to upload above.
+    docs = knowledge_files()
+    manifest = json.dumps({"files": docs}, indent=1).encode("utf-8")
+    sb.upload(KNOWLEDGE_MANIFEST, manifest, "application/json")
+    print(f"  {KNOWLEDGE_MANIFEST}  ({len(docs)} docs)")
 
     STATE.parent.mkdir(parents=True, exist_ok=True)
     STATE.write_text(json.dumps(now, indent=1, sort_keys=True), encoding="utf-8")

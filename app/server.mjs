@@ -81,6 +81,9 @@ const MIME = {
   ".woff": "font/woff",
   ".pdf": "application/pdf",
   ".ico": "image/x-icon",
+  ".md": "text/markdown; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+  ".zip": "application/zip",
 };
 
 function mimeFor(p) {
@@ -209,6 +212,13 @@ async function readBody(req, limit = 2_000_000) {
 
 // The Config/Knowledge whitelist: which repo files the app may read as docs.
 // Nothing outside this list is ever exposed by /api/knowledge.
+//
+// Hosted there is no repo on disk, so the walk below finds nothing and every doc
+// reads as "not whitelisted". The list is then taken from the manifest that
+// tools/publish-assets.py writes next to the docs it mirrored into Storage —
+// which only the secret key can write, so it is as trustworthy as the disk.
+export const KNOWLEDGE_MANIFEST = "knowledge/_manifest.json";
+
 let _knowledgeCache = null;
 async function knowledgeFiles() {
   if (_knowledgeCache) return _knowledgeCache;
@@ -240,6 +250,15 @@ async function knowledgeFiles() {
     }
   };
   walk("", 0);
+
+  // Nothing on disk means we are hosted, not that the repo has no docs.
+  if (out.size === 0 && supabaseConfigured()) {
+    try {
+      const raw = await db.download(KNOWLEDGE_MANIFEST);
+      for (const rel of JSON.parse(raw.toString("utf-8")).files || []) out.add(rel);
+    } catch { /* leave the list empty rather than serve something unlisted */ }
+  }
+
   _knowledgeCache = [...out].sort();
   return _knowledgeCache;
 }
@@ -956,7 +975,13 @@ async function handleApi(req, res, url) {
     if (!(await knowledgeFiles()).includes(relPath)) return send(res, 403, "not whitelisted");
     const abs = safeResolve(REPO_ROOT, "/" + relPath);
     if (!abs) return send(res, 403, "forbidden");
-    return serveFile(res, abs);
+    if (fs.existsSync(abs)) return serveFile(res, abs);
+    // Hosted: same path in Storage, same as /repo does for images and fonts.
+    if (supabaseConfigured()) {
+      try { return send(res, 200, await db.download(relPath), { "Content-Type": mimeFor(relPath) }); }
+      catch { /* fall through */ }
+    }
+    return send(res, 404, "Not found");
   }
 
   if (req.method === "GET" && p === "/api/drafts") {
