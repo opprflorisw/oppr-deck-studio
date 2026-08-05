@@ -114,6 +114,8 @@ const SOCIAL_DRAFTS_DIR = path.join(REPO_ROOT, "social", "drafts");
 const SOCIAL_STATUS_FILE = path.join(REPO_ROOT, "social", "_status.json");
 const DUMP_APP_DIR = path.join(REPO_ROOT, "dump", "_app");
 const INDEX_JSON = path.join(APP_DIR, "index.json");
+// Where the same index lives hosted. Must match publish-assets.INDEX_OBJECT.
+const INDEX_OBJECT = "library/index.json";
 // Last 30 days research: the run archive + the accumulated brain. Read-only to
 // the app except for the rebuild/sync actions, which shell out to the CLI tool
 // and to Storage respectively — the app never hand-edits a run or the brain.
@@ -782,14 +784,39 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { entries: await db.select("audit_log", params) });
   }
 
+  // The library index. Locally it is a generated file, rebuilt on demand by the
+  // Python that generates it. Hosted there is neither Python nor a repo, so it
+  // comes from Storage, where tools/publish-assets.py mirrors it.
+  //
+  // This is why the hosted Library read "Could not load the library index":
+  // app/index.json is GENERATED and therefore gitignored, so a build from GitHub
+  // never carried it. It only ever worked because deploys used to be pushed by
+  // hand from app/, with the file sitting on one particular laptop.
   if (req.method === "GET" && p === "/api/index") {
-    if (!fs.existsSync(INDEX_JSON)) await regenerateIndex();
-    if (!fs.existsSync(INDEX_JSON)) return sendJson(res, 500, { error: "index unavailable" });
-    return serveFile(res, INDEX_JSON);
+    if (!SERVERLESS) {
+      if (!fs.existsSync(INDEX_JSON)) await regenerateIndex();
+      if (fs.existsSync(INDEX_JSON)) return serveFile(res, INDEX_JSON);
+      return sendJson(res, 500, {
+        error: "The library index could not be built. Is Python on PATH? Run `python tools/build_app_index.py`.",
+      });
+    }
+    try {
+      const buf = await db.download(INDEX_OBJECT);
+      return send(res, 200, buf, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    } catch {
+      return sendJson(res, 500, {
+        error: "The library index is not in Storage yet. Run `python tools/publish-assets.py` locally to mirror it.",
+      });
+    }
   }
 
   if (req.method === "POST" && p === "/api/refresh") {
     _knowledgeCache = null;
+    if (SERVERLESS) {
+      return needsCli(res,
+        "The library index is generated from the repo, so refreshing it runs on your machine.",
+        "python tools\\publish-assets.py");
+    }
     const ok = await regenerateIndex();
     return sendJson(res, ok ? 200 : 500, { ok });
   }
@@ -800,6 +827,11 @@ async function handleApi(req, res, url) {
     const id = hm[1];
     if (!SLIDE_ID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
     const rel = `library/slides/${id}/slide.html`;
+    if (SERVERLESS) {
+      return needsCli(res,
+        "A slide's history is git history, and there is no checkout here.",
+        `git log --follow -- ${rel}`);
+    }
     try {
       const out = await git(["log", "--follow", "--format=%H%x1f%ad%x1f%s", "--date=short", "--", rel]);
       const commits = out.split("\n").filter(Boolean).map((l) => {
@@ -817,6 +849,7 @@ async function handleApi(req, res, url) {
   if (req.method === "GET" && hm) {
     const [, id, hash] = hm;
     if (!SLIDE_ID_RE.test(id) || !HASH_RE.test(hash)) return send(res, 400, "bad request");
+    if (SERVERLESS) return send(res, 501, "A past version of a slide comes from git, and there is no checkout here.");
     try {
       const body = await git(["show", `${hash}:library/slides/${id}/slide.html`]);
       return send(res, 200, body, { "Content-Type": "text/html; charset=utf-8" });
@@ -851,6 +884,11 @@ async function handleApi(req, res, url) {
     // reliably at print time, so those formats use a sidecar assets/ folder.
     if (format !== "html") args.push("--sidecar");
 
+    if (SERVERLESS) {
+      return needsCli(res,
+        "Exporting a library element reads the library off disk, so it runs on your machine.",
+        `python tools\\export-element.py --kind ${kind} --id ${elId}`);
+    }
     const r = await runPython(args[0], args.slice(1));
     if (!r.ok) {
       const refused = /REFUSED/.test(r.out);
@@ -1092,6 +1130,11 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && p === "/api/research/rebuild") {
+    if (SERVERLESS) {
+      return needsCli(res,
+        "The brain is folded from the runs in the repo, so rebuilding it runs on your machine.",
+        "python tools\\research-brain.py");
+    }
     const r = await runPython("tools/research-brain.py");
     return sendJson(res, r.ok ? 200 : 500, { ok: r.ok, out: r.out.trim() });
   }
@@ -1180,6 +1223,15 @@ async function handleApi(req, res, url) {
   if (res.headersSent) return;
 
   return sendJson(res, 404, { error: "unknown endpoint" });
+}
+
+// Hosted there is no repo, no Python and no git, so a handful of actions cannot
+// run there however the app is deployed. Each of them used to answer with a bare
+// 500 ("git unavailable", {ok:false}), which reads as "this is broken" rather
+// than "this one runs on your machine". 501 plus the prompt to run says which.
+function needsCli(res, what, prompt = "") {
+  sendJson(res, 501, { error: what, needs_cli: true, prompt, hosted: true });
+  return false;
 }
 
 // The backend must be configured for any /api/decks|customers2|publish-log call.

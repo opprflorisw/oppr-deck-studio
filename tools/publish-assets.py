@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import subprocess
 import sys
 from pathlib import Path
 
@@ -67,6 +68,11 @@ STATE = REPO_ROOT / ".scratch" / ".asset-hashes.json"
 # and nowhere else. The manifest is what the hosted server trusts as the
 # whitelist, so it can never widen access beyond what is listed.
 KNOWLEDGE_MANIFEST = "knowledge/_manifest.json"
+
+# app/index.json goes up under library/ rather than app/ because that is what the
+# hosted server's Storage fallback is allowed to reach, and because it describes
+# the library, not the app.
+INDEX_OBJECT = "library/index.json"
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".tmp-verify", ".tmp-catalog"}
 FIXED_DOCS = [
     "brand/BRAND.md", ".env.example", "CLAUDE.md",
@@ -153,6 +159,23 @@ def main() -> int:
         sb.upload(rel, data, content_type_for(p.name))
         uploaded += 1
         print(f"  {rel}  ({len(data):,} bytes)")
+
+    # The library index the app's whole Library area is built from. It is
+    # GENERATED (tools/build_app_index.py) and therefore gitignored, so a build
+    # from GitHub never carries it and the hosted app answered /api/index with
+    # 500 "index unavailable". It used to work only because deploys were pushed
+    # by hand from app/, where the file happened to be sitting on this laptop.
+    #
+    # Regenerated here rather than uploaded as found, so what lands is the
+    # library as it is now and not as it was the last time someone opened the app.
+    idx = REPO_ROOT / "app" / "index.json"
+    subprocess.run([sys.executable, str(REPO_ROOT / "tools" / "build_app_index.py")],
+                   cwd=REPO_ROOT, check=False, capture_output=True)
+    if idx.exists():
+        sb.upload(INDEX_OBJECT, idx.read_bytes(), "application/json")
+        print(f"  {INDEX_OBJECT}  ({idx.stat().st_size:,} bytes)")
+    else:
+        print(f"  WARNING: {idx} missing; the hosted Library will have no index")
 
     # The whitelist the hosted server reads. Written last and always, so it can
     # never name a doc that failed to upload above.
