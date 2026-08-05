@@ -3,16 +3,28 @@
    Research: LinkedIn document posts read best at 4:5 portrait, big type, one
    idea per page, body >= 32px on the 1080 canvas. See linkedin/CLAUDE.md. */
 
-@font-face {
-  font-family: "Archivo";
-  src: url("../brand/fonts/Archivo-var.woff2") format("woff2");
-  font-weight: 100 900; font-display: swap;
-}
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("../brand/fonts/JetBrainsMono-var.woff2") format("woff2");
-  font-weight: 100 800; font-display: swap;
-}
+/* Static instances: carousels print through the same Chrome path as decks and
+   had the same Type 3 problem. See tools/build-static-fonts.py, SPEC §7. */
+@font-face { font-family: "Archivo"; font-weight: 400; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-400.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 500; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-500.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 600; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-600.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 650; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-650.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 700; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-700.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 800; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-800.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-display: swap;
+  src: url("../brand/fonts-static/JetBrainsMono-400.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500; font-display: swap;
+  src: url("../brand/fonts-static/JetBrainsMono-500.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 600; font-display: swap;
+  src: url("../brand/fonts-static/JetBrainsMono-600.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-display: swap;
+  src: url("../brand/fonts-static/JetBrainsMono-700.woff2") format("woff2"); }
 
 :root {
   --bg: #f2f2ed; --surface: #fcfbf7; --ink: #15201e; --muted: #5f6965;

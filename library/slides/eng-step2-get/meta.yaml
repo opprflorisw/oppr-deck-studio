@@ -16,3 +16,5 @@ variables:
 used_in:
 - engagement
 notes: Six deliverables on the grid3 block. Keep card copy to three lines.
+retired: true
+retired_on: 2026-08-04

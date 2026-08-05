@@ -30,6 +30,10 @@
 html, body { margin: 0; height: 100%; }
 body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.45; }
 button { font-family: inherit; cursor: pointer; }
+/* Any class that sets `display` outbids the UA rule for [hidden], so an element
+   the JS believes it has hidden stays on screen. State this once, globally,
+   rather than per-component when it bites. */
+[hidden] { display: none !important; }
 a { color: var(--accent); text-decoration: none; }
 .mono { font-family: var(--mono); }
 .tmuted { color: var(--muted); }
@@ -47,13 +51,29 @@ hr.soft { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
 .side-brand .wm { font-weight: 800; font-size: 20px; letter-spacing: -.02em; }
 .side-brand .wm b { color: var(--accent); }
 .side-app { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; }
-.side-group { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; padding: 14px 8px 5px; }
+/* Grouped rail: named sections in the flow, the administrative pages pinned to
+   the bottom behind a rule so they read as a different kind of destination. */
+.side-nav { display: flex; flex-direction: column; min-height: calc(100vh - 92px); }
+.side-main { flex: 1; }
+.side-group { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; padding: 16px 8px 6px; }
+/* The rule belongs to the section that follows it, so it separates groups
+   instead of underlining a word. The first group needs none: the brand mark is
+   already the thing above it. */
+.side-main .side-group { border-top: 1px solid var(--line); margin-top: 8px; }
+.side-main .side-group:first-child { border-top: none; margin-top: 0; padding-top: 2px; }
+.side-foot { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 16px; }
+.side-foot .side-link { color: var(--muted); }
+.side-foot .side-link:hover { color: var(--ink); }
+.side-foot .side-link.active { color: var(--bg); }
 .side-sep { height: 10px; }
 .side-link { display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; border-radius: 8px; color: var(--ink); font-weight: 600; font-size: 14px; }
 .side-link:hover { background: var(--bg); }
 .side-link.active { background: var(--ink); color: var(--bg); }
 .side-badge { background: var(--accent); color: #fff; border-radius: 999px; font-size: 11px; font-weight: 700; padding: 0 6px; min-width: 18px; text-align: center; }
 .side-link.active .side-badge { background: var(--bg); color: var(--ink); }
+/* Decks behind their library slides. Hidden at zero: a badge that is always
+   there stops being a signal. Deck Studio 3, SPEC §4. */
+.side-badge--behind[hidden] { display: none; }
 
 #content { display: flex; flex-direction: column; min-width: 0; }
 #topstrip { display: flex; align-items: center; gap: 14px; padding: 11px 20px; background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
@@ -72,6 +92,17 @@ button.ghost.icon-only { padding: 7px; }
 button.primary { display: inline-flex; align-items: center; gap: 7px; background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 9px 16px; border-radius: 8px; font-weight: 700; font-size: 14px; }
 button.primary:hover { filter: brightness(1.06); }
 button.primary:disabled { opacity: .5; cursor: not-allowed; }
+/* `.btn` is `.primary` by another name, and works on an <a> too. It existed in
+   the markup long before it existed here, which is why icon buttons using it
+   stacked their glyph above the label instead of sitting beside it. */
+.btn { display: inline-flex; align-items: center; gap: 7px; background: var(--accent);
+  border: 1px solid var(--accent); color: #fff; padding: 9px 16px; border-radius: 8px;
+  font-weight: 700; font-size: 14px; font-family: inherit; cursor: pointer; text-decoration: none; }
+.btn:hover { filter: brightness(1.06); color: #fff; }
+.btn:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+.btn.sm { padding: 5px 11px; font-size: 12.5px; gap: 5px; }
+.btn.ghost { background: transparent; border-color: var(--line); color: var(--ink); }
+.btn.ghost:hover { border-color: var(--accent); color: var(--accent); filter: none; }
 .ic { display: block; flex: 0 0 auto; }
 
 /* hover tooltip (used-in counts, etc.) */
@@ -421,7 +452,32 @@ button.danger:not(.ghost):disabled { background: var(--line); border-color: var(
 .side-link .side-label { flex: 1; }
 .side-link.active .side-ic { opacity: 1; }
 
-.area-bar { align-items: center; }
+/* The page's own bar stays put while the body scrolls.
+   It carries the thing you need most while you are deep in a long list: which
+   area you are in, and its tabs. `--topbar-h` is measured from #topstrip at
+   boot (main.js) rather than hardcoded, because the strip grows when the
+   signed-in email wraps and a guessed offset leaves a visible seam.
+   The negative margins bleed the bar to #main's padding edges so content
+   scrolling underneath cannot show at its sides. */
+.area-bar, .detail-head {
+  position: sticky; top: var(--topbar-h, 57px); z-index: 15;
+  background: var(--bg);
+  margin-left: -22px; margin-right: -22px;
+  padding: 12px 22px 11px;
+  border-bottom: 1px solid var(--line);
+}
+.area-bar { align-items: center; margin-top: -22px; padding-top: 18px; }
+/* An area-level action sits after the tabs, not among them: it is a thing you
+   take away, not a place you go. */
+.area-action { display: inline-flex; align-items: center; gap: 7px; flex: none;
+  text-decoration: none; padding: 6px 12px; border-radius: 8px; font-size: 13.5px; }
+.area-bar .area-tabs { margin-left: auto; }
+.area-bar .area-tabs + .area-action { margin-left: 10px; }
+.area-bar > .area-action:not(.area-tabs + *) { margin-left: auto; }
+.detail-head { margin-top: -22px; padding-top: 18px; }
+/* A detail page that also renders an area bar (offline panels) must not stack
+   two sticky bars at the same offset. */
+.area-bar + .detail-head { position: static; margin: 0 0 18px; padding: 0; border-bottom: none; }
 .area-bar .area-title { display: flex; align-items: center; gap: 10px; }
 .area-bar .area-title .ic { color: var(--accent); flex: 0 0 auto; }
 .area-tabs { margin-left: auto; }
@@ -691,6 +747,32 @@ a.pill-status.posted:hover { background: rgba(85,116,94,.26); }
 .verify-chip--fail { background: rgba(166,80,50,.18); color: var(--brand, #a65032); }
 .verify-chip--unknown { background: rgba(95,105,101,.12); color: var(--muted); }
 
+/* "N pages behind": the library has moved on since this version was published.
+   Solid rather than tinted, because unlike verify it is an invitation to act.
+   It never means anything published has changed. Deck Studio 3, SPEC §4. */
+.behind-chip {
+  font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  background: var(--accent); color: #fff; white-space: nowrap; cursor: default;
+}
+.artifact-row:has(.behind-chip) { border-color: rgba(166,80,50,.45); }
+/* A sub-heading inside a deck section: the type, or the customer. It carries the
+   grouping the list is sorted by, so "one deck per type" is visible rather than
+   something you have to infer from the order. */
+.type-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  margin: 22px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.type-head h3 { margin: 0; font-size: 15px; }
+.type-head .note { font-size: 12.5px; }
+.section-head + .note + .type-head { margin-top: 12px; }
+/* Which customer a deck was made for, on the row itself. */
+.tags--customer { display: inline-flex; align-items: center; gap: 5px;
+  color: var(--machine); border-color: rgba(62,104,116,.45); }
+.tags--customer svg { opacity: .8; }
+
+/* Work left in the builder. Same shape, quieter: it is your own unfinished
+   business, not the library telling you something moved. */
+.behind-chip--draft { background: transparent; color: var(--machine);
+  border: 1px solid rgba(62,104,116,.55); font-weight: 600; }
+
 /* Prompt boxes are the app -> CLI handover: click to copy */
 .prompt-box { cursor: copy; position: relative; }
 .prompt-box::after {
@@ -801,3 +883,331 @@ button.primary.full { width: 100%; justify-content: center; }
 .bk-swatch-t > span { display: block; font-size: 11px; color: var(--muted); }
 .bk-swatch-t em { display: block; font-style: normal; font-size: 11px; color: var(--muted); margin-top: 3px; }
 .bk-spec { font-size: 11.5px; color: var(--muted); line-height: 1.8; margin: 0; }
+
+/* ===== Artifact overview: find the one you want without opening it ========= */
+
+/* The filter bar. Sticky, because filtering a long list and then losing the
+   control you filtered with is the same as not having it. */
+.listbar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 0 12px; margin-bottom: 4px; background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.listbar .spacer { margin-left: auto; }
+.listbar-count { font-family: var(--mono); font-size: 12px; }
+.listbar-sep { width: 1px; height: 22px; background: var(--line); margin: 0 2px; }
+.listbar-search {
+  display: flex; align-items: center; gap: 7px; min-width: 240px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 0 10px; color: var(--muted);
+}
+.listbar-search:focus-within { border-color: var(--accent); }
+.listbar-search input {
+  border: none; background: transparent; color: var(--ink); font: inherit;
+  font-size: 13.5px; padding: 7px 0; width: 220px; outline: none;
+}
+.chipbtn, .segbtn button {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--line); color: var(--muted);
+  padding: 7px 12px; border-radius: 8px; font-weight: 600; font-size: 13px;
+}
+.chipbtn:hover, .segbtn button:hover { color: var(--ink); border-color: var(--accent); }
+.chipbtn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chipbtn.on .ic { fill: currentColor; }
+/* Two ways of seeing the same list, so one control with two halves rather than
+   two buttons that happen to be next to each other. */
+.segbtn { display: inline-flex; }
+.segbtn button { border-radius: 0; }
+.segbtn button:first-child { border-radius: 8px 0 0 8px; }
+.segbtn button:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
+.segbtn button.on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+
+/* The row: identity on the left, one fixed action column on the right. */
+.artifact-row .head { align-items: flex-start; gap: 10px; margin-bottom: 0; flex-wrap: nowrap; }
+.artifact-row .row-id { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.artifact-row .row-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.artifact-row .row-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.row-meta .dot { opacity: .5; }
+.artifact-row .deck-thumb { margin-right: 0; }
+.artifact-row.is-starred { border-color: rgba(166,80,50,.45); }
+
+/* Every row's right-hand side is the same width, so posted state reads straight
+   down the column instead of landing wherever the title stopped. */
+.row-right { display: flex; align-items: center; gap: 12px; flex: none; margin-left: auto; }
+.pub-slot { flex: 0 0 154px; display: flex; }
+.postedbox {
+  display: inline-flex; align-items: center; gap: 7px; width: 100%;
+  background: transparent; border: 1px solid transparent; border-radius: 8px;
+  padding: 5px 8px; font: inherit; font-size: 12.5px; font-weight: 600;
+  color: var(--muted); text-align: left; white-space: nowrap;
+}
+.postedbox:hover { border-color: var(--line); background: var(--bg); }
+.postedbox .ic { flex: none; }
+.postedbox.on { color: var(--verified); }
+.postedbox.loading-slot { color: var(--muted); opacity: .5; }
+.row-actions { display: flex; gap: 6px; align-items: center; }
+.artifact-row .row-actions .ghost { white-space: nowrap; }
+
+/* The star: hollow until you mark it, filled and accent once you have. */
+.star-btn {
+  background: transparent; border: none; padding: 2px; line-height: 0; flex: none;
+  color: var(--line); border-radius: 6px;
+}
+.star-btn:hover { color: var(--accent); }
+.star-btn.on { color: var(--accent); }
+.star-btn.on .ic { fill: currentColor; }
+
+/* The note, edited where it is read. */
+.row-note { min-height: 22px; }
+.notetext {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  background: transparent; border: 1px dashed transparent; border-radius: 6px;
+  padding: 2px 6px 2px 4px; margin-left: -4px;
+  font: inherit; font-size: 13px; color: var(--ink); text-align: left;
+}
+.notetext span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notetext .ic { flex: none; opacity: 0; color: var(--muted); }
+.notetext:hover { border-color: var(--line); }
+.notetext:hover .ic { opacity: 1; }
+.notetext.is-empty { color: var(--muted); font-style: italic; }
+.notetext.is-empty .ic { opacity: .6; }
+.noteinput {
+  width: 100%; max-width: 640px; font: inherit; font-size: 13px;
+  color: var(--ink); background: var(--bg);
+  border: 1px solid var(--accent); border-radius: 6px; padding: 3px 8px; outline: none;
+}
+.detail-note { margin-top: 4px; }
+/* flex-start, not center: against a title that wraps to two lines, centring
+   floats the star into the middle of nowhere. It belongs beside the first line. */
+.deck-detail-head .row-title { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+.deck-detail-head .row-title .star-btn { margin-top: 7px; }
+.deck-detail-head .row-title h1 { margin: 0; }
+
+/* The post editor reuses the shared modal shell but needs the room of a
+   document, not the room of a confirmation. */
+.pe-box { width: 90vw; max-width: 1200px; height: 86vh; }
+.pe-box .modal-body { display: none; }
+.pe-save:disabled { opacity: .45; cursor: default; }
+
+@media (max-width: 900px) {
+  .artifact-row .head { flex-wrap: wrap; }
+  .row-right { width: 100%; margin-left: 0; justify-content: flex-end; }
+}
+
+/* ---- Deck builder (Deck Studio 3) ------------------------------------------
+   A workspace bound to a deck, not a form. The grid IS the deck: it is the
+   subject of the page, and the chapters are a rail beside it whose only job is
+   adding. That inversion is the whole layout decision here. */
+
+/* The chooser: start a deck, or open one to make its next version. */
+.bchoose-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 14px 0 8px; }
+.bchoose-top .tmuted { font-size: 13px; max-width: 60ch; }
+.clist { display: flex; flex-direction: column; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.clist > p { margin: 0; padding: 16px; font-size: 13.5px; }
+.crow { display: flex; align-items: center; gap: 14px; padding: 11px 14px; border-top: 1px solid var(--line); }
+.crow:first-child { border-top: none; }
+.crow:hover { background: rgba(62,104,116,.05); }
+.crow-b { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.crow-b b { font-size: 14.5px; }
+.crow-b .mono { font-size: 11.5px; }
+.crow-a { display: flex; gap: 6px; flex: none; }
+
+/* The workspace header: one line. Everything that is not "which slides, in what
+   order" is behind Deck details, because a seven-field form above the picker is
+   what made the old builder feel like paperwork. */
+/* Two rows on purpose. Squeezing the title, six meta chips and three buttons
+   onto one line meant the title was the thing that got cut, and the title is
+   the one thing you must be able to read to know which deck you are editing. */
+.bhead { position: sticky; top: 0; z-index: 6; display: flex; flex-direction: column;
+  gap: 6px; padding: 10px 0; margin-bottom: 10px;
+  background: var(--bg); border-bottom: 1px solid var(--line); }
+.bhead-top { display: flex; align-items: center; gap: 12px; }
+.bhead-top > .ghost { flex: none; }
+/* Wraps rather than truncates: a long title takes a second line, it never
+   becomes "Oppr · Operator Intelligence · Wa…". */
+.bhead h2 { margin: 0; font-size: 18px; line-height: 1.25; flex: 1; min-width: 0;
+  overflow-wrap: anywhere; }
+.bhead-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; }
+/* The actions travel together. Left loose they split across the wrap, and
+   Publish ends up alone on a line of its own looking like a mistake. */
+.bhead-act { display: flex; align-items: center; gap: 7px; flex: none; }
+
+.bdetails { margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--surface); }
+.bdetails summary { cursor: pointer; font-weight: 700; font-size: 13.5px; display: flex; align-items: center; gap: 7px; }
+/* One field per row. Title, Footer and Cover meta all hold a full deck title
+   and get cut in a shared column; Type is the only short one, so it is the one
+   that gets a capped control rather than the one that gets a narrow field. */
+.bdetails-b { display: grid; grid-template-columns: 1fr; gap: 10px 14px; margin-top: 12px; }
+.bdetails-b .narrow-control select { max-width: 320px; }
+.bdetails-b label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.bdetails-b .wide { grid-column: 1 / -1; }
+.bdetails-b input, .bdetails-b select { font: inherit; font-size: 14px; padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--ink); }
+.bdetails-b input:focus, .bdetails-b select:focus { outline: 2px solid var(--machine); outline-offset: -1px; }
+.bdetails-b .note { margin: 0; font-size: 12.5px; }
+.bdetails-b p.wide { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.bnotice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px;
+  padding: 10px 14px; border: 1px solid rgba(166,80,50,.4); border-left: 3px solid var(--accent);
+  border-radius: var(--radius); background: rgba(166,80,50,.06); font-size: 13.5px; }
+.bnotice .note { margin: 0; }
+.bnotice a.btn, .bnotice .btn { margin-left: auto; }
+.linkbtn { border: none; background: none; padding: 0; font: inherit; color: var(--accent);
+  text-decoration: underline; cursor: pointer; }
+
+/* rail + stage */
+.bwork { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 1080px) { .bwork { grid-template-columns: 1fr; } }
+
+.brail { position: sticky; top: 62px; max-height: calc(100vh - 90px); overflow: auto;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+@media (max-width: 1080px) { .brail { position: static; max-height: none; } }
+.brail-h { display: flex; align-items: baseline; gap: 8px; padding: 11px 14px;
+  border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.brail-h b { font-size: 13.5px; }
+.brail-h .tmuted { font-size: 11.5px; }
+
+.rchap { border-bottom: 1px solid var(--line); }
+.rchap-h { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 12px;
+  border: none; background: none; text-align: left; cursor: pointer; color: var(--ink); }
+.rchap-h:hover { background: rgba(62,104,116,.06); }
+.rchap-x { line-height: 0; color: var(--muted); }
+.rchap-n { font-family: var(--mono); font-size: 10px; color: #fff; background: var(--ink);
+  padding: 2px 5px; border-radius: 4px; }
+.rchap-t { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; }
+.rchap-c { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.rchap.skipped .rchap-t, .rchap.skipped .rchap-n { opacity: .6; }
+.rchap-b { padding: 0 12px 10px; }
+.rchap-p { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+
+.rslide { display: flex; align-items: flex-start; gap: 8px; padding: 7px 0; border-top: 1px solid var(--line); }
+.rslide.on { background: rgba(62,104,116,.08); }
+/* Not pickable, and it says which of the reasons. Greyed-and-silent is what
+   makes a picker feel broken rather than principled. */
+.rslide.blocked { opacity: .55; }
+.rpick { border: none; background: none; padding: 2px; color: var(--muted); line-height: 0; cursor: pointer; }
+.rslide.on .rpick { color: var(--machine); }
+.rpick:disabled { cursor: not-allowed; }
+.rthumb { flex: none; width: 62px; height: 35px; padding: 0; border: 1px solid var(--line);
+  border-radius: 4px; overflow: hidden; background: var(--bg); line-height: 0; cursor: zoom-in; }
+.rthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rthumb:hover { border-color: var(--accent); }
+.rbody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.rbody code { font-size: 11.5px; color: var(--accent); word-break: break-all; }
+.rgoal { margin: 0; font-size: 11.5px; color: var(--muted); }
+
+.bstage { min-width: 0; }
+.bstage-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.bstage-h b { font-size: 14px; }
+.bstage-h .tmuted { font-size: 12px; }
+
+/* The slide sorter. A grid, because moving slide 9 to position 2 one keystroke
+   at a time is miserable and dragging is not. */
+.sgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.scard { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 8px;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface);
+  cursor: grab; }
+.scard:active { cursor: grabbing; }
+.scard.dragging { opacity: .4; }
+.scard.over-before { box-shadow: -3px 0 0 var(--accent); }
+.scard.over-after { box-shadow: 3px 0 0 var(--accent); }
+.scard.is-stop { border-color: rgba(166,80,50,.55); background: rgba(166,80,50,.05); }
+.scard.is-stale { border-color: rgba(166,80,50,.35); }
+.scard-n { position: absolute; top: 10px; left: 10px; z-index: 1; font-family: var(--mono);
+  font-size: 10px; color: #fff; background: rgba(21,32,30,.82); padding: 2px 5px; border-radius: 4px; }
+.scard-img { display: block; width: 100%; aspect-ratio: 16 / 9; padding: 0; border: 1px solid var(--line);
+  border-radius: 5px; overflow: hidden; background: var(--bg); line-height: 0; cursor: zoom-in; }
+.scard-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scard-img:hover { border-color: var(--accent); }
+.scard-b { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px; min-width: 0; }
+.scard-b code { font-size: 11.5px; color: var(--accent); word-break: break-all; }
+.scard-b .tmuted { font-size: 11px; }
+.scard-act { display: flex; gap: 4px; }
+.scard-act button { min-width: 30px; }
+
+.bs-flag { font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); border: 1px solid var(--line); padding: 2px 5px; border-radius: 999px;
+  white-space: nowrap; }
+.bs-flag--stop { color: var(--accent); border-color: rgba(166,80,50,.5); }
+.bs-flag--new { color: var(--machine); border-color: rgba(62,104,116,.5); }
+
+.b-empty { padding: 26px 20px; border: 1px dashed var(--line); border-radius: var(--radius); }
+.b-empty p { margin: 0 0 6px; font-size: 13.5px; }
+.b-empty .tmuted { max-width: 56ch; }
+
+/* The publish pipeline, shown as it runs. These are the five gates
+   build-from-recipe.py actually walks, not decoration. */
+.psteps { list-style: none; margin: 16px 0 12px; padding: 0; border: 1px solid var(--line);
+  border-radius: var(--radius); overflow: hidden; }
+.pstep { display: grid; grid-template-columns: 26px 92px 1fr; align-items: baseline; gap: 8px;
+  padding: 9px 12px; border-top: 1px solid var(--line); font-size: 13px; }
+.pstep:first-child { border-top: none; }
+.pstep-m { font-size: 14px; text-align: center; color: var(--muted); }
+.pstep-l { font-weight: 700; }
+.pstep-d { color: var(--muted); font-size: 12.5px; }
+.pstep.is-waiting { opacity: .5; }
+.pstep.is-running { background: rgba(62,104,116,.07); }
+.pstep.is-running .pstep-m { color: var(--machine); animation: pstep-spin 1.1s linear infinite; }
+.pstep.is-ok .pstep-m { color: var(--verified); }
+.pstep.is-fail { background: rgba(166,80,50,.07); }
+.pstep.is-fail .pstep-m, .pstep.is-fail .pstep-l { color: var(--accent); }
+.pstep.is-skip { opacity: .55; }
+@keyframes pstep-spin { to { transform: rotate(360deg); } }
+.pstep.is-running .pstep-m { display: inline-block; transform-origin: 50% 50%; }
+@media (prefers-reduced-motion: reduce) {
+  .pstep.is-running .pstep-m { animation: none; }
+}
+
+/* Shared bits the builder introduced and other views can use. */
+.modal-box--wide { max-width: 720px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chipbox { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
+  border: 1px solid var(--line); border-radius: 999px; font-size: 12.5px; cursor: pointer; }
+.chipbox:has(input:checked) { border-color: var(--machine); background: rgba(62,104,116,.09); }
+.chipbox.is-fixed { opacity: .75; cursor: default; }
+.chipbox input { margin: 0; }
+.p-fork { border-radius: 8px; margin-top: 6px; }
+.p-fork-note { margin: 6px 0 10px; }
+/* Two doors on one control: the server already treats structure and text as
+   different jobs, so the button says so. */
+.split-btn { display: inline-flex; }
+.split-btn > button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.split-btn > button:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
+
+.viewer-move { display: inline-flex; gap: 4px; margin-left: 10px; }
+
+/* Kept from the first builder: the thumbnail button and the slide preview. */
+.bthumb { flex: none; width: 96px; height: 54px; padding: 0; border: 1px solid var(--line);
+  border-radius: 5px; overflow: hidden; background: var(--bg); line-height: 0; cursor: zoom-in; }
+.bthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bthumb.sm { width: 68px; height: 38px; }
+.bthumb:hover { border-color: var(--accent); }
+.bthumb-none { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--muted); }
+
+.bnew { margin: 12px; padding: 12px 14px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--bg); }
+.bnew summary { cursor: pointer; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 7px; }
+.bnew p { font-size: 12.5px; color: var(--muted); }
+.bnew label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.bnew input, .bnew select { font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--line);
+  border-radius: 7px; background: var(--surface); color: var(--ink); max-width: 100%; }
+.bnew .prompt { margin: 10px 0 0; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 7px; font-family: var(--mono); font-size: 10.5px; white-space: pre-wrap; max-height: 220px; overflow: auto; }
+
+.b-modal { position: fixed; inset: 0; z-index: 60; background: rgba(21,32,30,.55);
+  display: flex; align-items: center; justify-content: center; padding: 24px; }
+.b-modal-in { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); max-width: 1080px; width: 100%; max-height: 90vh; overflow: auto; }
+.b-modal-in header { display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  border-bottom: 1px solid var(--line); }
+.b-modal-in header code { font-size: 14px; color: var(--accent); font-weight: 700; }
+.b-modal-in header button { margin-left: auto; }
+.b-modal-body { display: grid; grid-template-columns: minmax(0,640px) 1fr; gap: 18px; padding: 16px; }
+.b-modal-meta p { margin: 0 0 12px; font-size: 13.5px; color: var(--muted); }
+.b-modal-meta b { color: var(--ink); }
+@media (max-width: 900px) { .b-modal-body { grid-template-columns: 1fr; } }

@@ -19,3 +19,9 @@ used_in:
 - product-showcase
 - management-outlook
 notes: Hero cover with unified-timeline treatment. No footer.
+chapter: ch-open
+goal: Name the promise before anything else.
+why: Every deck opens here. The headline is the positioning, so changing it changes
+  what the deck is about.
+with:
+- eng2-idea

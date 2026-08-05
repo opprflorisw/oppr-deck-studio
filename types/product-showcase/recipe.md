@@ -1,15 +1,56 @@
 ---
 type: product-showcase
-goal: >
-  Show a manufacturing prospect the whole Oppr story end to end — problem,
-  product in action, proof, commercials, company — enough to want the Analyze step.
-audiences: [operations leaders, plant management, process experts, mixed technical+management rooms]
+goal: 'Show a manufacturing prospect the whole Oppr story end to end — problem, product in
+  action, proof, commercials, company — enough to want the Analyze step.
+
+  '
+audiences:
+- operations leaders
+- plant management
+- process experts
+- mixed technical+management rooms
 default_language: en
 default_length: 20 slides (full)
 presenter: Floris (Founder & CEO) unless specified
 entitlement_default: public
-canonical: decks/canonical/product-showcase
+picks:
+  ch-open:
+  - cover
+  ch-idea:
+  - eng2-idea
+  ch-problem:
+  - recognize-problems
+  - eng2-opportunity
+  - when-time-matters
+  ch-platform:
+  - platform-cce
+  - product-flow-setup
+  - product-flow-insight
+  ch-evidence:
+  - outcomes-reference
+  - running-projects
+  - evidence-quotes
+  ch-engagement:
+  - engagement-ladder
+  - eng2-step1
+  - eng2-step2
+  - step3
+  ch-commercials:
+  - kpi-payback
+  ch-company:
+  - operator-acceptance
+  - who-is-oppr
+  ch-close:
+  - eng-next-step
+  - back-cover
+skips:
+- ch-decision
+- ch-annex
 ---
+
+<!-- picks/skips are the SUGGESTION for this deck type (Deck Studio 3, SPEC §2).
+     They are never a restriction: any slide can go in any deck. The deck's actual
+     picks are deck_versions.recipe in the backend. -->
 
 # Product Showcase — recipe
 

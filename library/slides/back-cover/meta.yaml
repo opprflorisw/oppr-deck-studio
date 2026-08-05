@@ -10,10 +10,17 @@ tags:
 - closing
 - contact
 - cover
+- qr
 images: []
 variables: []
 used_in:
 - product-showcase
 - management-outlook
 - engagement
-notes: Back cover / contact. Ink slide, no footer.
+notes: Back cover / closer. Ink slide, no footer by role. Carries the full contact
+  block, the Statement-of-Work line and a vector QR to linkedin.com/in/fwyers (regenerate
+  with tools/build-qr.py).
+chapter: ch-close
+goal: Close the deck and leave every way to reach us on one page.
+why: The last slide is the one people photograph, so it holds all the contact detail.
+with: []

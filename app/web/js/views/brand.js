@@ -18,7 +18,7 @@ export function render() {
     <div>
       <div class="subbar">
         <div class="filters">
-          <a class="ghost accent" href="${KIT}/oppr-brand-kit.zip" download>${icon("download", 15)}<span>Download the kit</span></a>
+          <a class="ghost accent" href="${KIT}/oppr-brand-kit.zip" download>${icon("download", 15)}<span>Download the brand kit</span></a>
           <a class="ghost" href="${KIT}/index.html" target="_blank" rel="noopener">${icon("open", 15)}<span>Open the full page</span></a>
         </div>
       </div>
@@ -26,6 +26,10 @@ export function render() {
         rather than live text, so they render identically for someone with no brand font
         installed. Click any file to download it. Built by
         <span class="mono">tools/build-brand-kit.py</span>.</p>
+      <p class="note">This is the logo on its own. <b>Design kit</b>, above, is the whole
+        visual system in one zip: this brand kit plus the icon set, every design-system
+        specimen and the fonts, with an offline viewer. That is the one to send someone
+        who has to design something.</p>
       <div id="bk-body"><div class="loading">Loading the brand kit…</div></div>
     </div>`);
 

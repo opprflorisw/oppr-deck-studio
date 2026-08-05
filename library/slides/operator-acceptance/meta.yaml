@@ -18,3 +18,10 @@ used_in:
 - product-showcase
 - management-outlook
 notes: Built-with-operators, four icon cards. Adoption is the game.
+chapter: ch-company
+goal: Answer the 'my operators will never use this' objection.
+why: Use for any operational audience. Skip for a purely financial one, which will
+  not raise it.
+with:
+- eng2-step2
+- who-is-oppr

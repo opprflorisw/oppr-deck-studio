@@ -17,6 +17,15 @@ app/index.json
 __pycache__/
 *.pyc
 
+# --- The design kit: ship the zip, not the unpacked copy -------------------
+# library/kit/ is assembled from things already in the repo (the icon set, the
+# design-system specimens, brand/kit/, the fonts), so committing the unpacked
+# folder would store all of them twice. The ZIP is what the app serves and what
+# leaves the building, so that one is committed; rebuild the rest any time with
+# `python tools/build-library-kit.py`.
+/library/kit/*
+!/library/kit/oppr-design-kit.zip
+
 # --- OS / editor cruft ---
 Thumbs.db
 Desktop.ini

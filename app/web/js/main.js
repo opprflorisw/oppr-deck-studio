@@ -22,6 +22,7 @@ import * as research from "./views/research.js";
 import * as designsystem from "./views/design-system.js";
 import * as iconsView from "./views/icons-view.js";
 import * as brand from "./views/brand.js";
+import * as builder from "./views/builder.js";
 
 // Which body each area/tab renders. The area frame supplies the title + tabbar.
 // (Customers is a home area with no tabs — routed directly, not through here.)
@@ -35,7 +36,10 @@ const RENDER = {
   },
   // Tab-less area: the value is the render function itself, not a tab table.
   decks: () => artifacts.renderDecks(),
+  // builder is routed directly (it mounts itself and loads async), not through
+  // the area frame, so it has no entry here.
   accounts: () => accounts.render(),
+  settings: () => knowledge.renderBody("config"),
   social: {
     all: () => artifacts.renderSocial("all"),
     carousel: () => artifacts.renderSocial("carousel"),
@@ -52,7 +56,6 @@ const RENDER = {
     philosophy: () => knowledge.renderBody("philosophy"),
     "best-practices": (sub) => knowledge.renderBody("best-practices", sub),
     recipes: () => knowledge.renderBody("recipes"),
-    config: () => knowledge.renderBody("config"),
   },
 };
 
@@ -142,10 +145,21 @@ async function boot() {
 
   // Area pages (title + tabs + body).
   route("/decks", () => area("decks"));            // single page, no tabs
+  // The builder is a workspace bound to a DECK, so the deck is in the route.
+  // That is what makes "a version can only come from an existing deck" a
+  // structural fact rather than a dropdown someone can misuse.
+  route("/build", () => builder.renderChooser(mount));
+  route("/build/new", () => builder.renderNew(mount));      // before /build/:id
+  route("/build/draft/:id", (id) => builder.renderWorkspace(mount, { localId: id }));
+  route("/build/:id", (id) => builder.renderWorkspace(mount, { deckId: id }));
+  route("/builder", () => go("/build"));           // the old single-page builder
   route("/accounts", () => area("accounts"));
+  route("/settings", () => area("settings"));      // was Knowledge's Config tab
   route("/social/:tab", (tab) => area("social", tab));
   route("/library/:tab", (tab) => area("library", tab));
   route("/research/:tab", (tab) => area("research", tab));
+  // Before /knowledge/:tab — first match wins, and Config moved to Settings.
+  route("/knowledge/config", () => go("/settings"));
   route("/knowledge/:tab", (tab) => area("knowledge", tab));
   route("/knowledge/best-practices/:type", (t) => area("knowledge", "best-practices", t));
   // Bare area path -> first (or remembered) tab.
@@ -164,7 +178,7 @@ async function boot() {
   route("/output/social", () => go("/social/all")); // Decks + Social output
   route("/output", () => go("/decks"));
   route("/social-out", () => go("/social/all"));
-  route("/config", () => go("/knowledge/config"));
+  route("/config", () => go("/settings"));
 
   // Detail / drill-down pages (standalone, no tabbar).
   route("/research/runs/:slug", (slug) => mount(research.renderRun(slug)));
@@ -190,7 +204,22 @@ async function boot() {
     } catch { /* clipboard blocked; the text is still selectable */ }
   });
 
+  // Area bars and detail headers stick BELOW the top strip, so they need its
+  // real height. Measured, not hardcoded: the strip is taller once the
+  // signed-in email is in it, and a guessed offset leaves a visible seam of
+  // scrolling content between the two bars.
+  const syncTopbarHeight = () => {
+    const h = document.getElementById("topstrip")?.offsetHeight;
+    if (h) document.documentElement.style.setProperty("--topbar-h", `${h}px`);
+  };
+  syncTopbarHeight();
+  window.addEventListener("resize", syncTopbarHeight);
+  if (window.ResizeObserver) new ResizeObserver(syncTopbarHeight).observe($("#topstrip"));
+
   window.addEventListener("hashchange", renderSidebar);
+  // The rail's "decks behind" count comes from the backend slice, which lands
+  // after the first paint. Redraw once it arrives.
+  document.addEventListener("oppr:backend-loaded", renderSidebar);
   if (!location.hash) location.hash = "/customers";
   startRouter();
 }

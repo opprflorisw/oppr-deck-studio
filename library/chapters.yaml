@@ -1,0 +1,88 @@
+# The chapter set (Deck Studio 3, SPEC §1).
+# Membership AND order live here, in one file, so the library's shape is readable
+# at a glance and exclusivity is structural. A deck recipe is an ordered list of
+# these chapters with a pick from each; skipping a chapter drops every slide under
+# it. Chapter ids never encode position: the set is expected to grow.
+# check-docs.py asserts every non-retired slide appears in exactly one chapter.
+- id: ch-open
+  n: '01'
+  title: Open
+  purpose: Say who we are and what this is about.
+  slides:
+  - cover
+- id: ch-idea
+  n: '02'
+  title: The idea
+  purpose: The one thing to remember afterwards.
+  slides:
+  - eng2-idea
+- id: ch-problem
+  n: '03'
+  title: The problem
+  purpose: Why the plant has a gap, in the reader's own language first.
+  slides:
+  - recognize-problems
+  - eng2-opportunity
+  - when-time-matters
+- id: ch-platform
+  n: '04'
+  title: The platform
+  purpose: What the thing actually is.
+  slides:
+  - platform-cce
+  - product-flow-setup
+  - product-flow-insight
+- id: ch-evidence
+  n: '05'
+  title: Evidence
+  purpose: That it works, and for whom. Three jobs.
+  slides:
+  - outcomes-reference
+  - running-projects
+  - running-projects-detail
+  - evidence-quotes
+- id: ch-engagement
+  n: '06'
+  title: The engagement
+  purpose: The three steps, in order.
+  slides:
+  - engagement-ladder
+  - eng2-step1
+  - eng2-step2
+  - step3
+  - eng2-plan
+  - eng-criteria
+- id: ch-decision
+  n: '07'
+  title: The decision
+  purpose: What happens when the ten weeks are up. Closes Step 2, opens Step 3.
+  slides:
+  - eng2-outcomes
+- id: ch-commercials
+  n: 08
+  title: Commercials
+  purpose: What it costs, what it returns.
+  slides:
+  - eng-investment
+  - kpi-payback
+- id: ch-company
+  n: 09
+  title: Adoption and company
+  purpose: The objection, and who you would be working with.
+  slides:
+  - operator-acceptance
+  - who-is-oppr
+- id: ch-close
+  n: '10'
+  title: Close
+  purpose: What happens next, and how to reach us.
+  slides:
+  - eng-next-step
+  - back-cover
+- id: ch-annex
+  n: '11'
+  title: Annex
+  purpose: Not shown unless asked.
+  slides:
+  - eng-annex-a
+  - eng-annex-b

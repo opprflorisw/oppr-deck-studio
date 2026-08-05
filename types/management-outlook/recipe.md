@@ -1,17 +1,49 @@
 ---
 type: management-outlook
-goal: >
-  Convince a management / economic buyer (portfolio management, PE operating
-  partners, plant leadership) that Oppr moves EBITDA fast and low-risk — enough
-  to take the Analyze step. Skip the deep product mechanics.
-audiences: [portfolio-company management, PE operating partners, economic buyers, plant leadership]
+goal: 'Convince a management / economic buyer (portfolio management, PE operating partners,
+  plant leadership) that Oppr moves EBITDA fast and low-risk — enough to take the Analyze
+  step. Skip the deep product mechanics.
+
+  '
+audiences:
+- portfolio-company management
+- PE operating partners
+- economic buyers
+- plant leadership
 default_language: en
 default_length: 12 slides (trimmed)
 presenter: Floris (Founder & CEO) unless specified
 entitlement_default: public
-canonical: decks/canonical/management-outlook
 derived_from: product-showcase
+picks:
+  ch-open:
+  - cover
+  ch-idea:
+  - eng2-idea
+  ch-problem:
+  - eng2-opportunity
+  - when-time-matters
+  ch-evidence:
+  - outcomes-reference
+  ch-engagement:
+  - engagement-ladder
+  ch-commercials:
+  - kpi-payback
+  ch-company:
+  - operator-acceptance
+  - who-is-oppr
+  ch-close:
+  - eng-next-step
+  - back-cover
+skips:
+- ch-platform
+- ch-decision
+- ch-annex
 ---
+
+<!-- picks/skips are the SUGGESTION for this deck type (Deck Studio 3, SPEC §2).
+     They are never a restriction: any slide can go in any deck. The deck's actual
+     picks are deck_versions.recipe in the backend. -->
 
 # Management Outlook — recipe
 

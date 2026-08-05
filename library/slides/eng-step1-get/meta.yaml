@@ -15,3 +15,5 @@ variables:
 used_in:
 - engagement
 notes: ''
+retired: true
+retired_on: 2026-08-04

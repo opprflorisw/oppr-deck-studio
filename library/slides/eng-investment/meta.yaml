@@ -18,3 +18,10 @@ used_in:
 - engagement
 notes: 'The fee equation: 10.000 + 25.000 - 10.000 credited = 25.000. Verify against
   BRAND.md before reuse.'
+chapter: ch-commercials
+goal: 'The arithmetic: 10 + 25 − 10 credited = 25.'
+why: Use when price will be discussed in the room. The only slide carrying the credit
+  arithmetic.
+with:
+- engagement-ladder
+- eng2-outcomes

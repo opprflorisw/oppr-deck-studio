@@ -18,3 +18,10 @@ used_in:
 - engagement
 notes: Slim cut (engagement v3). v1's long-cut equivalent is the eng-* slide of the
   same name.
+chapter: ch-engagement
+goal: Step 2 · Prove, in detail.
+why: The centre of the offer. Never use it without step 1 in front of it.
+with:
+- eng2-step1
+- step3
+- eng-criteria

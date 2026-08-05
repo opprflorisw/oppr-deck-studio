@@ -13,7 +13,13 @@ says what superseded it.
 
 | Effort | What it decides |
 |---|---|
-| [`deck-studio-cloud/`](deck-studio-cloud/MAP.md) | **The current map.** Deck Studio reachable by colleagues who log in and edit, with rendering and verification moved off Floris's machine, deployed on Vercel, plus an MCP so Claude can drive it from other surfaces. |
+| [`deck-studio-3/SPEC.md`](deck-studio-3/SPEC.md) | **The current map.** Chapters over slides, and mother-slide propagation by flag-and-accept: update a library slide and every deck using it is flagged, with nothing already sent ever changing. Plus the PDF fix (static fonts, baked cover scrim) and the advisory story check. Charted at [`deck-studio-3/MAP.md`](deck-studio-3/MAP.md); all twelve decision tickets closed 2026-08-04. |
+
+## Delivered
+
+| Effort | What shipped, and what it parked |
+|---|---|
+| [`deck-studio-cloud/`](deck-studio-cloud/MAP.md) | **Destination reached 2026-08-03.** Deck Studio deployed on Vercel, colleagues sign in with email and password, rendering and verification run in the cloud, and access is proved by `tools/check-access.py` (17 adversarial checks, all passing). Deliberately parked as fog rather than decided: custom domain, concurrent editing, whether the CLI keeps direct backend access, and cost at rest. Not superseded by Deck Studio 3, which sits above it. |
 
 ## Current design rationale (still true, still cited)
 

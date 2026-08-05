@@ -16,5 +16,13 @@ variables:
 - total
 used_in:
 - engagement
+- management-outlook
 notes: Slim cut (engagement v3). v1's long-cut equivalent is the eng-* slide of the
   same name.
+chapter: ch-idea
+goal: State what Oppr does in a sentence a person can repeat.
+why: Use it immediately after the cover in every deck. Without it the problem slides
+  land before the reader knows what is being sold.
+with:
+- cover
+- platform-cce

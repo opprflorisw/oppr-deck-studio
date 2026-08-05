@@ -17,3 +17,10 @@ used_in:
 - engagement
 notes: Four signed success criteria, each with how it is measured. Carries the EU
   AI Act line.
+chapter: ch-engagement
+goal: What both sides sign up to before week one.
+why: Use whenever the Proof is being sold, not just described. It is the only slide
+  with hard adoption numbers on it.
+with:
+- eng2-step2
+- eng2-outcomes

@@ -22,3 +22,9 @@ variables:
 used_in:
 - product-showcase
 notes: Capture -> analyze -> execute to SOP. Product screenshots.
+chapter: ch-platform
+goal: Show what comes out the other end.
+why: Pair it with the set-up slide. On its own it reads as a dashboard, which is the
+  thing we argue against.
+with:
+- product-flow-setup

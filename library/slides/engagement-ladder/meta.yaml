@@ -19,3 +19,11 @@ used_in:
 - product-showcase
 - management-outlook
 notes: Analyze/Prove/Scale rungs + what-we-need-from-you strip.
+chapter: ch-engagement
+goal: All three steps on one slide.
+why: The overview. In a short deck this is the whole chapter. In a long deck it sets
+  up the step slides that follow.
+with:
+- eng2-step1
+- eng2-step2
+- step3

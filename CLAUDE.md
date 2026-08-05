@@ -19,6 +19,19 @@ should be able to build a deck from these docs alone.
    described so it can be retrieved by meaning. `library/icons/` : the reusable
    line-icon set (used via the `{{icon:NAME}}` token, never re-drawn per slide).
    See `library/CLAUDE.md`.
+
+   **Chapters (2026-08-04).** `library/chapters.yaml` groups the slides into
+   ordered **chapters**, holding membership *and* order in one file so
+   exclusivity is structural. A deck recipe is an ordered list of chapters with a
+   pick from each, and **skipping a chapter drops every slide under it**. No slide
+   has length variants: depth is chosen per chapter, and a slide covering the
+   ground of three others is simply another slide you can pick instead. Each
+   `meta.yaml` carries `chapter`, plus `goal` / `why` / `with` so a suggestion is
+   possible at all. A retired slide keeps its folder (`retired: true`) so already
+   published decks still resolve, but cannot be picked into anything new.
+   `role` is **not** the chapter key and is never renamed: verify enforces footer
+   discipline by role, so it is a render contract, not a grouping.
+   See `.scratch/deck-studio-3/SPEC.md`.
 3. **Deck types (recipes / the "living brain")** — `types/<type>/recipe.md` : the
    reusable brief per presentation type (goal, audience, skeleton, learnings).
    See `types/CLAUDE.md`.
@@ -38,17 +51,50 @@ should be able to build a deck from these docs alone.
    references) and leaves `dump/` empty. See `dump/CLAUDE.md`.
 7. **Deck Studio App** — `app/` : the local cockpit (`npm run dev` →
    http://127.0.0.1:4173). **This is where you change and ship anything.**
-   Sidebar: **Customers** (home) · **Decks** · **Social output** · **Library** ·
-   **Last 30 days** · **Knowledge**.
+   Sidebar, grouped (2026-08-04): **Work** — Customers (home) · Decks · Social
+   output · Last 30 days; **System** — Library · Knowledge; and pinned at the
+   bottom behind a rule, **Accounts** · **Settings** (the old Knowledge → Config
+   tab), because neither is somewhere you go to do the work.
+
+   **Two kinds of deck (2026-08-05), not three.** "Masters" and "company decks"
+   described how a deck was tagged rather than what it is, and in practice the
+   company decks *are* the masters. So the index has **Company decks** (one
+   reusable deck per type, grouped and labelled by type) and **Customer decks**
+   (copies made for one named customer, grouped by that customer). The generic
+   **customer deck** is itself a company deck: you copy it per customer and never
+   edit it for one, which is how a customer's name stays out of the next
+   customer's deck. A deck leaves the index by being **archived**, never deleted:
+   its versions, PDFs and lineage all survive and one click brings it back.
+
+   The artifact overview answers *which one do I want* without opening anything:
+   each row states its page count, when it last changed and who changed it, the
+   **note** you wrote about it, and a **star** you can filter to. The note is
+   edited where it is read and the filter bar searches notes as well as titles.
+   **Edit is not in the list** — it is on the artifact's own page, one click in.
+
+   **Edit is two doors** (2026-08-04), because the server already treats them as
+   two jobs: **Edit slides** opens the deck in the **Deck builder** (which
+   slides, in what order), and **Edit text** opens the in-place editor (words,
+   spacing, images). The builder is a workspace *bound to a deck* — `#/build`
+   chooses one, `#/build/<id>` is that deck — which is what makes the version
+   rule structural rather than advisory: **a new deck always publishes as v1, and
+   a new version can only come from opening an existing deck.** Slug, client and
+   clearance are inherited by every version and are not re-pickable, so a version
+   can never widen what a deck is allowed to carry. A variant is **Save as a new
+   deck**, not a version. Composing is saved as you go in `decks.draft_recipe` —
+   a draft, never a version, surfaced as **unpublished changes**.
 
    Open any artifact and **Edit** it in place: click text and retype, nudge
    spacing, swap an entitlement-filtered image. Every save is a new immutable
    version. **Download PDF** always gives you the version on screen, printing it
    on demand if it has not been printed yet. **Rename** sets the title and the
    filename's middle segment. Carousels and social images work exactly like
-   decks, because they are the same artifact model. In the Library, any slide or
-   design-system block can be **downloaded on its own** as self-contained HTML,
-   PNG or PDF.
+   decks, because they are the same artifact model, and carry their channel copy
+   in **Post text** (the Unicode post editor, saved as `decks.post_text`; a
+   caption is not a version). Social output can be viewed flat or grouped by
+   type, with posted state as a checkbox in one fixed column. In the Library, any
+   slide or design-system block can be **downloaded on its own** as
+   self-contained HTML, PNG or PDF.
 
    Sign in with **email and password** (2026-08-03, replacing magic links).
    Accounts are invitation-only and restricted to `@oppr.ai`, both enforced by
@@ -74,7 +120,9 @@ should be able to build a deck from these docs alone.
    `/deckbuilder` then builds. Engagement recorded after posting rolls back up
    per theme, so every belief carries both `confidence` (did the evidence
    repeat) and `audience` (did anyone respond). Surfaced in the app's
-   **Last 30 days** area. See `research/CLAUDE.md`.
+   **Last 30 days** area, which reads the folder from disk locally and from
+   Storage when hosted (on Vercel there is no repo on disk), so the same pages
+   work in both places. See `research/CLAUDE.md`.
 10. **Knowledge** — `knowledge/` : the design brain in the open —
    `design-philosophy.md` and living `best-practices/<type>.md` docs
    (platform facts + how Oppr applies them + dated learnings). Surfaced in the
@@ -92,6 +140,9 @@ copy .env.example .env            # then fill in secrets; .env is gitignored
 #   GEMINI_API_KEY  — image generation (optional)
 #   SUPABASE_URL + SUPABASE_SECRET_KEY — the deck backend (v3); the app + the
 #     deck tools (publish-deck.py / fetch-deck.py) need these. Server-side only.
+#   ANTHROPIC_API_KEY — only tools/check-story.py, the advisory narrative pass.
+#     Without it that check prints one line and exits 0; nothing that can FAIL a
+#     deck depends on it.
 ```
 Rendering also needs **Google Chrome or Microsoft Edge** installed (HTML → PDF/PNG).
 The workflows are driven from the **Claude Code CLI**: `/deckbuilder` (the front
@@ -100,8 +151,10 @@ building route of `/deckbuilder` have a hard approval gate — an unattended run
 stops at the proposed plan and waits for a human to approve before building.
 
 The **Deck Studio App** (optional, for browsing/composing visually) needs
-**Node 18+**: `cd app && npm run dev` → http://127.0.0.1:4173. It has no npm
-dependencies and calls Python for its library index.
+**Node 18+**: `cd app && npm install && npm run dev` → http://127.0.0.1:4173. It
+calls Python for its library index, and has three npm dependencies, all of them
+for rendering when hosted: `pdf-lib`, `puppeteer-core` and `@sparticuz/chromium`.
+Locally it prints with the Chrome or Edge already on the machine.
 
 ## How a deck is composed
 
@@ -215,7 +268,10 @@ manual regeneration.
   `page_format` declaring the geometry (`deck-16x9`, `linkedin-4x5`,
   `square-1x1`, `hero-1200x627`). That is what lets **one** editor, **one**
   verify gate, **one** build job and **one** version history serve all of them.
-  Never add a parallel store for a new output type: give it a `kind`.
+  Never add a parallel store for a new output type: give it a `kind`. The same
+  rule covers what an artifact carries *about* itself: the note, the star and the
+  channel copy (`post_text`) are columns on the `decks` row, not a side table,
+  and none of them makes a version.
 - **One verify gate, several rule sets.** `tools/verifylib.py` is the single
   source. The brand rules (no em dashes, no unfilled placeholders, no
   customer-name leak, image entitlement ≤ clearance, European numbers, `oppr` in
@@ -235,14 +291,22 @@ manual regeneration.
   `.env.example` lists the variable names. Nothing checked in ever contains a key.
 - **The CLI creates; the app changes and ships.** This is the boundary, and it
   runs in both directions so you are never stuck on the wrong side of it.
+  **Revised 2026-08-04:** the app gained a **Deck builder**, so composing a deck
+  from library slides now happens on either side. It is not a second pipeline:
+  the app shells out to `tools/build-from-recipe.py`, which runs the CLI's own
+  compose → assemble → build-pdf → verify → publish. **One gate, not two.**
 
   | The CLI creates | The app changes and ships |
   |---|---|
-  | A new deck, carousel, post or article | Edit text, spacing, images in place |
-  | A new library slide or design-system block | Save a new version (immutable) |
-  | Any **structural** change (add/remove/reorder a page) | Rename the artifact and its PDF |
-  | Image generation, ingest, research runs | Regenerate + download the PDF |
-  | | Personalize a master; mark posted; download a library element |
+  | A new **library slide** or design-system block | Compose a deck from chapters (Deck builder) |
+  | Image generation, ingest, research runs | Reorder, add and remove slides; publish a new version |
+  | Retiring a slide in the repo (`meta.yaml`) | **Archive** a slide so it cannot be picked |
+  | | Edit text, spacing, images in place |
+  | | Accept a master update; rename; regenerate the PDF |
+
+  What has **not** moved: `verify-deck.py` still blocks, and entitlement is not a
+  suggestion. Editing an existing version is still text/attribute level only,
+  enforced by `app/lib/htmlcheck.mjs`.
 
   It is enforced in code, not by convention: `app/lib/htmlcheck.mjs` fingerprints
   every save server-side and rejects anything beyond text/attribute level, so the
@@ -258,8 +322,13 @@ manual regeneration.
 
 ## Structure
 
+- `brand/fonts-static/` — generated static instances of the variable fonts, which
+  are what the **print** stylesheets load. Regenerate with
+  `python tools\build-static-fonts.py`. `brand/fonts/` keeps the variable fonts
+  for the screen and for the brand kit.
 - `brand/` — BRAND.md, wordmark/icon SVGs, fonts, `img/` (with `library.json`
-  manifest and generated `index.html` contact sheet), and `kit/` — the
+  manifest and generated `index.html` contact sheet), `qr/` (generated vector QR
+  codes, e.g. the LinkedIn code on the back cover), and `kit/` — the
   **shareable brand kit**: the logo as outlined SVG + PNG, a standalone page and
   `oppr-brand-kit.zip`, all generated by `tools/build-brand-kit.py` and surfaced
   in the app's Library → Brand tab. This is the one thing in the repo built to
@@ -267,8 +336,13 @@ manual regeneration.
 - `templates/` — `deck.css` (system), `showcase.css` (shared deck-local styles),
   `linkedin.css` (4:5 carousel format), `deck-starter.html` (legacy skeleton)
 - `library/` — `slides/<id>/` (fragments + meta + thumb) and generated `catalog.html`;
-  `design-system/` (block specimens); `icons/` (reusable icon set + `icons.json`)
-- `types/` — `<type>/recipe.md` per presentation type
+  `design-system/` (block specimens); `icons/` (reusable icon set + `icons.json`);
+  `kit/` — the generated **design kit**, the whole visual system as one shareable
+  zip (`tools/build-library-kit.py`), offered from the Library's area bar
+- `types/` — `<type>/recipe.md` per presentation type. Six of them, and the app
+  names and orders them in `app/web/js/decktypes.js`: `teaser` ·
+  `management-outlook` · `product-showcase` · `engagement` ("How we work
+  together") · `customer` · `investor`.
 - `decks/` — **build scratch only** (gitignored): the CLI assembles into
   `decks/<slug>/`, publishes, confirms it landed, and the folder is disposable.
   Plus `drafts/<slug>/` (pending drafts from the app; normally empty). The deck
@@ -289,10 +363,29 @@ manual regeneration.
     HTML document → self-contained snapshot), `publish-deck.py`, `fetch-deck.py`,
     `publish-social.py`, `import-social.py` (social output → the one artifact model)
   - **gates**: `verifylib.py` (the single rule source), `verify-deck.py`,
-    `verify-carousel.py` (the LinkedIn playbook), `check-docs.py` (doc drift)
+    `verify-carousel.py` (the LinkedIn playbook), `check-docs.py` (doc drift, and
+    that every live slide is in exactly one chapter)
+  - **propagation**: `check-drift.py` (which published decks are behind their
+    library slides; `--sync` mirrors the library into `library_slides` so the
+    hosted app can answer it without a repo on disk), `check-story.py` (the
+    **advisory** narrative pass; needs `ANTHROPIC_API_KEY`, and **never blocks,
+    always exits 0** — it is a judgement, not a gate)
   - **render + export**: `build-pdf.ps1`, `build-carousel.ps1`,
     `build-social-image.ps1`, `build-article-hero.py`, `pdf-thumbs.py`,
     `export-element.py` (one library element as self-contained HTML/PNG/PDF),
+    `build-static-fonts.py` (static instances into `brand/fonts-static/`; Chrome
+    cannot serialize a variable font into a PDF and falls back to Type 3, which is
+    what made the PDFs heavy), `build-cover-hero.py` (bakes the cover scrim into
+    the hero, so the PDF carries no per-pixel shading functions),
+    `build-qr.py` (a URL as an inline-ready **vector** QR into `brand/qr/`; raster
+    QRs blur through the PDF and a blurred QR does not scan),
+    `build-library-kit.py` (`library/kit/`: the **design kit** — the icon set, every
+    design-system specimen and the brand kit in one self-contained zip with an
+    offline viewer, for anyone outside Oppr who has to design something),
+    `check-kit.py` (both shareable kits: every reference must resolve inside the
+    kit and nothing may reach the network, because a kit is opened from a
+    filesystem with no server and a wrong relative path is a broken download in
+    front of a customer),
     `build-brand-kit.py` (`brand/kit/`: outlines the wordmark from the Archivo
     woff2 so it needs no font installed, rasterizes the PNGs, and writes the
     page, README and zip; `--check` fails when any output is stale)

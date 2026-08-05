@@ -84,12 +84,49 @@ def check() -> list[str]:
     return problems
 
 
+def check_chapters() -> list[str]:
+    """Every live slide belongs to exactly one chapter, and no retired one does.
+
+    library/chapters.yaml holds membership AND order in one file (Deck Studio 3,
+    SPEC §1), which is what makes exclusivity structural rather than a convention.
+    This asserts the file and the library still agree.
+    """
+    import yaml
+
+    manifest = REPO_ROOT / "library" / "chapters.yaml"
+    slides_dir = REPO_ROOT / "library" / "slides"
+    if not manifest.exists() or not slides_dir.exists():
+        return []
+
+    chapters = yaml.safe_load(manifest.read_text(encoding="utf-8")) or []
+    listed: list[str] = [s for c in chapters for s in (c.get("slides") or [])]
+
+    live, retired = set(), set()
+    for d in sorted(slides_dir.iterdir()):
+        meta = d / "meta.yaml"
+        if not d.is_dir() or not meta.exists():
+            continue
+        data = yaml.safe_load(meta.read_text(encoding="utf-8")) or {}
+        (retired if data.get("retired") else live).add(d.name)
+
+    out = []
+    for sid in sorted({s for s in listed if listed.count(s) > 1}):
+        out.append(f"library/chapters.yaml: `{sid}` appears in more than one chapter")
+    for sid in sorted(live - set(listed)):
+        out.append(f"library/chapters.yaml: `{sid}` is live but in no chapter")
+    for sid in sorted(set(listed) - live - retired):
+        out.append(f"library/chapters.yaml: `{sid}` is listed but has no slide folder")
+    for sid in sorted(set(listed) & retired):
+        out.append(f"library/chapters.yaml: `{sid}` is retired but still in a chapter")
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="exit 1 when anything is stale")
     args = ap.parse_args()
 
-    problems = check()
+    problems = check() + check_chapters()
     if not problems:
         print(f"docs OK: {len(DOCS)} files, every referenced path exists.")
         return 0

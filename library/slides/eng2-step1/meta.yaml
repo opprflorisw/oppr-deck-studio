@@ -18,3 +18,11 @@ used_in:
 - engagement
 notes: Slim cut (engagement v3). v1's long-cut equivalent is the eng-* slide of the
   same name.
+chapter: ch-engagement
+goal: Step 1 · Analyze, in detail.
+why: 'Use when the reader has to understand what they are actually buying first. Always
+  with steps 2 and 3: one step alone reads as a hidden commitment.'
+with:
+- eng2-step2
+- step3
+- engagement-ladder

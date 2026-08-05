@@ -112,7 +112,8 @@ def main() -> int:
         pdf_object = _publish_pdf_if_any(sb, deckdir, deck_id, n)
         sb.insert("deck_versions", {"deck_id": deck_id, "n": n, "html": html,
                                     "change_note": args.note or "republished", "author": "cli",
-                                    "pdf_object": pdf_object})
+                                    "pdf_object": pdf_object,
+                                    "recipe": deck.get("_recipe")})
         sb.update("decks", {"id": deck_id}, {"current_version_n": n})
         print(f"published version {n} of {args.version_of} (deck {deck_id})")
         return 0
@@ -151,7 +152,8 @@ def main() -> int:
     pdf_object = _publish_pdf_if_any(sb, deckdir, deck_id, 1)
     sb.insert("deck_versions", {"deck_id": deck_id, "n": 1, "html": html,
                                 "change_note": args.note or "published from CLI", "author": "cli",
-                                "pdf_object": pdf_object})
+                                "pdf_object": pdf_object,
+                                "recipe": deck.get("_recipe")})
     print(f"published deck '{slug}' ({deck_id}) v1"
           + (" [master]" if args.master else ""))
     return 0

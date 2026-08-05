@@ -1,0 +1,28 @@
+id: step3
+role: step-detail
+title: Prove it on one line, then let it travel.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- commercial
+- engagement
+- scale
+images: []
+variables:
+- deck_footer
+- total
+used_in:
+- engagement
+notes: Step 3 of the engagement, in the same two-card style and sb3 band as eng2-step1
+  and eng2-step2. Renamed and restyled from eng-scale-path 2026-08-04.
+chapter: ch-engagement
+goal: Step 3 · Scale, in detail.
+why: New. Restyled from eng-scale-path so the three steps look like three steps. Use
+  it wherever steps 1 and 2 appear.
+with:
+- eng2-step1
+- eng2-step2
+- eng2-outcomes

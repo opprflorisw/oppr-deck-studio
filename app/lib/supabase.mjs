@@ -94,6 +94,21 @@ export async function download(objectPath) {
   return Buffer.from(await r.arrayBuffer());
 }
 
+// One level of a Storage "directory". Storage has no directories, so a prefix
+// ending in "/" is the closest thing: entries with a null id are the synthetic
+// folder rows Storage returns for deeper keys, and are reported as such.
+export async function list(prefix, limit = 1000) {
+  const { url } = cfg();
+  const r = await fetch(`${url}/storage/v1/object/list/${BUCKET}`, {
+    method: "POST",
+    headers: headers({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ prefix, limit, offset: 0, sortBy: { column: "name", order: "asc" } }),
+  });
+  if (!r.ok) throw new Error(`list ${prefix}: ${r.status} ${await r.text()}`);
+  const rows = await r.json();
+  return rows.map((e) => ({ name: e.name, isFolder: e.id === null }));
+}
+
 export async function copyObject(src, dst) {
   const { url } = cfg();
   const r = await fetch(`${url}/storage/v1/object/copy`, {

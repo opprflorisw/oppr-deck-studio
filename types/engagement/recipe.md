@@ -1,19 +1,58 @@
 ---
 type: engagement
-goal: >
-  Explain how getting on board works. Not an offer: a document that describes the
-  stepwise path from the data a plant already has to a verified case for
-  improvement: what each step produces, what it costs, and how the scope of the
-  next step comes out of the one before it. The reader should finish knowing what
-  would happen, and should not feel asked to sign anything.
-audiences: [operations leaders, plant management, process experts, project sponsors, and the people they forward it to (controllers, procurement)]
+goal: 'Explain how getting on board works. Not an offer: a document that describes the stepwise
+  path from the data a plant already has to a verified case for improvement: what each step
+  produces, what it costs, and how the scope of the next step comes out of the one before
+  it. The reader should finish knowing what would happen, and should not feel asked to sign
+  anything.
+
+  '
+audiences:
+- operations leaders
+- plant management
+- process experts
+- project sponsors
+- and the people they forward it to (controllers
+- procurement)
 default_language: en
 default_length: 12 slides (v4, current). v1 was 19; all versions stay in the history.
 presenter: Floris (Founder & CEO) unless specified
 entitlement_default: public
-canonical: decks/canonical/engagement
 derived_from: product-showcase
+picks:
+  ch-open:
+  - cover
+  ch-idea:
+  - eng2-idea
+  ch-problem:
+  - eng2-opportunity
+  ch-evidence:
+  - outcomes-reference
+  ch-engagement:
+  - engagement-ladder
+  - eng2-step1
+  - eng2-step2
+  - step3
+  - eng2-plan
+  - eng-criteria
+  ch-decision:
+  - eng2-outcomes
+  ch-commercials:
+  - eng-investment
+  ch-close:
+  - eng-next-step
+  - back-cover
+  ch-annex:
+  - eng-annex-a
+  - eng-annex-b
+skips:
+- ch-platform
+- ch-company
 ---
+
+<!-- picks/skips are the SUGGESTION for this deck type (Deck Studio 3, SPEC §2).
+     They are never a restriction: any slide can go in any deck. The deck's actual
+     picks are deck_versions.recipe in the backend. -->
 
 # Engagement — recipe
 

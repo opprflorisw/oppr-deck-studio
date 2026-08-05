@@ -15,5 +15,9 @@ variables:
 - total
 used_in:
 - engagement
+- product-showcase
+- management-outlook
 notes: One quote + the verified reference stats, for the reader who never saw the
   showcase. Verify WARNs on the verbatim 55,000 quote.
+retired: true
+retired_on: 2026-08-04

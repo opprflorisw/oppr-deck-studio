@@ -6,7 +6,7 @@
 // fragile outer measurement.
 
 import { $, $$, el, esc } from "../util.js";
-import { fillPreviewVars, fetchFragment } from "../preview.js";
+import { fillPreviewVars, fetchFragment, deckPageDoc } from "../preview.js";
 import { pageHtmlFor } from "./carousel-build.js";
 import { icon, ibtn } from "../icons.js";
 import { go } from "../router.js";
@@ -29,7 +29,11 @@ setTimeout(fit,20);setTimeout(fit,120);fit();})();</script>
 </body></html>`;
 }
 
-export function openDeckViewer(pages, { title = "", pdf = null, image = null, pdfUrl = null, onEdit = null } = {}) {
+// `onMove(index, delta)` turns the viewer into a place you can FIX the order,
+// not only inspect it. You notice the problem on page 6; you fix it on page 6.
+// It returns the fresh page list and where the moved slide ended up, so the
+// caller stays the single owner of the order and the viewer never guesses.
+export function openDeckViewer(pages, { title = "", pdf = null, image = null, pdfUrl = null, onEdit = null, onMove = null } = {}) {
   if (!pages.length) return;
   let i = 0;
 
@@ -42,6 +46,10 @@ export function openDeckViewer(pages, { title = "", pdf = null, image = null, pd
         <header>
           <b>${esc(title)}</b>
           <span class="viewer-count mono"></span>
+          ${onMove ? `<span class="viewer-move">
+            <button class="ghost sm mv-up" title="Move this slide earlier">&uarr; Earlier</button>
+            <button class="ghost sm mv-dn" title="Move this slide later">&darr; Later</button>
+          </span>` : ""}
           <div class="spacer"></div>
           ${onEdit ? `<button class="primary edit-here">${ibtn("compose", "Edit")}</button>` : ""}
           ${pdfHref ? `<a class="ghost" href="${pdfHref}" download>${ibtn("download", "PDF")}</a>` : ""}
@@ -58,22 +66,58 @@ export function openDeckViewer(pages, { title = "", pdf = null, image = null, pd
     </div>`);
 
   const iframe = $(".viewer-frame", m);
+  const strip = $(".viewer-strip", m);
+
+  const paintStrip = () => {
+    strip.innerHTML = pages.map((p, k) =>
+      `<button class="vdot" data-i="${k}" title="${esc(p.label || "")}">${k + 1}</button>`).join("");
+  };
+
+  // A slow render must never overwrite a newer one: with reorder in the header
+  // it is easy to move twice before the first page has drawn.
+  let token = 0;
   const show = async () => {
+    const mine = ++token;
     $(".viewer-count", m).textContent = `${i + 1} / ${pages.length}`;
     $(".prev", m).disabled = i === 0;
     $(".next", m).disabled = i === pages.length - 1;
+    const up = $(".mv-up", m), dn = $(".mv-dn", m);
+    if (up) up.disabled = i === 0;
+    if (dn) dn.disabled = i === pages.length - 1;
     $$(".vdot", m).forEach((d, k) => d.classList.toggle("active", k === i));
     const active = $$(".vdot", m)[i];
     if (active) active.scrollIntoView({ block: "nearest", inline: "nearest" });
-    iframe.srcdoc = await pages[i].render();
+    const html = await pages[i].render();
+    if (mine === token) iframe.srcdoc = html;
   };
   const move = (d) => { const n = Math.max(0, Math.min(pages.length - 1, i + d)); if (n !== i) { i = n; show(); } };
 
+  // Reorder in place. The caller owns the order and hands back the new pages,
+  // so the two views can never drift apart.
+  const reorder = (d) => {
+    const next = onMove(i, d);
+    if (!next || !next.pages?.length) return;
+    pages = next.pages;
+    i = Math.max(0, Math.min(pages.length - 1, next.index ?? i));
+    paintStrip();
+    show();
+  };
+
   $(".prev", m).addEventListener("click", () => move(-1));
   $(".next", m).addEventListener("click", () => move(1));
-  $$(".vdot", m).forEach((d) => d.addEventListener("click", () => { i = +d.dataset.i; show(); }));
+  $(".mv-up", m)?.addEventListener("click", () => reorder(-1));
+  $(".mv-dn", m)?.addEventListener("click", () => reorder(1));
+  strip.addEventListener("click", (e) => {
+    const d = e.target.closest(".vdot");
+    if (d) { i = +d.dataset.i; show(); }
+  });
 
   const onKey = (e) => {
+    // Alt+arrow moves the slide; plain arrows page through it. Same keys people
+    // already use to reorder a list, and it cannot be hit by accident.
+    if (e.altKey && onMove && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      e.preventDefault(); return reorder(e.key === "ArrowLeft" ? -1 : 1);
+    }
     if (e.key === "ArrowLeft") { e.preventDefault(); move(-1); }
     else if (e.key === "ArrowRight") { e.preventDefault(); move(1); }
     else if (e.key === "Escape") close();
@@ -135,6 +179,28 @@ export async function deckVersionViewer(api, deckId, n, title, hasPdf = false) {
     pdfUrl: api.deckPdfUrl(deckId, n),
     onEdit: () => go(`/deck/${deckId}/edit`),
   });
+}
+
+// A deck that does not exist yet: the builder's picks, in the builder's order,
+// rendered from the live library with the deck's OWN footer, cover meta and page
+// numbers. This is the "press View" surface — what you are about to publish,
+// not an approximation of it.
+export function recipePages(order, vars) {
+  const total = String(order.length);
+  return order.map((sid, i) => ({
+    label: sid,
+    render: async () =>
+      scaledDocFromDoc(deckPageDoc(await fetchFragment(sid), { ...vars, total }, i)),
+  }));
+}
+
+// Take a complete single-slide document and make it fit the viewer stage. The
+// scaling shell needs head and body separately, so split once rather than
+// duplicating deckPageDoc's head here and letting the two drift.
+function scaledDocFromDoc(doc) {
+  const d = new DOMParser().parseFromString(doc, "text/html");
+  const head = [...d.head.querySelectorAll('link[rel="stylesheet"], style')].map((n) => n.outerHTML).join("");
+  return scaledDoc(head, d.body.innerHTML, 1280, 720);
 }
 
 // A draft deck: library slides render live; new-slide slots show a placeholder.

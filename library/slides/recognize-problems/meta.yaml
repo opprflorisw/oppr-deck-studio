@@ -17,3 +17,9 @@ variables:
 used_in:
 - product-showcase
 notes: Five familiar problems, summarised to recurring/knowledge/data.
+chapter: ch-problem
+goal: Let the reader recognise their own plant.
+why: Use when the audience is operational and will nod at specifics. Skip for a board
+  audience that wants the abstraction straight away.
+with:
+- eng2-opportunity

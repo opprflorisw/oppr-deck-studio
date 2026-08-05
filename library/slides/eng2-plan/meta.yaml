@@ -18,3 +18,10 @@ used_in:
 - engagement
 notes: Slim cut (engagement v3). v1's long-cut equivalent is the eng-* slide of the
   same name.
+chapter: ch-engagement
+goal: The thirteen weeks on a timeline.
+why: Use when someone has to plan around it. Redundant in a short deck where the ladder
+  already carries the durations.
+with:
+- engagement-ladder
+- eng2-step2

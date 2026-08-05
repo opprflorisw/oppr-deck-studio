@@ -14,7 +14,12 @@ images: []
 variables:
 - deck_footer
 - total
-used_in:
-- product-showcase
-- management-outlook
+used_in: []
 notes: Four outcomes + the verified reference-case stat grid.
+chapter: ch-evidence
+goal: The hard numbers from one verified plant.
+why: The strongest single slide in the library. Use it in any deck that has to be
+  believed.
+with:
+- evidence-quotes
+- kpi-payback

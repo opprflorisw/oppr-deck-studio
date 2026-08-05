@@ -119,8 +119,11 @@ export const setDeckMaster = (id, is_master) => jpost(`/api/decks/${id}/master`,
 export const registerDeckAsset = (id, source, cache_version) => jpost(`/api/decks/${id}/assets`, { source, cache_version });
 export const personalizeDeck = (id, payload) => jpost(`/api/decks/${id}/personalize`, payload);
 export const buildDeck = (id) => jpost(`/api/decks/${id}/build`, {});
-export const renameDeck = (id, patch) =>
+// One PATCH for everything about the artifact that is not its content: title,
+// filename core, note, star, post text. None of them makes a version.
+export const patchDeck = (id, patch) =>
   j(`/api/decks/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
+export const renameDeck = patchDeck;
 
 // Download the PDF for a version. The server prints on demand when the version
 // has no PDF yet, so what arrives always matches what is on screen. A verify
@@ -163,3 +166,31 @@ export const resetAccountPassword = (id, password) =>
   jpost(`/api/accounts/${id}/password`, { password });
 export const getAudit = (params = {}) =>
   j("/api/audit?" + new URLSearchParams(params).toString());
+
+// === the deck builder (Deck Studio 3) =======================================
+// The chapter set + every slide's pickable state, from the backend mirrors, so
+// this works hosted as well as locally.
+export const getLibraryChapters = () => j("/api/library/chapters");
+// Archive demotes a slide from the picker. It is NOT the repo's `retired` flag:
+// the app never writes library/. `check-drift.py --apply-archives` promotes it.
+export const archiveSlide = (slideId, archived, note = "") =>
+  jpost(`/api/library/slides/${encodeURIComponent(slideId)}/archive`, { archived, note });
+// Build a deck from a chapter recipe. Runs the CLI pipeline, so verify blocks.
+// Returns { job_id } immediately: the pipeline is five real gates over 30-60
+// seconds, and watching them arrive is the difference between a progress bar
+// and a disabled button.
+export const startRecipeBuild = (recipe) => jpost("/api/build", recipe);
+export const getBuildJob = (jobId) => j(`/api/build/${encodeURIComponent(jobId)}`);
+
+// Everything the builder needs to open a deck: published picks, unpublished
+// draft, and the facts a new version inherits and may not change.
+export const getDeckRecipe = (id) => j(`/api/decks/${id}/recipe`);
+
+// The working recipe, saved server-side so composing survives a reload and is
+// not trapped in one browser. Never a version: publishing is what makes one.
+export const getDeckDraft = (id) => j(`/api/decks/${id}/draft`);
+export const putDeckDraft = (id, draft) =>
+  j(`/api/decks/${id}/draft`, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draft }),
+  });
+export const clearDeckDraft = (id) => j(`/api/decks/${id}/draft`, { method: "DELETE" });

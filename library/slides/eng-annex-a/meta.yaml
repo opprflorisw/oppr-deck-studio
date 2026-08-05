@@ -17,3 +17,8 @@ variables:
 used_in:
 - engagement
 notes: What the self-contained PoV/SOW document contains. Optional in a lean cut.
+chapter: ch-annex
+goal: Detail held back from the main flow.
+why: Use only in a document that will be read alone rather than presented.
+with:
+- eng-annex-b

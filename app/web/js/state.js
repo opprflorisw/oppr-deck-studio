@@ -30,6 +30,9 @@ export async function loadBackend(api) {
     state.backend = { decks: [], customers: [], ok: false };
     state.slideUsage = {};
   }
+  // The rail reads the count itself at render time (sidebar.js), so it survives
+  // navigation. This only nudges it to redraw once the decks have arrived.
+  document.dispatchEvent(new CustomEvent("oppr:backend-loaded"));
   return state.backend;
 }
 
@@ -62,6 +65,7 @@ export function updateDraftCount() {
   const n = state.draft.slides.length;
   document.querySelectorAll("[data-draft-count]").forEach((e) => (e.textContent = n));
 }
+
 
 export function setSlideView(v) {
   state.slideView = v;

@@ -22,9 +22,16 @@ variables:
 used_in:
 - product-showcase
 notes: Floorplan -> log builder -> take a round. Product screenshots.
-blocked: >
-  2026-08-01: all three screenshots on this slide (logs-desktop-floorplan,
-  logs-desktop-builder, logs-app-round) show live Holliday tenant state and
-  were reclassified from public to `holliday`. The slide cannot be composed
-  into a public deck until it is reshot from a demo tenant with fictional
-  names (carousel playbook A4).
+blocked: '2026-08-01: all three screenshots on this slide (logs-desktop-floorplan,
+  logs-desktop-builder, logs-app-round) show live Holliday tenant state and were reclassified
+  from public to `holliday`. The slide cannot be composed into a public deck until
+  it is reshot from a demo tenant with fictional names (carousel playbook A4).
+
+  '
+chapter: ch-platform
+goal: Show the environment being configured on a real floorplan.
+why: 'The most concrete proof that this is a working product. Blocked today: its screenshots
+  are entitled to one customer.'
+with:
+- product-flow-insight
+- platform-cce

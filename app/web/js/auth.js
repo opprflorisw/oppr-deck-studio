@@ -74,6 +74,17 @@ async function refresh() {
   });
   if (!r.ok) { save(null); return false; }
   save(await r.json());
+  // Re-mirror the new access token into the HttpOnly cookie.
+  //
+  // That cookie is what gates /repo and /deck-cache, because an <img>, an
+  // <iframe> and a download link cannot send an Authorization header. The
+  // server sets it ONLY on /api/me, and its value is the access token, which
+  // expires in about an hour. Without this ping the cookie kept the token we
+  // just replaced: /api/* calls carried on fine on the fresh bearer while every
+  // slide fragment, thumbnail and brand image started coming back "sign in
+  // first" and rendering that text as the slide.
+  try { await fetch("/api/me", { headers: { Authorization: `Bearer ${token()}` } }); }
+  catch { /* the next /api/me will fix it; the session itself is still good */ }
   return true;
 }
 

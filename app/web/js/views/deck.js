@@ -11,6 +11,31 @@ import { icon, ibtn } from "../icons.js";
 import { deckVersionViewer } from "./viewer.js";
 import { openPersonalize } from "./personalize.js";
 import { explain, summarize } from "../verify.js";
+import { openPostEditor } from "../postedit.js";
+import { mountNote } from "../note.js";
+
+// Which kinds carry post copy. Same set artifacts.js uses; a carousel and an
+// image both go out with text above them, a deck does not.
+const SOCIAL_KINDS = new Set(["carousel", "image", "article", "post"]);
+
+// "Edit" is two jobs, and the server already knows they are two jobs:
+// `htmlcheck.mjs` allows text and attribute changes and rejects everything
+// structural. So the button says so out loud rather than sending you to one
+// editor that refuses half of what you came to do.
+//
+// Only a deck has a slide sorter — a carousel or a social image is not composed
+// from library slides, so it keeps the single door it always had.
+function editDoors(deck) {
+  const isDeck = !deck.kind || deck.kind === "deck";
+  if (!isDeck) return `<button class="primary" id="edit">${ibtn("compose", "Edit")}</button>`;
+  return `
+    <span class="split-btn">
+      <button class="primary" id="edit-slides" title="Which slides, and in what order">
+        ${ibtn("cards", "Edit slides")}</button>
+      <button class="ghost" id="edit" title="Words, spacing and images, in place">
+        ${ibtn("text", "Edit text")}</button>
+    </span>`;
+}
 
 export function offlinePanel(area) {
   return el(`<div>
@@ -29,6 +54,7 @@ export async function renderDetail(id, mount) {
   catch { return mount(offlinePanel("Deck")); }
   const { deck, versions, family } = data;
   const pdf = data.pdf || { name: "", current: false, verify: null };
+  const current = versions.find((v) => v.n === deck.current_version_n);
 
   const badges = [
     deck.is_master ? `<span class="badge badge--master">MASTER</span>` : "",
@@ -44,19 +70,33 @@ export async function renderDetail(id, mount) {
       </div>
       <div class="deck-detail-head">
         <div class="deck-id">
-          <h1>${esc(decodeEntities(deck.title))}</h1>
-          <div class="cust-meta">${badges}<span class="mono note">${esc(deck.slug)}</span></div>
+          <div class="row-title">
+            <button class="star-btn ${deck.starred ? "on" : ""}" id="star"
+                    title="${deck.starred ? "Starred — click to remove" : "Star this so it sorts first"}"
+                    aria-pressed="${deck.starred ? "true" : "false"}">${icon("star", 18)}</button>
+            <h1>${esc(decodeEntities(deck.title))}</h1>
+          </div>
+          <div class="cust-meta">${badges}<span class="mono note">${esc(deck.slug)}</span>
+            <span class="note">${current ? `${current.page_count || "?"} pages` : ""}</span></div>
+          <div class="row-note detail-note"></div>
         </div>
         <div class="deck-actions">
           <button class="ghost" id="open">${ibtn("preview", "Open")}</button>
-          <button class="primary" id="edit">${ibtn("compose", "Edit")}</button>
+          ${editDoors(deck)}
+          ${SOCIAL_KINDS.has(deck.kind) ? `<button class="ghost" id="posttext">${ibtn("text", "Post text")}</button>` : ""}
           <button class="ghost" id="download">${ibtn("download", "Download PDF")}</button>
           <button class="ghost" id="rename">${ibtn("compose", "Rename")}</button>
           ${deck.is_master ? `<button class="ghost" id="personalize">${ibtn("clone", "Personalize")}</button>` : ""}
           <button class="ghost" id="master">${deck.is_master ? ibtn("layers", "Master ✓") : ibtn("layers", "Make master")}</button>
+          <button class="ghost ${deck.archived ? "" : "danger"}" id="archive"
+                  title="${deck.archived
+                    ? "Bring this deck back into the index"
+                    : "Take it out of the index. Nothing is deleted: every version and PDF stays."}">
+            ${deck.archived ? ibtn("history", "Restore") : ibtn("trash", "Archive")}</button>
         </div>
       </div>
       ${pdfStatusBar(pdf, deck)}
+      ${draftBanner(deck)}
       ${deck.status === "needs_cli" ? needsCliBanner(deck) : ""}
       <div id="build-status"></div>
       ${findingsBlock(pdf.verify)}
@@ -66,9 +106,36 @@ export async function renderDetail(id, mount) {
     </div>`);
 
   const cur = deck.current_version_n;
+  // The note and the star are the same controls as in the list, on purpose: what
+  // you write about an artifact should be writable wherever you are looking at
+  // it, and read back identically in both places.
+  mountNote(wrap, deck, { placeholder: "Add a note (shown in the overview)…" });
+  $("#star", wrap).addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const next = !deck.starred;
+    deck.starred = next;
+    btn.classList.toggle("on", next);
+    btn.setAttribute("aria-pressed", String(next));
+    try { await api.patchDeck(deck.id, { starred: next }); await loadBackend(api); }
+    catch (err) { deck.starred = !next; btn.classList.toggle("on", !next); toast(err.message || "could not save the star"); }
+  });
+  $("#posttext", wrap)?.addEventListener("click", () =>
+    openPostEditor(deck, deck.post_text || "", (text) => { deck.post_text = text; }));
   $("#back", wrap).addEventListener("click", () => history.length > 1 ? history.back() : go("/output/masters"));
   $("#open", wrap).addEventListener("click", () => deckVersionViewer(api, deck.id, cur, decodeEntities(deck.title), versions.find((v) => v.n === cur)?.has_pdf));
   $("#edit", wrap).addEventListener("click", () => go(`/deck/${deck.id}/edit`));
+  $("#edit-slides", wrap)?.addEventListener("click", () => go(`/build/${deck.id}`));
+  $("#archive", wrap).addEventListener("click", async () => {
+    const next = !deck.archived;
+    try {
+      await api.patchDeck(deck.id, { archived: next });
+      await loadBackend(api);
+      toast(next
+        ? "Archived. It is out of the index; every version and PDF is untouched."
+        : "Back in the index.");
+      renderDetail(deck.id, mount);
+    } catch (e) { toast(e.message || "could not change that"); }
+  });
   $("#download", wrap).addEventListener("click", () => downloadCurrent(deck, cur, wrap, mount));
   $("#rename", wrap).addEventListener("click", () => openRename(deck, pdf.name, mount));
   $("#personalize", wrap)?.addEventListener("click", () => openPersonalize(deck));
@@ -106,6 +173,21 @@ function pdfStatusBar(pdf, deck) {
     ${state}
     <span class="mono">${esc(pdf.name || "—")}</span>
     <span class="note">${esc(note)}</span>
+  </div>`;
+}
+
+// A deck left half-composed in the builder. It changes nothing about the
+// published version — that is the point — but a deck page that stayed silent
+// about it would let you forget the work entirely.
+function draftBanner(deck) {
+  if (!deck.draft_recipe) return "";
+  const n = (deck.draft_recipe.order || []).length;
+  return `<div class="bnotice">
+    <b>Unpublished changes in the deck builder</b>
+    <span class="note">${n} slide${n === 1 ? "" : "s"} picked, last saved
+      ${esc((deck.draft_updated_at || "").slice(0, 10))}. v${deck.current_version_n}
+      and its PDF are untouched until you publish.</span>
+    <a class="btn sm" href="#/build/${esc(deck.id)}">Open the builder</a>
   </div>`;
 }
 

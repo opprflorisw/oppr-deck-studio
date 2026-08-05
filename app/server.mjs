@@ -41,6 +41,57 @@ import * as jobs from "./lib/jobs.mjs";
 import { pdfNameFor, printElement } from "./lib/jobs.mjs";
 import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./lib/deckcache.mjs";
 
+/**
+ * Which pages of a published version no longer match their library slide.
+ *
+ * Deck Studio 3, SPEC §3. The recipe stores the hash each slide had at publish;
+ * `library_slides` stores the hash it has now. A mismatch means the NEXT version
+ * of this deck would differ — never that anything already published has changed.
+ * A version without a recipe (pre-model, or a social artifact with no library
+ * parentage) is simply not comparable, and reports nothing.
+ */
+// --- reading a pre-schema-2 recipe back out of the published document --------
+// The values were rendered into the page, so they are recoverable; this is only
+// ever a fallback, and every publish from now on records them properly.
+
+function varsFromHtml(html) {
+  const s = String(html || "");
+  const strip = (x) => String(x || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+  // The footer's meta is the second <span>, and the editor wraps it in a
+  // `data-slot` span of its own, so the value has to be un-tagged rather than
+  // taken raw. `.meta` on the cover is where cover_meta lands (cover/slide.html).
+  const foot = /<footer class="slide-foot">[\s\S]*?<\/span>\s*<span[^>]*>([\s\S]*?)<\/span>\s*<span class="pageno"/.exec(s)
+            || /<footer class="slide-foot">[\s\S]*?<\/span>\s*<span[^>]*>([\s\S]*?)<\/span>/.exec(s);
+  const cover = /<p class="meta"[^>]*>([\s\S]*?)<\/p>/.exec(s);
+  const out = { deck_footer: strip(foot && foot[1]), cover_meta: strip(cover && cover[1]) };
+  // Anything else a slide asked for. Recovering these by name is not possible
+  // from the rendered page, so the one that matters in practice is read from
+  // the sentence it sits in; the rest fall back to the library default.
+  const start = /on the floor from ([^<.]+)\./.exec(s);
+  if (start) out.start_target = strip(start[1]);
+  return out;
+}
+
+function orderFromHtml(html) {
+  return [...String(html || "").matchAll(/data-slide-id="([^"]+)"/g)].map((m) => m[1]);
+}
+
+function driftOf(recipe, libHash) {
+  if (!recipe || !Array.isArray(recipe.chapters)) return [];
+  const out = [];
+  for (const chapter of recipe.chapters) {
+    for (const s of chapter.slides || []) {
+      const now = libHash.get(s.slide_id);
+      if (now === undefined) {
+        out.push({ slide_id: s.slide_id, chapter: chapter.id, reason: "gone" });
+      } else if (s.content_hash && now !== s.content_hash) {
+        out.push({ slide_id: s.slide_id, chapter: chapter.id, reason: "changed" });
+      }
+    }
+  }
+  return out;
+}
+
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(APP_DIR, "..");
 const WEB_DIR = path.join(APP_DIR, "web");
@@ -52,13 +103,13 @@ const INDEX_JSON = path.join(APP_DIR, "index.json");
 // Last 30 days research: the run archive + the accumulated brain. Read-only to
 // the app except for the rebuild/sync actions, which shell out to the CLI tool
 // and to Storage respectively — the app never hand-edits a run or the brain.
+// Read through researchRead/researchList, never straight off this path: hosted
+// there is no repo on disk and the same files are served from Storage.
+// Two files under it are app-owned rather than run output:
+//   posts/_status.json  — which ideas have been spent (the .md files stay pristine)
+//   performance.json    — engagement samples per posted item, keyed by draft slug,
+//                         the feedback the aggregator folds back into the brain.
 const RESEARCH_DIR = path.join(REPO_ROOT, "research", "last30days");
-// Which ideas have already been spent (app-owned; the post .md files stay pristine).
-const IDEA_STATUS_FILE = path.join(RESEARCH_DIR, "posts", "_status.json");
-// The feedback signal: engagement samples per posted item, keyed by draft slug.
-// Lives under research/ because it closes the loop back into the brain — the
-// aggregator reads it to tell which themes an audience actually responded to.
-const PERFORMANCE_FILE = path.join(RESEARCH_DIR, "performance.json");
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4173;
 // Localhost by default: this is a local tool and should not be reachable from
@@ -317,21 +368,76 @@ function frontmatter(text) {
   return { meta, body: m[2] };
 }
 
-const readJsonOr = async (abs, fallback) => (await readJsonFile(abs)) || fallback;
-const writeJson = async (abs, obj) => {
-  await fsp.mkdir(path.dirname(abs), { recursive: true });
-  await fsp.writeFile(abs, JSON.stringify(obj, null, 2) + "\n", "utf-8");
-};
+// --- reading research, on disk or hosted -------------------------------------
+//
+// Last 30 days read "No brain yet" the moment the app was hosted, for the same
+// reason Knowledge read "Could not load": research/ is a repo folder, and hosted
+// there is no repo on disk. The runs are already mirrored into Storage by the
+// Sync action, so every read here is disk first, Storage second, and the same
+// code serves both. Nothing below cares which one answered.
+const RESEARCH_PREFIX = "research/last30days";
+
+async function researchRead(rel) {
+  try { return await fsp.readFile(path.join(RESEARCH_DIR, rel)); } catch { /* hosted */ }
+  if (!supabaseConfigured()) return null;
+  try { return await db.download(`${RESEARCH_PREFIX}/${rel}`); } catch { return null; }
+}
+
+async function researchReadJson(rel, fallback = null) {
+  const buf = await researchRead(rel);
+  if (!buf) return fallback;
+  try { return JSON.parse(buf.toString("utf-8")); } catch { return fallback; }
+}
+
+// One level of a research folder. `folders` picks directories over files, which
+// is the difference between listing the runs and listing the ideas.
+async function researchList(rel, { folders = false } = {}) {
+  try {
+    const ents = await fsp.readdir(path.join(RESEARCH_DIR, rel), { withFileTypes: true });
+    return ents.filter((e) => (folders ? e.isDirectory() : e.isFile())).map((e) => e.name).sort();
+  } catch { /* hosted */ }
+  if (!supabaseConfigured()) return [];
+  try {
+    const rows = await db.list(`${RESEARCH_PREFIX}/${rel ? rel + "/" : ""}`);
+    return rows.filter((e) => e.isFolder === folders).map((e) => e.name).sort();
+  } catch { return []; }
+}
+
+// The two research files the app itself writes (which ideas are spent, and the
+// engagement readings). Disk when there is a repo, Storage when there is not, so
+// recording a reading works hosted instead of failing on a read-only filesystem.
+async function researchWriteJson(rel, obj) {
+  const text = JSON.stringify(obj, null, 2) + "\n";
+  const abs = path.join(RESEARCH_DIR, rel);
+  if (fs.existsSync(RESEARCH_DIR)) {
+    await fsp.mkdir(path.dirname(abs), { recursive: true });
+    await fsp.writeFile(abs, text, "utf-8");
+  }
+  // Storage is kept in step either way: hosted it is the only copy, and locally
+  // it stops the two from drifting until the next Sync.
+  if (supabaseConfigured()) {
+    try { await db.upload(`${RESEARCH_PREFIX}/${rel}`, Buffer.from(text, "utf-8"), mimeFor(rel)); }
+    catch { if (!fs.existsSync(RESEARCH_DIR)) throw new Error("could not save: no disk and no backend"); }
+  }
+}
+
+// A research text file over the same disk-then-Storage path as everything else.
+async function sendResearchText(res, rel) {
+  const buf = await researchRead(rel);
+  if (!buf) return send(res, 404, "Not found");
+  return send(res, 200, buf, { "Content-Type": "text/plain; charset=utf-8" });
+}
 
 async function listResearchPosts() {
-  const dir = path.join(RESEARCH_DIR, "posts");
-  let names = [];
-  try { names = (await fsp.readdir(dir)).filter((n) => n.endsWith(".md") && !n.startsWith("_")).sort(); } catch { return []; }
-  const status = await readJsonOr(IDEA_STATUS_FILE, {});
+  const names = (await researchList("posts")).filter((n) => n.endsWith(".md") && !n.startsWith("_"));
+  if (!names.length) return [];
+  const status = await researchReadJson("posts/_status.json", {});
   const out = [];
   for (const file of names) {
     try {
-      const { meta, body } = frontmatter(await fsp.readFile(path.join(dir, file), "utf-8"));
+      const raw = await researchRead(`posts/${file}`);
+      if (!raw) continue;
+      const { meta, body } = frontmatter(raw.toString("utf-8"));
       const st = status[file] || {};
       out.push({
         file,
@@ -357,8 +463,17 @@ async function promoteIdea(file, rawBody) {
   let over = {};
   try { over = rawBody ? JSON.parse(rawBody) : {}; } catch { /* optional overrides */ }
 
-  const src = path.join(RESEARCH_DIR, "posts", file);
-  const { meta, body } = frontmatter(await fsp.readFile(src, "utf-8"));
+  // Promote writes a draft into social/drafts/, which is repo scratch the CLI
+  // then builds. Hosted there is no repo, so say that plainly instead of failing
+  // on a read-only filesystem halfway through.
+  if (!fs.existsSync(REPO_ROOT) || !fs.existsSync(path.join(REPO_ROOT, "social"))) {
+    const e = new Error("Promoting writes a draft into the repo, so it needs the CLI. Run /deckbuilder locally.");
+    e.code = "ENOREPO";
+    throw e;
+  }
+  const raw = await researchRead(`posts/${file}`);
+  if (!raw) { const e = new Error("no such idea"); e.code = "ENOENT"; throw e; }
+  const { meta, body } = frontmatter(raw.toString("utf-8"));
   const kind = meta.kind || "linkedin-post";
   const date = (meta.date || new Date().toISOString().slice(0, 10)).slice(0, 10);
   const name = file.replace(/\.md$/, "").replace(/^\d+[-_]/, "");
@@ -389,23 +504,23 @@ async function promoteIdea(file, rawBody) {
     hero = { ok: r.ok, out: r.out.trim() };
   }
 
-  const status = await readJsonOr(IDEA_STATUS_FILE, {});
+  const status = await researchReadJson("posts/_status.json", {});
   status[file] = { status: "promoted", slug, promoted_at: new Date().toISOString().slice(0, 10) };
-  await writeJson(IDEA_STATUS_FILE, status);
+  await researchWriteJson("posts/_status.json", status);
 
   // Seed the performance record so the post shows up as awaiting a link, which
   // is what makes an unposted draft visible instead of silently forgotten.
-  const perf = await readJsonOr(PERFORMANCE_FILE, { posts: {} });
+  const perf = await readPerformance();
   perf.posts[slug] = perf.posts[slug] || {
     slug, title: draft.title, kind, source_idea: file, themes: draft.themes,
     posted_date: "", url: "", samples: [],
   };
-  await writeJson(PERFORMANCE_FILE, perf);
+  await researchWriteJson("performance.json", perf);
 
   return { ok: true, slug, kind, hero, prompt: `/deckbuilder build social ${slug}` };
 }
 
-const readPerformance = () => readJsonOr(PERFORMANCE_FILE, { posts: {} });
+const readPerformance = () => researchReadJson("performance.json", { posts: {} });
 
 // One record per promoted post. `sample` appends a dated engagement reading;
 // everything else merges, so recording the LinkedIn URL and adding numbers a
@@ -430,18 +545,17 @@ async function updatePerformance(slug, d) {
   }
   if (d.delete_sample != null) rec.samples.splice(Number(d.delete_sample), 1);
   perf.posts[slug] = rec;
-  await writeJson(PERFORMANCE_FILE, perf);
+  await researchWriteJson("performance.json", perf);
   return { ok: true, record: rec };
 }
 
 async function listResearchRuns() {
-  const dir = path.join(RESEARCH_DIR, "runs");
-  let names = [];
-  try { names = (await fsp.readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name); } catch { return []; }
+  const names = await researchList("runs", { folders: true });
   const out = [];
-  for (const slug of names.sort()) {
-    const r = await readJsonFile(path.join(dir, slug, "run.json"));
+  for (const slug of names) {
+    const r = await researchReadJson(`runs/${slug}/run.json`);
     if (!r) continue;
+    const files = await researchList(`runs/${slug}`);
     const counts = (r.sources && r.sources.counts) || {};
     out.push({
       slug: r.slug || slug, date: r.date || "", topic: r.topic || slug,
@@ -451,8 +565,10 @@ async function listResearchRuns() {
       themes: (r.themes || []).length, findings: (r.findings || []).length,
       missing: (r.sources && r.sources.missing) || [],
       degraded: (r.sources && r.sources.degraded) || [],
-      has_raw: fs.existsSync(path.join(dir, slug, "raw.md")),
-      has_brief: fs.existsSync(path.join(dir, slug, "brief.html")),
+      // What the run folder actually holds, so the UI does not offer a Raw
+      // evidence button that opens nothing.
+      has_raw: files.includes("raw.md"),
+      has_brief: files.includes("brief.html"),
     });
   }
   out.sort((a, b) => (b.date || "").localeCompare(a.date || "") || a.slug.localeCompare(b.slug));
@@ -460,10 +576,13 @@ async function listResearchRuns() {
 }
 
 async function researchIndex() {
-  const brain = await readJsonFile(path.join(RESEARCH_DIR, "brain.json"));
+  const brain = await researchReadJson("brain.json");
+  const runs = await listResearchRuns();
   return {
     ok: true,
-    configured: fs.existsSync(RESEARCH_DIR),
+    // "Is there any research to show" is a question about content, not about
+    // whether this particular machine has the folder checked out.
+    configured: fs.existsSync(RESEARCH_DIR) || Boolean(brain) || runs.length > 0,
     backend: supabaseConfigured(),
     brain: brain
       ? {
@@ -478,7 +597,7 @@ async function researchIndex() {
           coverage: brain.coverage || {},
         }
       : null,
-    runs: await listResearchRuns(),
+    runs,
     posts: await listResearchPosts(),
     performance: Object.values((await readPerformance()).posts || {}),
   };
@@ -905,29 +1024,29 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, await researchIndex());
   }
   if (req.method === "GET" && p === "/api/research/brain") {
-    const b = await readJsonFile(path.join(RESEARCH_DIR, "brain.json"));
+    const b = await researchReadJson("brain.json");
     if (!b) return sendJson(res, 404, { error: "no brain yet", hint: "python tools/research-brain.py" });
     return sendJson(res, 200, b);
   }
   if (req.method === "GET" && p === "/api/research/brain.md") {
-    return serveText(res, path.join(RESEARCH_DIR, "brain.md"));
+    return sendResearchText(res, "brain.md");
   }
   let rm = p.match(/^\/api\/research\/runs\/([^/]+)$/);
   if (req.method === "GET" && rm) {
     if (!SLUG_RE.test(rm[1])) return sendJson(res, 400, { error: "bad slug" });
-    const r = await readJsonFile(path.join(RESEARCH_DIR, "runs", rm[1], "run.json"));
+    const r = await researchReadJson(`runs/${rm[1]}/run.json`);
     if (!r) return sendJson(res, 404, { error: "no such run" });
     return sendJson(res, 200, r);
   }
   rm = p.match(/^\/api\/research\/runs\/([^/]+)\/raw$/);
   if (req.method === "GET" && rm) {
     if (!SLUG_RE.test(rm[1])) return send(res, 400, "bad slug");
-    return serveText(res, path.join(RESEARCH_DIR, "runs", rm[1], "raw.md"));
+    return sendResearchText(res, `runs/${rm[1]}/raw.md`);
   }
   rm = p.match(/^\/api\/research\/posts\/([^/]+)$/);
   if (req.method === "GET" && rm) {
     if (!SLUG_RE.test(rm[1])) return send(res, 400, "bad slug");
-    return serveText(res, path.join(RESEARCH_DIR, "posts", rm[1]));
+    return sendResearchText(res, `posts/${rm[1]}`);
   }
   // Promote an idea into a social draft. This is the gate between "thinking out
   // loud" and "something we intend to ship": it copies the body into
@@ -939,7 +1058,10 @@ async function handleApi(req, res, url) {
     const file = rm[1];
     if (!SLUG_RE.test(file) || !file.endsWith(".md")) return sendJson(res, 400, { error: "bad post" });
     try { return sendJson(res, 200, await promoteIdea(file, await readBody(req))); }
-    catch (e) { return sendJson(res, e.code === "ENOENT" ? 404 : 500, { error: String(e.message || e) }); }
+    catch (e) {
+      const code = e.code === "ENOENT" ? 404 : e.code === "ENOREPO" ? 501 : 500;
+      return sendJson(res, code, { error: String(e.message || e) });
+    }
   }
 
   // Performance: the engagement samples behind "is this working".
@@ -1060,7 +1182,9 @@ async function handleDeckApi(req, res, url) {
   const p = url.pathname;
   const isDeckRoute = p.startsWith("/api/decks") || p.startsWith("/api/customers2")
     || p.startsWith("/api/publish-log") || p.startsWith("/api/jobs")
-    || p === "/api/slide-usage";
+    // startsWith, not ===: the build job is polled at /api/build/<job_id>, and
+    // an exact match sent every poll to a 404 while the build ran fine.
+    || p === "/api/slide-usage" || p.startsWith("/api/library") || p.startsWith("/api/build");
   if (!isDeckRoute) return undefined;
   if (!requireBackend(res)) return;
 
@@ -1130,23 +1254,191 @@ async function handleDeckApi(req, res, url) {
       // The list needs each artifact's CURRENT-version state, or the row can only
       // say "v3" and not whether v3 is verified or has ever been printed. One
       // query for all of them rather than one per row.
-      const versions = await db.select("deck_versions", { select: "deck_id,n,verify_report,pdf_object" });
+      // "How long is it, when did it last change, and who changed it" are facts
+      // about the CURRENT VERSION, not the deck, so they are read from the
+      // version row rather than from decks.updated_at — which also moves when
+      // someone only renames or stars the artifact.
+      const versions = await db.select("deck_versions", {
+        select: "deck_id,n,verify_report,pdf_object,page_count,created_at,author,recipe" });
+      // Drift (Deck Studio 3, SPEC §3): the recipe records the hash each library
+      // slide had AT PUBLISH; library_slides holds the hash it has NOW. Comparing
+      // two tables rather than the filesystem is what makes this work hosted,
+      // where there is no repo on disk.
+      const libRows = await db.select("library_slides", { select: "slide_id,content_hash" });
+      const libHash = new Map(libRows.map((r) => [r.slide_id, r.content_hash]));
       const byDeck = new Map();
       for (const v of versions) {
         const cur = byDeck.get(v.deck_id);
         if (!cur || v.n > cur.n) byDeck.set(v.deck_id, v);
       }
+      // The author is stored as an email; the overview wants a person.
+      const people = await db.select("profiles", { select: "email,full_name" });
+      const nameFor = new Map(people.map((p) => [p.email, p.full_name || ""]));
       for (const d of decks) {
         // Always the lazy endpoint, never a direct cache path: the picture may
         // not exist yet, and the endpoint renders it the first time it is asked
         // for. The row falls back to a placeholder if it 404s.
         d.thumb = `/api/decks/${d.id}/versions/${d.current_version_n}/thumb`;
         const v = byDeck.get(d.id);
-        d.verify_report = v && v.n === d.current_version_n ? v.verify_report : null;
-        d.pdf_current = Boolean(v && v.n === d.current_version_n && v.pdf_object);
+        const current = v && v.n === d.current_version_n ? v : null;
+        d.verify_report = current ? current.verify_report : null;
+        d.pdf_current = Boolean(current && current.pdf_object);
         d.pdf_name = pdfNameFor(d);
+        d.page_count = current ? current.page_count : 0;
+        d.updated_at_version = current ? current.created_at : d.updated_at;
+        d.updated_by = current ? (nameFor.get(current.author) || current.author) : "";
+        // A flag means "the NEXT version of this deck would differ". It never
+        // implies anything about the published version or its PDF, which stay
+        // byte-identical until someone accepts.
+        d.behind = driftOf(current && current.recipe, libHash);
+        // A deck left half-composed in the builder. The boolean is all the list
+        // needs; shipping every draft recipe here would be a payload for nothing.
+        d.has_draft = Boolean(d.draft_recipe);
+        delete d.draft_recipe;
       }
       return sendJson(res, 200, { decks });
+    }
+
+    // Everything the builder needs to OPEN a deck: its published picks, its
+    // unpublished draft if it has one, and the fixed facts a version inherits
+    // and may not change (slug, type, client, clearance).
+    //
+    // Those last four are why this is not just `recipe`. A version of a deck is
+    // the same deck: letting the builder re-pick the client or widen the
+    // clearance would make "new version" a way around the entitlement gate.
+    let rcm = p.match(/^\/api\/decks\/([^/]+)\/recipe$/);
+    if (rcm && req.method === "GET") {
+      if (!UUID_RE.test(rcm[1])) return sendJson(res, 400, { error: "bad id" });
+      const rows = await db.select("decks", { id: `eq.${rcm[1]}`,
+        select: "id,slug,title,type,kind,client_slug,is_master,current_version_n,draft_recipe,draft_updated_at" });
+      if (!rows.length) return sendJson(res, 404, { error: "no such deck" });
+      const d = rows[0];
+      const v = await db.select("deck_versions", {
+        deck_id: `eq.${d.id}`, n: `eq.${d.current_version_n}`, select: "recipe,page_count,html" });
+      const recipe = v.length ? v[0].recipe : null;
+      // Recipes written before schema 2 carry no vars and no explicit order.
+      // Reopening such a deck and republishing would blank its footer and cover
+      // meta, and verify would not catch it because an empty footer is still a
+      // footer. So recover both from the published document itself.
+      if (recipe && !recipe.vars) recipe.vars = varsFromHtml(v[0].html);
+      if (recipe && !recipe.order) recipe.order = orderFromHtml(v[0].html);
+      return sendJson(res, 200, {
+        id: d.id, slug: d.slug, title: d.title, type: d.type, kind: d.kind,
+        client: d.client_slug || "", is_master: d.is_master,
+        version: d.current_version_n, page_count: v.length ? v[0].page_count : 0,
+        recipe,
+        draft: d.draft_recipe || null, draft_updated_at: d.draft_updated_at,
+      });
+    }
+
+    // --- the deck builder: chapters, what is pickable, and building ---------
+    //
+    // A recipe is chapters and nothing else (SPEC §2). This serves the picker:
+    // the chapter set, every slide with the intent metadata that makes a
+    // suggestion possible, and the two independent reasons a slide cannot be
+    // chosen — `retired` (the repo's flag, git-versioned) and `archived`
+    // (demoted here so it cannot be picked by accident).
+    if (p === "/api/library/chapters" && req.method === "GET") {
+      const slides = await db.select("library_slides", {
+        select: "slide_id,content_hash,chapter,role,title,retired,archived,archive_note,goal,entitlements" });
+      const byId = new Map(slides.map((s) => [s.slide_id, s]));
+      // Both mirrors, so this works hosted and the server never parses YAML.
+      // library/chapters.yaml remains the source of truth; `--sync` refreshes.
+      const chapters = await db.select("library_chapters", {
+        select: "id,n,title,purpose,slides", order: "n.asc" });
+      const out = chapters.map((c) => ({
+        ...c,
+        slides: (c.slides || []).map((sid) => {
+          const s = byId.get(sid) || { slide_id: sid };
+          return { ...s, pickable: !s.retired && !s.archived };
+        }),
+      }));
+      return sendJson(res, 200, { chapters: out });
+    }
+
+    // Archive / restore a slide. The app never writes library/, so this is a
+    // backend flag; `check-drift.py --apply-archives` promotes it into
+    // meta.yaml when it should become permanent and land in git.
+    let alm = p.match(/^\/api\/library\/slides\/([^/]+)\/archive$/);
+    if (alm && req.method === "POST") {
+      const sid = alm[1];
+      const body = JSON.parse(await readBody(req, 4_000));
+      const archived = Boolean(body.archived);
+      const row = await db.select("library_slides", { slide_id: `eq.${sid}`, select: "slide_id,retired" });
+      if (!row.length) return sendJson(res, 404, { error: "no such slide" });
+      if (row[0].retired) {
+        return sendJson(res, 409, { error: "that slide is already retired in the repo" });
+      }
+      await db.update("library_slides", { slide_id: `eq.${sid}` }, {
+        archived,
+        archived_at: archived ? new Date().toISOString() : null,
+        archived_by: archived ? (req.member?.email || "app") : null,
+        archive_note: archived ? String(body.note || "").slice(0, 300) : null,
+      });
+      await audit(req.member, archived ? "slide.archive" : "slide.restore", sid, {});
+      return sendJson(res, 200, { slide_id: sid, archived });
+    }
+
+    // Build (and publish) a deck from a chapter recipe. Verify still blocks:
+    // a failing deck is not published and its failures come back here.
+    //
+    // Started as a JOB, not awaited. The pipeline runs five real gates over
+    // 30-60 seconds; holding the request open for that hides which one you are
+    // at and times out behind some proxies. Poll /api/build/<job_id>.
+    if (p === "/api/build" && req.method === "POST") {
+      const recipe = JSON.parse(await readBody(req, 200_000));
+      if (!recipe.slug || !recipe.title) {
+        return sendJson(res, 400, { error: "recipe needs a slug and a title" });
+      }
+      const job = jobs.startRecipeBuild(recipe, { dryRun: Boolean(recipe.dry_run) });
+      // deck_id is a uuid column and a slug is not one, so the slug belongs in
+      // the detail. Passing it as the id made every build's audit row 400 and
+      // vanish into the server log.
+      await audit(req.member, recipe.dry_run ? "deck.build.dryrun" : "deck.build", null,
+                  { slug: recipe.slug, job_id: job.id, version_of: recipe.version_of || null });
+      return sendJson(res, 202, { job_id: job.id, state: job.state, steps: job.steps });
+    }
+
+    let bjm = p.match(/^\/api\/build\/([^/]+)$/);
+    if (bjm && req.method === "GET") {
+      const job = jobs.getRecipeJob(bjm[1]);
+      if (!job) return sendJson(res, 404, { error: "no such build job" });
+      return sendJson(res, 200, {
+        job_id: job.id, state: job.state, steps: job.steps,
+        result: job.state === "running" ? null : job.result,
+        error: job.error || "",
+      });
+    }
+
+    // --- a deck's WORKING recipe -------------------------------------------
+    // Composing is real work. Losing it to a browser reload is not acceptable,
+    // and localStorage makes it invisible to every other device. This is
+    // deliberately NOT a version: the published deck is untouched until you
+    // publish, which is the whole point of the SharePoint-shaped flow.
+    let drm = p.match(/^\/api\/decks\/([^/]+)\/draft$/);
+    if (drm && UUID_RE.test(drm[1])) {
+      const id = drm[1];
+      if (req.method === "GET") {
+        const rows = await db.select("decks", {
+          id: `eq.${id}`, select: "id,slug,draft_recipe,draft_updated_at" });
+        if (!rows.length) return sendJson(res, 404, { error: "no such deck" });
+        return sendJson(res, 200, {
+          draft: rows[0].draft_recipe || null, updated_at: rows[0].draft_updated_at });
+      }
+      if (req.method === "PUT") {
+        const body = JSON.parse(await readBody(req, 200_000));
+        await db.update("decks", { id }, {
+          draft_recipe: body.draft || null,
+          draft_updated_at: new Date().toISOString(),
+          draft_updated_by: req.member.id,
+        });
+        return sendJson(res, 200, { ok: true });
+      }
+      if (req.method === "DELETE") {
+        await db.update("decks", { id }, {
+          draft_recipe: null, draft_updated_at: null, draft_updated_by: null });
+        return sendJson(res, 200, { ok: true });
+      }
     }
 
     // --- which artifacts use a library slide -------------------------------
@@ -1178,7 +1470,7 @@ async function handleDeckApi(req, res, url) {
       if (!rows.length) return sendJson(res, 404, { error: "no such deck" });
       const deck = rows[0];
       const versions = await db.select("deck_versions", {
-        deck_id: `eq.${id}`, select: "n,change_note,author,created_at,pdf_object,verify_report", order: "n.desc" });
+        deck_id: `eq.${id}`, select: "n,change_note,author,created_at,pdf_object,verify_report,page_count", order: "n.desc" });
       const family = await db.select("decks", {
         derived_from_deck_id: `eq.${id}`, select: "id,slug,title,audience_kind,audience_label,derived_from_version_n,current_version_n,status", order: "created_at.asc" });
       const current = versions.find((v) => v.n === deck.current_version_n);
@@ -1193,18 +1485,22 @@ async function handleDeckApi(req, res, url) {
         },
         versions: versions.map((v) => ({
           n: v.n, change_note: v.change_note, author: v.author, created_at: v.created_at,
-          has_pdf: Boolean(v.pdf_object),
+          page_count: v.page_count, has_pdf: Boolean(v.pdf_object),
           verify_summary: v.verify_report ? { fails: (v.verify_report.fails || []).length, warns: (v.verify_report.warns || []).length } : null,
         })),
         family,
       });
     }
 
-    // --- rename (title + the user-owned segment of the filename) -----------
+    // --- patch the deck's own fields ---------------------------------------
+    // Rename (title + the user-owned segment of the filename), plus the three
+    // fields that exist purely to make an artifact findable again later: the
+    // note, the star, and the post copy. None of them touch the content, so
+    // none of them makes a version — they are metadata about the artifact.
     if (dm && req.method === "PATCH") {
       const id = dm[1];
       if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
-      const d = JSON.parse(await readBody(req, 50_000));
+      const d = JSON.parse(await readBody(req, 200_000));
       const rows = await db.select("decks", { id: `eq.${id}`, select: "*" });
       if (!rows.length) return sendJson(res, 404, { error: "no such deck" });
       const patch = {};
@@ -1213,10 +1509,30 @@ async function handleDeckApi(req, res, url) {
         patch.title = d.title.trim().replace(/—/g, "–").slice(0, 200);
       }
       if (typeof d.pdf_core === "string") patch.pdf_core = slugify(d.pdf_core).slice(0, 80);
+      if (typeof d.note === "string") patch.note = d.note.replace(/—/g, "–").slice(0, 500);
+      if (typeof d.starred === "boolean") patch.starred = d.starred;
+      // Shelving, never deleting: the versions, their PDFs and the lineage all
+      // stay exactly as they are, and the deck comes back with one click.
+      if (typeof d.archived === "boolean") {
+        patch.archived = d.archived;
+        patch.archived_at = d.archived ? new Date().toISOString() : null;
+        patch.archived_by = d.archived ? req.member.id : null;
+        if (typeof d.archive_note === "string") patch.archive_note = d.archive_note.slice(0, 300);
+      }
+      // The deck's type. Free text on the row, but the index groups by it, so
+      // fixing a deck that was published under the wrong one has to be possible
+      // without a republish.
+      if (typeof d.type === "string" && d.type.trim()) patch.type = d.type.trim().slice(0, 60);
+      // The post copy is NOT em-dash-scrubbed: it is not a rendered artifact, it
+      // is text a person wrote to paste elsewhere, and rewriting their
+      // punctuation behind their back is worse than the rule it enforces.
+      if (typeof d.post_text === "string") patch.post_text = d.post_text.slice(0, 20_000);
       if (!Object.keys(patch).length) return sendJson(res, 400, { error: "nothing to change" });
       patch.updated_by_id = req.member.id;
       await db.update("decks", { id }, patch);
-      await audit(req.member, "deck.rename", id, patch);
+      // Audit what changed, not what it changed to: a 3.000-character post body
+      // in the audit trail is noise, and the note can be read off the row.
+      await audit(req.member, "deck.patch", id, { fields: Object.keys(patch) });
       const after = { ...rows[0], ...patch };
       return sendJson(res, 200, { ok: true, deck: after, pdf_name: pdfNameFor(after) });
     }

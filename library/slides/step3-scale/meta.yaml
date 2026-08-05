@@ -18,3 +18,5 @@ variables:
 used_in:
 - product-showcase
 notes: 'Step 3 detail: convert / extend / wind down. Stepband sb3.'
+retired: true
+retired_on: 2026-08-04

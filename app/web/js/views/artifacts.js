@@ -5,11 +5,16 @@
 // could exist for decks and be missing for carousels without anyone noticing.
 // Since the artifact model merged, both are rows here, told apart by `kind`.
 //
-// The action grammar is fixed and identical on every row, in this order:
-//     Open · Edit · Download · Status
-// Edit is a first-class button, never hidden behind a detail page. That is the
-// direct fix for the failure that opened this map: the editor existed for
-// months and was never found.
+// The row answers "which one do I want?" without opening anything: how long it
+// is, when it last changed and who changed it, what you wrote about it, and
+// whether you starred it. Those four are the whole point of the list — a wall of
+// near-identical titles is not a list, it is a lookup you have to do by hand.
+//
+// The action grammar is fixed and identical on every row:
+//     Open · [Post text] · Download
+// Edit is NOT here. It lives on the artifact's own page, one click in, because
+// editing is a thing you do to an artifact you have already chosen, and putting
+// it in the list made every row look like a fork in the road.
 
 import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
 import { state, loadBackend } from "../state.js";
@@ -18,16 +23,136 @@ import { go } from "../router.js";
 import { icon, ibtn } from "../icons.js";
 import { offlinePanel } from "./deck.js";
 import { summarize } from "../verify.js";
+import { openPostEditor } from "../postedit.js";
+import { mountNote } from "../note.js";
+import { typeLabel, typeBlurb, typeRank, isCustomerDeck } from "../decktypes.js";
 
 const SOCIAL_KINDS = new Set(["carousel", "image", "article", "post"]);
 
 const isDeck = (d) => !d.kind || d.kind === "deck";
 const isSocial = (d) => SOCIAL_KINDS.has(d.kind);
 
+// The category key a social artifact groups and filters under, matching the
+// tabbar: `category` when it has one, otherwise its kind.
+const catOf = (d) => d.category || d.kind;
+
+// "Behind" sits next to the verify chip because it is the same kind of signal
+// asking a different question: verify says "is this deck sound", behind says
+// "is this deck current". A COUNT, not a dot, so the size of the job is visible
+// without opening anything. Deck Studio 3, SPEC §4.
+//
+// It never means anything has changed. The published version and its PDF stay
+// byte-identical until the update is accepted, which makes a new version.
+function behindChip(d) {
+  const n = (d.behind || []).length;
+  if (!n) return "";
+  const what = d.behind.map((b) => b.slide_id).join(", ");
+  return `<span class="behind-chip" title="Newer in the library: ${esc(what)}. `
+    + `Nothing published has changed.">${n} page${n === 1 ? "" : "s"} behind</span>`;
+}
+
+// Work left in the builder. Same shape as the behind chip because it answers the
+// neighbouring question: behind asks "is this deck current with the library",
+// this asks "did I leave something half-done on it".
+function draftChip(d) {
+  if (!d.has_draft) return "";
+  return `<span class="behind-chip behind-chip--draft" title="A recipe is saved in the deck builder. `
+    + `Nothing is published until you publish it.">unpublished changes</span>`;
+}
+
+const CAT_LABEL = {
+  carousel: "Carousels",
+  "job-description": "Job descriptions",
+  post: "Posts",
+  article: "Articles",
+  image: "Images",
+};
+
 let publishLog = {};
 
 async function ensurePublishLog() {
   try { publishLog = await api.getSocialStatus(); } catch { publishLog = {}; }
+  return publishLog;
+}
+
+// --- the filter bar, shared by both areas ------------------------------------
+//
+// Kept in localStorage rather than the URL: it is how you like to look at the
+// list, not where you are, so it should survive a reload and not be something
+// you can accidentally send someone.
+const prefs = {
+  get starred() { return localStorage.getItem("oppr.onlyStarred") === "1"; },
+  set starred(v) { localStorage.setItem("oppr.onlyStarred", v ? "1" : "0"); },
+  get socialView() { return localStorage.getItem("oppr.socialView") === "flat" ? "flat" : "grouped"; },
+  set socialView(v) { localStorage.setItem("oppr.socialView", v); },
+  // Archived decks are shelved, not deleted, so there has to be a way back to
+  // them. Off by default, because the whole point is that they are out of the way.
+  get archived() { return localStorage.getItem("oppr.showArchived") === "1"; },
+  set archived(v) { localStorage.setItem("oppr.showArchived", v ? "1" : "0"); },
+};
+
+let query = "";
+
+// The text filter reads the note too. That is the reason the note exists: a
+// deck you can only find by its title is a deck you have to remember the title
+// of.
+function matches(d) {
+  if (d.archived && !prefs.archived) return false;
+  if (prefs.starred && !d.starred) return false;
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return [d.title, d.slug, d.note, d.type, d.kind, d.audience_label]
+    .some((s) => String(s || "").toLowerCase().includes(q));
+}
+
+function filterBar(box, rerender, extra = "") {
+  const bar = el(`
+    <div class="listbar">
+      <label class="listbar-search">
+        ${icon("search", 15)}
+        <input type="search" placeholder="Filter by title or note…" value="${esc(query)}">
+      </label>
+      <button class="chipbtn ${prefs.starred ? "on" : ""}" data-act="star">
+        ${icon("star", 15)}<span>Starred only</span>
+      </button>
+      ${extra}
+      <span class="spacer"></span>
+      <span class="listbar-count note"></span>
+    </div>`);
+
+  const input = $("input", bar);
+  input.addEventListener("input", () => {
+    query = input.value.trim();
+    rerender({ keepFocus: true });
+  });
+  $("[data-act='star']", bar).addEventListener("click", () => {
+    prefs.starred = !prefs.starred;
+    rerender({});
+  });
+  box.append(bar);
+  return bar;
+}
+
+// The star filter is remembered across areas, so an empty Social list can be the
+// star you set on Decks ten minutes ago. Say which filter is hiding things, and
+// hand back the switch that turns it off.
+function emptyFilter(total) {
+  const box = el(`<div class="empty"><p>Nothing matches.</p>
+    <p class="note">${prefs.starred
+      ? `<b>Starred only</b> is on${query ? " and the filter is set" : ""}. ${total} here in total.`
+      : `Clear the filter to see all ${total}.`}</p>
+    ${prefs.starred ? `<button class="ghost" id="unstar">Show everything</button>` : ""}</div>`);
+  $("#unstar", box)?.addEventListener("click", () => { prefs.starred = false; go(location.hash.slice(1)); });
+  return box;
+}
+
+// Re-rendering the list on every keystroke would drop focus out of the search
+// box, so the caller re-mounts and this puts the caret back where it was.
+function restoreFocus(box) {
+  const input = $(".listbar-search input", box);
+  if (!input) return;
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
 }
 
 // ---- Decks area -------------------------------------------------------------
@@ -35,30 +160,67 @@ async function ensurePublishLog() {
 export function renderDecks() {
   if (!state.backend.ok) return offlinePanel("Decks");
   const box = el(`<div></div>`);
-  const all = (state.backend.decks || []).filter(isDeck);
-  const masters = all.filter((d) => d.is_master);
-  const company = all.filter((d) => !d.is_master && d.audience_kind !== "customer");
-  const customer = all.filter((d) => !d.is_master && d.audience_kind === "customer");
+  const paint = ({ keepFocus } = {}) => {
+    box.innerHTML = "";
+    const nArchived = (state.backend.decks || []).filter((d) => d.archived && isDeck(d)).length;
+    filterBar(box, paint, nArchived
+      ? `<button class="chipbtn ${prefs.archived ? "on" : ""}" data-act="archived"
+                 title="Archived decks are shelved, never deleted: every version and PDF survives">
+           ${icon("history", 15)}<span>Archived (${nArchived})</span></button>`
+      : "");
+    $("[data-act='archived']", box)?.addEventListener("click", () => {
+      prefs.archived = !prefs.archived;
+      paint({});
+    });
+    decksBody(box);
+    if (keepFocus) restoreFocus(box);
+  };
+  paint({});
+  return box;
+}
 
+function decksBody(box) {
+  const all = (state.backend.decks || []).filter(isDeck);
   if (!all.length) {
     box.append(el(`<div class="empty"><p>No decks yet.</p>
       <p class="note">Decks are created in the CLI. Build one, publish it, and it appears here ready to edit.</p>
       <div class="prompt-box"><code>/deckbuilder</code></div></div>`));
-    return box;
+    return;
+  }
+  const shown = all.filter(matches);
+  $(".listbar-count", box).textContent = `${shown.length} of ${all.length}`;
+  if (!shown.length) {
+    box.append(emptyFilter(all.length));
+    return;
   }
 
-  section(box, "Masters", masters,
-    "The reusable master per deck type. Personalize one for a customer from its page.");
+  // Two kinds of deck, not three. "Masters" and "Company decks" described how a
+  // deck was tagged rather than what it is, and in practice the company decks
+  // ARE the masters: one reusable deck per type, and everything else is a copy
+  // made for a named customer.
+  const company = shown.filter((d) => !isCustomerDeck(d));
+  const customer = shown.filter((d) => isCustomerDeck(d));
+
+  // Within company decks: registry order, then starred, then title. The type is
+  // the organising fact here, so it leads.
+  company.sort((a, b) =>
+    typeRank(a.type) - typeRank(b.type) ||
+    Number(b.is_master) - Number(a.is_master) ||
+    Number(b.starred) - Number(a.starred) ||
+    String(a.title).localeCompare(String(b.title)));
+  // Within customer decks: by customer, so a customer's decks sit together.
+  customer.sort((a, b) =>
+    String(a.client_slug || a.audience_label || "").localeCompare(String(b.client_slug || b.audience_label || "")) ||
+    Number(b.starred) - Number(a.starred) ||
+    String(a.title).localeCompare(String(b.title)));
+
   section(box, "Company decks", company,
-    "Decks that belong to no single customer: teasers, investor updates, event one-offs.");
-  // Customer decks are listed under Customers, but showing the count here stops
-  // them from feeling lost — the previous nav shipped a class of invisible deck.
-  if (customer.length) {
-    box.append(el(`<div class="section-head"><h2>Customer decks</h2><span class="section-count">${customer.length}</span></div>`));
-    box.append(el(`<p class="note">Listed under <a href="#/customers">Customers</a>, with the customer they were made for.</p>`));
-    for (const d of customer) box.append(artifactRow(d));
-  }
-  return box;
+    "One reusable deck per type. These are the ones you copy from.", { byType: true });
+  section(box, "Customer decks", customer,
+    `Copies made for one named customer, and listed under <a href="#/customers">Customers</a> too.`,
+    { byCustomer: true });
+
+  if (!company.length && !customer.length) box.append(emptyFilter(all.length));
 }
 
 // ---- Social area ------------------------------------------------------------
@@ -66,62 +228,189 @@ export function renderDecks() {
 export function renderSocial(category) {
   if (!state.backend.ok) return offlinePanel("Social output");
   const box = el(`<div></div>`);
-  let list = (state.backend.decks || []).filter(isSocial);
+  const paint = ({ keepFocus } = {}) => {
+    box.innerHTML = "";
+    // The view switch only means anything on All; a single-category tab is
+    // already one group, so offering to group it would be a lie.
+    const viewSwitch = (!category || category === "all") ? `
+      <span class="listbar-sep"></span>
+      <div class="segbtn" role="group" aria-label="View">
+        <button data-view="grouped" class="${prefs.socialView === "grouped" ? "on" : ""}">${icon("sections", 14)}<span>By type</span></button>
+        <button data-view="flat" class="${prefs.socialView === "flat" ? "on" : ""}">${icon("table", 14)}<span>Flat list</span></button>
+      </div>` : "";
+    const bar = filterBar(box, paint, viewSwitch);
+    $$("[data-view]", bar).forEach((b) => b.addEventListener("click", () => {
+      prefs.socialView = b.dataset.view;
+      paint({});
+    }));
+    socialBody(box, category);
+    if (keepFocus) restoreFocus(box);
+  };
+  paint({});
+  return box;
+}
+
+function socialBody(box, category) {
+  let all = (state.backend.decks || []).filter(isSocial);
   if (category && category !== "all") {
-    list = list.filter((d) => (d.category || d.kind) === category
-      || (category === "post" && d.kind === "article"));
+    all = all.filter((d) => catOf(d) === category || (category === "post" && d.kind === "article"));
   }
 
   box.append(el(`<p class="note">Everything published to a channel. Social is public by definition:
     an artifact carrying customer-cleared imagery fails verification on purpose.</p>`));
 
-  if (!list.length) {
+  if (!all.length) {
     box.append(el(`<div class="empty"><p>Nothing here yet.</p>
       <p class="note">Carousels, images and articles are built in the CLI, then edited and shipped here.</p>
       <div class="prompt-box"><code>/deckbuilder</code></div></div>`));
-    return box;
+    return;
   }
+
+  const shown = all.filter(matches).sort((a, b) => Number(b.starred) - Number(a.starred));
+  $(".listbar-count", box).textContent = `${shown.length} of ${all.length}`;
+  if (!shown.length) {
+    box.append(emptyFilter(all.length));
+    return;
+  }
+
+  const grouped = (!category || category === "all") && prefs.socialView === "grouped";
+  if (!grouped) {
+    for (const d of shown) box.append(artifactRow(d));
+  } else {
+    // Group order follows the tabbar so the two ways of narrowing the same list
+    // agree with each other.
+    const order = ["carousel", "job-description", "post", "article", "image"];
+    const keys = [...new Set(shown.map(catOf))]
+      .sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
+    for (const key of keys) {
+      section(box, CAT_LABEL[key] || key, shown.filter((d) => catOf(d) === key));
+    }
+  }
+
+  // The publish log is a separate table, so the posted column fills in a beat
+  // later rather than holding the whole list back on one extra request.
   ensurePublishLog().then(() => {
-    $$(".pub-slot", box).forEach((slot) => {
-      const entry = publishLog[slot.dataset.slug];
-      if (entry?.status === "posted") slot.innerHTML = `<span class="pill-status posted">posted</span>`;
-      else slot.innerHTML = `<span class="pill-status draft">not posted</span>`;
-    });
+    $$(".pub-slot", box).forEach((slot) => paintPosted(slot, publishLog[slot.dataset.slug]));
   });
-  for (const d of list) box.append(artifactRow(d));
-  return box;
 }
 
-function section(box, title, list, note) {
+function section(box, title, list, note, { byType = false, byCustomer = false } = {}) {
   if (!list.length) return;
   box.append(el(`<div class="section-head"><h2>${esc(title)}</h2><span class="section-count">${list.length}</span></div>`));
   if (note) box.append(el(`<p class="note">${note}</p>`));
-  for (const d of list) box.append(artifactRow(d));
+
+  // A sub-heading whenever the grouping key changes, so the list reads as
+  // "one deck per type" rather than as a pile that happens to be sorted.
+  let last = null;
+  for (const d of list) {
+    const key = byType ? (d.type || "") : byCustomer ? (d.client_slug || d.audience_label || "") : null;
+    if (key !== null && key !== last) {
+      last = key;
+      box.append(el(byType
+        ? `<div class="type-head"><h3>${esc(typeLabel(d.type))}</h3>
+             <span class="note">${esc(typeBlurb(d.type))}</span></div>`
+        : `<div class="type-head"><h3>${esc(customerName(d))}</h3>
+             ${d.client_slug ? `<a class="note" href="#/customers/${esc(d.client_slug)}">open the customer</a>` : ""}</div>`));
+    }
+    box.append(artifactRow(d));
+  }
+}
+
+// The customer a deck was made for, in the words a person would use.
+function customerName(d) {
+  const slug = d.client_slug || "";
+  const c = (state.backend.customers || []).find((x) => x.slug === slug);
+  return c?.name || d.audience_label || slug || "No customer set";
+}
+
+// ---- the posted column ------------------------------------------------------
+//
+// One state, one place on every row: an empty grey box until it has gone out,
+// a filled green check once it has. It reads down the column, which is the only
+// way "what have I not posted yet" is answerable at a glance.
+function paintPosted(slot, entry) {
+  const posted = entry?.status === "posted";
+  const date = posted && entry.posted_date ? entry.posted_date : "";
+  slot.classList.toggle("is-posted", posted);
+  slot.innerHTML = `
+    <button class="postedbox ${posted ? "on" : ""}" title="${posted ? "Posted — click to unmark" : "Not posted — click to mark posted"}">
+      ${icon(posted ? "checkboxOn" : "checkbox", 16)}
+      <span>${posted ? (date ? `Posted ${esc(date)}` : "Posted") : "Not posted"}</span>
+    </button>`;
+  $("button", slot).addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const slug = slot.dataset.slug;
+    const now = !posted;
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const payload = {
+        status: now ? "posted" : "draft",
+        posted_date: now ? (entry?.posted_date || new Date().toISOString().slice(0, 10)) : "",
+        url: entry?.url || "",
+      };
+      const r = await api.putSocialStatus(slug, payload);
+      publishLog[slug] = r.entry;
+      paintPosted(slot, r.entry);
+    } catch (err) {
+      toast(err.message || "could not update");
+      btn.disabled = false;
+    }
+  });
 }
 
 // ---- the row ----------------------------------------------------------------
 
 export function artifactRow(d) {
   const v = summarize(d.verify_report);
-  const kindBadge = isDeck(d) ? esc(d.type || "deck") : esc(d.kind);
+  // The type in words, not its slug: "How we work together" is what the deck is;
+  // "engagement" is only what the folder is called.
+  const kindBadge = isDeck(d) ? esc(typeLabel(d.type)) : esc(catOf(d));
+  const social = isSocial(d);
+  const pages = d.page_count
+    ? `${d.page_count} ${d.page_count === 1 ? "page" : "pages"}`
+    : "no pages counted";
+  const when = (d.updated_at_version || d.updated_at || "").slice(0, 10);
+  const who = d.updated_by || d.created_by || "";
+
   const row = el(`
-    <div class="deck-row artifact-row">
+    <div class="deck-row artifact-row ${d.starred ? "is-starred" : ""}">
       <div class="head">
+        <button class="star-btn ${d.starred ? "on" : ""}" title="${d.starred ? "Starred — click to remove" : "Star this so it sorts first"}"
+                aria-pressed="${d.starred ? "true" : "false"}">${icon("star", 16)}</button>
         ${d.thumb
           ? `<img class="deck-thumb" src="${esc(d.thumb)}" alt="" loading="lazy" title="Page 1">`
           : `<span class="deck-thumb deck-thumb--none">${icon(isDeck(d) ? "monitor" : "cards", 16)}</span>`}
-        <h3>${esc(decodeEntities(d.title))}</h3>
-        ${d.is_master ? `<span class="badge badge--master">MASTER</span>` : ""}
-        <span class="badge">${kindBadge}</span>
-        <span class="tags mono">v${d.current_version_n}</span>
-        ${isSocial(d) ? `<span class="pub-slot" data-slug="${esc(d.slug)}"></span>` : ""}
-        ${d.status === "needs_cli" ? `<span class="pill-status draft" title="${esc(d.needs_cli_reason || "")}">needs CLI</span>` : ""}
-        <span class="verify-chip verify-chip--${v.tone}" title="${esc(v.text)}">${esc(v.text)}</span>
-        ${d.pdf_current ? "" : `<span class="tags" title="Downloading prints it first, so you always get the current version">PDF not printed</span>`}
-        <div class="spacer row-actions">
-          <button class="ghost sm act-open">${ibtn("preview", "Open")}</button>
-          <button class="ghost sm act-edit">${ibtn("compose", "Edit")}</button>
-          <button class="ghost sm act-dl">${ibtn("download", "PDF")}</button>
+        <div class="row-id">
+          <div class="row-title">
+            <h3>${esc(decodeEntities(d.title))}</h3>
+            ${d.is_master ? `<span class="badge badge--master">MASTER</span>` : ""}
+            <span class="badge">${kindBadge}</span>
+            ${isDeck(d) && isCustomerDeck(d)
+              ? `<span class="tags tags--customer" title="Made for this customer">${icon("building", 12)}${esc(customerName(d))}</span>`
+              : ""}
+            <span class="tags mono">v${d.current_version_n}</span>
+            ${d.archived ? `<span class="pill-status draft">archived</span>` : ""}
+            ${d.status === "needs_cli" ? `<span class="pill-status draft" title="${esc(d.needs_cli_reason || "")}">needs CLI</span>` : ""}
+            <span class="verify-chip verify-chip--${v.tone}" title="${esc(v.text)}">${esc(v.text)}</span>
+            ${behindChip(d)}
+            ${draftChip(d)}
+          </div>
+          <div class="row-meta note">
+            <span>${esc(pages)}</span>
+            <span class="dot">·</span>
+            <span>${when ? `updated ${esc(when)}` : "never updated"}${who ? ` by ${esc(who)}` : ""}</span>
+            ${d.pdf_current ? "" : `<span class="dot">·</span><span title="Downloading prints it first, so you always get the current version">PDF not printed</span>`}
+          </div>
+          <div class="row-note"></div>
+        </div>
+        <div class="row-right">
+          ${social ? `<span class="pub-slot" data-slug="${esc(d.slug)}"><span class="postedbox loading-slot">…</span></span>` : ""}
+          <div class="row-actions">
+            <button class="ghost sm act-open">${ibtn("preview", "Open")}</button>
+            ${social ? `<button class="ghost sm act-post">${ibtn("text", "Post text")}</button>` : ""}
+            <button class="ghost sm act-dl">${ibtn("download", "PDF")}</button>
+          </div>
         </div>
       </div>
     </div>`);
@@ -136,8 +425,32 @@ export function artifactRow(d) {
     });
   }
 
+  mountNote(row, d);
+
+  $(".star-btn", row).addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    const next = !d.starred;
+    // Flip first, reconcile after: a star is a one-bit opinion and should feel
+    // instant. A failure puts it back and says so.
+    d.starred = next;
+    btn.classList.toggle("on", next);
+    btn.setAttribute("aria-pressed", String(next));
+    row.classList.toggle("is-starred", next);
+    try { await api.patchDeck(d.id, { starred: next }); }
+    catch (err) {
+      d.starred = !next;
+      btn.classList.toggle("on", !next);
+      row.classList.toggle("is-starred", !next);
+      toast(err.message || "could not save the star");
+    }
+  });
+
   $(".act-open", row).addEventListener("click", (e) => { e.stopPropagation(); go("/deck/" + d.id); });
-  $(".act-edit", row).addEventListener("click", (e) => { e.stopPropagation(); go(`/deck/${d.id}/edit`); });
+  $(".act-post", row)?.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    openPostEditor(d, d.post_text || "", (text) => { d.post_text = text; });
+  });
   $(".act-dl", row).addEventListener("click", async (e) => {
     e.stopPropagation();
     const btn = e.currentTarget;

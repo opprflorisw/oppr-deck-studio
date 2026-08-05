@@ -1,17 +1,14 @@
 ---
-type: investor-update-post-round
+type: investor
 goal: >
-  Update the people who already backed Oppr, just after closing the round. Not a
-  pitch: an accountability and relationship deck. Show what the capital buys,
-  where the numbers stand, the plan to the next raise, the risks, and specific
-  asks. Candid, numbers-forward, same scorecard every quarter.
-audiences: [existing investors, seed lead (FORWARD.one), board, angels]
+  Show Oppr to people who would fund it rather than buy from it: what the company
+  is, the market it is in, what the product does on a real floor, the traction
+  behind that, and where the money goes. Candid and numbers-forward.
+audiences: [investors, seed lead (FORWARD.one), board, angels]
 default_language: en
 default_length: 14 slides
 presenter: Floris (Founder & CEO) unless specified
 entitlement_default: public
-canonical: (none yet — first instance is the 2026-07-23 variant)
-derived_from: management-outlook
 ---
 
 # Investor Update — Post-Round — recipe

@@ -75,22 +75,131 @@ export async function printElement(indexHtml, outFile, format) {
   });
 }
 
-function runPython(args) {
+// `onLine` receives each complete stdout line as it arrives, which is how the
+// builder shows real pipeline progress rather than a spinner.
+function runPython(args, onLine = null) {
   return new Promise((resolve) => {
     const attempts = [["python", args], ["py", ["-3", ...args]]];
     let i = 0;
     const tryNext = () => {
       if (i >= attempts.length) return resolve({ code: 127, stdout: "", stderr: "no python" });
       const [cmd, a] = attempts[i++];
-      let out = "", err = "";
+      let out = "", err = "", pending = "";
       const child = spawn(cmd, a, { cwd: REPO_ROOT });
-      child.stdout.on("data", (d) => (out += d));
+      child.stdout.on("data", (d) => {
+        out += d;
+        if (!onLine) return;
+        pending += d;
+        const lines = pending.split(/\r?\n/);
+        pending = lines.pop();               // the (possibly partial) last line
+        for (const line of lines) if (line.trim()) onLine(line.trim());
+      });
       child.stderr.on("data", (d) => (err += d));
       child.on("error", tryNext);
-      child.on("close", (code) => resolve({ code, stdout: out, stderr: err }));
+      child.on("close", (code) => {
+        if (onLine && pending.trim()) onLine(pending.trim());
+        resolve({ code, stdout: out, stderr: err });
+      });
     };
     tryNext();
   });
+}
+
+/**
+ * Build and publish a deck from a chapter recipe (the deck builder's engine).
+ *
+ * Shells out to tools/build-from-recipe.py rather than reimplementing the
+ * pipeline in Node, so a deck built from the app goes through EXACTLY the same
+ * compose -> assemble -> pdf -> verify -> publish as one built by hand. There is
+ * one gate, not two.
+ *
+ * Verify still blocks: entitlement, unfilled placeholders, em dashes, footer
+ * discipline and page geometry are not suggestions, and nothing here bypasses
+ * them. A deck that fails is not published and the failures come back.
+ *
+ * Needs the repo on disk, so it is local-only for now. Hosted, the app hands
+ * back the CLI prompt the way it already does for structural edits.
+ */
+export async function buildFromRecipe(recipe, { dryRun = false, onStep = null } = {}) {
+  if (isServerless) {
+    return { ok: false, code: "ENOREPO",
+      error: "Building needs the repo on disk. Run this from the local app, or use the CLI." };
+  }
+  const dir = path.join(REPO_ROOT, "decks", "drafts", "_recipes");
+  await fsp.mkdir(dir, { recursive: true });
+  const file = path.join(dir, `${recipe.slug || "recipe"}.json`);
+  await fsp.writeFile(file, JSON.stringify(recipe, null, 1), "utf-8");
+
+  const args = [path.join(TOOLS, "build-from-recipe.py"), file];
+  if (dryRun) args.push("--dry-run");
+
+  // Progress lines carry `event: "step"`; the result object does not. Keeping
+  // the last non-event line is what makes the stream and the final answer the
+  // same channel without a second protocol.
+  let last = "";
+  const r = await runPython(args, (line) => {
+    let obj;
+    try { obj = JSON.parse(line); } catch { return; }
+    if (obj.event === "step") { if (onStep) onStep(obj); return; }
+    last = line;
+  });
+  if (r.code === 127) {
+    return { ok: false, code: "NOPYTHON", error: "Python was not found on this machine." };
+  }
+  try {
+    return { ...JSON.parse(last || (r.stdout || "").trim().split("\n").pop()), code: r.code };
+  } catch {
+    return { ok: false, code: "BADOUTPUT",
+      error: (r.stderr || r.stdout || "the build produced no readable result").slice(-2000) };
+  }
+}
+
+// --- the recipe build as a JOB ----------------------------------------------
+// A build takes 30 to 60 seconds. Behind a blocking POST that is a disabled
+// button and no information; as a job it is five named steps arriving, so you
+// can see which gate you are standing at and, when it fails, which one refused.
+
+const RECIPE_STEPS = ["compose", "assemble", "pdf", "verify", "publish"];
+const recipeJobs = new Map();   // jobId -> {id, slug, state, steps[], result, error}
+
+export function getRecipeJob(id) { return recipeJobs.get(id) || null; }
+
+export function startRecipeBuild(recipe, { dryRun = false } = {}) {
+  const id = newId();
+  const job = {
+    id, slug: recipe.slug || "", dryRun, state: "running",
+    steps: RECIPE_STEPS.map((s) => ({ step: s, state: "waiting", detail: "" })),
+    result: null, error: "",
+  };
+  recipeJobs.set(id, job);
+
+  const mark = (ev) => {
+    const row = job.steps.find((s) => s.step === ev.step);
+    if (!row) return;
+    row.state = ev.state;
+    if (ev.detail) row.detail = ev.detail;
+  };
+
+  job.done = buildFromRecipe(recipe, { dryRun, onStep: mark })
+    .then((result) => {
+      job.result = result;
+      job.state = result.ok ? "pass" : "fail";
+      // A step that never reported (the process died mid-pipeline) must not sit
+      // spinning forever in the UI.
+      for (const s of job.steps) if (s.state === "running") s.state = "fail";
+      for (const s of job.steps) if (s.state === "waiting" && job.state === "fail") s.state = "skip";
+    })
+    .catch((e) => {
+      job.state = "error";
+      job.error = String(e?.message || e);
+      for (const s of job.steps) if (s.state === "running") s.state = "fail";
+    })
+    .finally(() => {
+      // Keep it long enough for a slow poll to collect it, not forever.
+      setTimeout(() => recipeJobs.delete(id), 10 * 60_000).unref?.();
+    });
+
+  return job;
 }
 
 // --- PDF naming (mirrors tools/deckstudio.pdf_name) --------------------------

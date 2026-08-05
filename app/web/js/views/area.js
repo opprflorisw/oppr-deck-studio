@@ -22,6 +22,9 @@ export function renderArea(area, activeId, renderBody, sub) {
         ${area.tabs ? `<div class="tabbar area-tabs">
           ${area.tabs.map((t) => `<button data-tab="${t.id}" class="${t.id === tab.id ? "active" : ""}">${t.icon ? icon(t.icon, 15) : ""}<span>${esc(t.label)}</span>${t.badge ? `<span class="tab-badge" data-draft-count>0</span>` : ""}</button>`).join("")}
         </div>` : ""}
+        ${area.action ? `<a class="ghost accent area-action" href="${esc(area.action.href)}"
+             ${area.action.download ? `download="${esc(area.action.download)}"` : ""}
+             title="${esc(area.action.title || "")}">${icon(area.action.icon || "download", 15)}<span>${esc(area.action.label)}</span></a>` : ""}
       </div>
       <div class="area-body"></div>
     </div>`);

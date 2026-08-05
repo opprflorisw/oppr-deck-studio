@@ -17,3 +17,8 @@ variables:
 used_in:
 - engagement
 notes: The document set that applies on conversion. Optional in a lean cut.
+chapter: ch-annex
+goal: Detail held back from the main flow.
+why: As above. The pair travels together.
+with:
+- eng-annex-a

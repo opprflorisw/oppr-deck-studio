@@ -16,5 +16,14 @@ variables:
 - total
 used_in:
 - engagement
+- product-showcase
+- management-outlook
 notes: Slim cut (engagement v3). v1's long-cut equivalent is the eng-* slide of the
   same name.
+chapter: ch-problem
+goal: 'Name the gap: cause and effect never share a timeline.'
+why: The load-bearing problem slide. If you use only one slide from this chapter,
+  use this one.
+with:
+- recognize-problems
+- eng2-idea

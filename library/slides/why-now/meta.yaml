@@ -14,7 +14,7 @@ images: []
 variables:
 - deck_footer
 - total
-used_in:
-- product-showcase
-- management-outlook
+used_in: []
 notes: Cause-and-effect-are-lost narrative in three rows.
+retired: true
+retired_on: 2026-08-04

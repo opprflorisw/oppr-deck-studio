@@ -16,3 +16,5 @@ variables:
 used_in:
 - engagement
 notes: The full-slide version of the engagement-ladder need-strip.
+retired: true
+retired_on: 2026-08-04

@@ -19,3 +19,10 @@ used_in:
 - product-showcase
 - management-outlook
 notes: One improvement's worth x multiply. Conservative, illustrative.
+chapter: ch-commercials
+goal: What one improvement is worth, conservatively.
+why: Use for anyone building a business case. Pair with the reference numbers so the
+  estimate sits next to something verified.
+with:
+- outcomes-reference
+- when-time-matters

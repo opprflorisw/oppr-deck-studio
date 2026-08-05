@@ -16,3 +16,5 @@ variables:
 used_in:
 - engagement
 notes: Convert / Extend / Wind down. Mirrors step3-scale, written for the proposal.
+retired: true
+retired_on: 2026-08-04

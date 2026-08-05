@@ -16,7 +16,12 @@ variables:
 - asset
 - deck_footer
 - total
-used_in:
-- product-showcase
-- management-outlook
+used_in: []
 notes: Capture/Connect/Execute legend + the platform-loop image.
+chapter: ch-platform
+goal: Capture, Connect, Execute as one loop.
+why: Use whenever the audience will ask what the software does. Skip when the conversation
+  is about the engagement rather than the product.
+with:
+- eng2-idea
+- product-flow-setup

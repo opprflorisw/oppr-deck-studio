@@ -302,8 +302,11 @@ def page_html(m: dict) -> str:
             mine = [p for p in m["png"] if p["from"] == it["file"]]
             if not mine:
                 continue
+            # `assets/` prefix, like every other link on this page: the manifest
+            # records PNGs as "png/<name>" relative to assets/, and dropping the
+            # prefix made every PNG download on the shared kit page a 404.
             pills = "".join(
-                f'<a href="{p["file"]}" download>{p["w"]}px</a>' for p in mine)
+                f'<a href="assets/{p["file"]}" download>{p["w"]}px</a>' for p in mine)
             png_rows.append(
                 f'<div class="dl"><span class="dl-label">png &middot; {it["label"].lower()}</span>{pills}</div>')
         png_row = "".join(png_rows)

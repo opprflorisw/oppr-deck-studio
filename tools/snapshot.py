@@ -51,6 +51,56 @@ def _entitlements() -> dict:
     return {m["file"]: m.get("entitlement", "public") for m in data.get("images", [])}
 
 
+def slide_hash(sid: str, deckdir: Path | None = None) -> str:
+    """Content hash of a slide fragment as it was at publish time.
+
+    Drift is a hash mismatch (Deck Studio 3, SPEC §3), which is why no library
+    slide carries a version number. A variant-local override wins over the
+    library, exactly as it does at assembly, so an overridden page is compared
+    against the thing that actually rendered.
+    """
+    local = (deckdir / "slides" / sid / "slide.html") if deckdir else None
+    path = local if (local and local.exists()) else ds.SLIDES_DIR / sid / "slide.html"
+    if not path.exists():
+        return ""
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+
+
+def build_recipe(deck: dict, deckdir: Path, slide_meta: list[dict]) -> dict:
+    """The queryable recipe written to deck_versions.recipe.
+
+    Chapters come from deck.yaml when the deck was composed from them; a deck
+    with no `chapters:` key still gets a recipe, with every slide under a single
+    null chapter, so the drift query never has to special-case it.
+    """
+    by_id = {s["id"]: s for s in slide_meta}
+    chapters = deck.get("chapters") or {}
+    if chapters:
+        blocks = [{"id": cid, "slides": [{"slide_id": sid, "content_hash": by_id[sid]["hash"]}
+                                         for sid in picks if sid in by_id]}
+                  for cid, picks in chapters.items()]
+    else:
+        blocks = [{"id": None, "slides": [{"slide_id": s["id"], "content_hash": s["hash"]}
+                                          for s in slide_meta]}]
+    return {
+        "schema": 2,
+        "type": deck.get("type", ""),
+        "client": deck.get("client", ""),
+        "allowed_entitlements": list(deck.get("allowed_entitlements", ["public"])),
+        "chapters": blocks,
+        # schema 2: the recipe has to ROUND-TRIP, not just answer the drift query.
+        # The builder reopens a deck from it, so anything the deck would be
+        # rebuilt without has to be here.
+        #
+        # `order` because chapter order only seeds a deck and the presented order
+        # is the author's; without it, reopening a deck silently re-sorts it.
+        # `vars` because rebuilding without them blanks the footer and the cover
+        # meta, which verify does not catch (an empty footer is still a footer).
+        "order": [s["id"] for s in slide_meta],
+        "vars": dict(deck.get("vars") or {}),
+    }
+
+
 def _role_of(deck: dict, deckdir: Path, sid: str) -> str:
     local = deckdir / "slides" / sid / "meta.yaml"
     meta = local if local.exists() else ds.SLIDES_DIR / sid / "meta.yaml"
@@ -155,7 +205,7 @@ def build_snapshot(deckdir: Path) -> tuple[str, dict, dict]:
     blocks = []
     for i, sid in enumerate(slides, start=1):
         role = _role_of(deck, deckdir, sid)
-        slide_meta.append({"id": sid, "role": role})
+        slide_meta.append({"id": sid, "role": role, "hash": slide_hash(sid, deckdir)})
         raw = ds.read_slide(sid, deckdir)
         raw = _inject_section_attrs(raw, sid, role)
         blocks.append(f"<!-- {i:02d} · {sid} -->\n{raw}")
@@ -213,6 +263,7 @@ def build_snapshot(deckdir: Path) -> tuple[str, dict, dict]:
                   + json.dumps(meta, ensure_ascii=False) + "\n</script>\n")
     document = document.replace("</head>", meta_block + "</head>", 1)
 
+    deck["_recipe"] = build_recipe(deck, deckdir, slide_meta)
     return document, assets, deck
 
 

@@ -88,6 +88,18 @@ def main() -> int:
             imported += 1
             continue
 
+        # The post copy travels with the artifact. It used to stay behind as a
+        # post.txt path in social_outputs, which is how the post editor lost its
+        # text when social moved into the artifact model.
+        post_text = ""
+        for key in ("post_path", "article_path"):
+            if r.get(key):
+                try:
+                    post_text = sb.download(r[key]).decode("utf-8")
+                    break
+                except Exception:  # noqa: BLE001 - a missing object is not fatal
+                    pass
+
         deck = sb.insert("decks", {
             "slug": slug,
             "title": title_from_slug(slug),
@@ -105,6 +117,7 @@ def main() -> int:
             "allowed_entitlements": ["public"],
             "current_version_n": 1,
             "created_by": "import-social",
+            "post_text": post_text,
         })[0]
         did = deck["id"]
 

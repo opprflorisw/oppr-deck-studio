@@ -17,3 +17,5 @@ variables:
 used_in:
 - product-showcase
 notes: Step 1 detail. Colored stepband sb1.
+retired: true
+retired_on: 2026-08-04

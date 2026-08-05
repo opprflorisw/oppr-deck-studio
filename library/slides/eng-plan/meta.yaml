@@ -19,3 +19,5 @@ used_in:
 - engagement
 notes: 'Gated phase timeline: Analyze as gate 1, the four Proof phases as gate 2.
   Week bands match step2-prove.'
+retired: true
+retired_on: 2026-08-04

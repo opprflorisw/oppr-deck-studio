@@ -1,7 +1,78 @@
 # app/ — Oppr Deck Studio App (Deck Studio 2.0)
 
 A local, single-user web app over the Supabase backend. **The CLI creates; the
-app changes and ships.**
+app changes and ships** — with one revision (2026-08-04): composing a deck from
+library slides now happens on either side, via the **Deck builder** below.
+
+## Deck builder (Work → Deck builder)
+
+**A workspace bound to a deck**, not a place you go to make things. The route
+says which deck you are in, and that is what makes the version rule structural:
+
+| Route | What it is |
+|---|---|
+| `#/build` | the chooser: start a new deck, or open one of yours |
+| `#/build/new` | a deck that does not exist yet; publishes as **v1** |
+| `#/build/<deck-id>` | an existing deck; publishes as its **next version** |
+
+**A version can only come from a deck.** There is no "new version of" dropdown:
+a blank form is always a new deck at v1, and opening a deck is always its next
+version, with the slug, client and clearance inherited and read-only. For a
+variant rather than a version, **Save as a new deck** in the publish dialog
+starts its own timeline and records where it came from.
+
+You get there two ways: **Deck builder** in the sidebar, or **Edit slides** on
+any deck. A deck's Edit is two doors, because the server already treats them as
+two jobs — *Edit slides* (structure, here) and *Edit text* (words and images, in
+the editor, enforced by `lib/htmlcheck.mjs`).
+
+**The workspace is a slide sorter.** The grid is the deck: drag a page anywhere,
+or use the arrows on each card. Chapters collapse into a rail on the left whose
+only job is adding, because chapter order seeds a deck and then gets out of the
+way. Everything that is not "which slides, in what order" is behind **Deck
+details**.
+
+**Preview** opens the deck full screen with its own footer and **real page
+numbers** (07 / 16, not a placeholder), and you can reorder from inside it —
+`Earlier` / `Later`, or Alt+arrow — because the moment you notice a page is in
+the wrong place is the moment you should be able to move it.
+
+**Clearance is checked while you pick.** A slide whose images need a clearance
+this deck does not have is greyed out with the reason (`needs holliday
+clearance`) instead of failing verify 40 seconds into a build. The rule is
+computed from the same per-image manifest `verifylib` uses, mirrored into
+`library_slides.entitlements` by `check-drift.py --sync`, so the picker and the
+gate cannot disagree.
+
+**Your work is saved as you go.** An open deck's working recipe lives on the deck
+row (`decks.draft_recipe`), so it survives a reload and is not trapped in one
+browser; a deck that does not exist yet keeps its draft locally until the first
+publish gives it a row. A draft is never a version — the published deck and its
+PDF are untouched until you publish — and both the deck list and the deck page
+say **unpublished changes** so you cannot forget it.
+
+**Archive** demotes a slide so it cannot be picked by accident — the case where a
+chapter holds three versions and you want one of them. It is a backend flag, not
+a repo edit: the app never writes `library/`. Archiving a slide that is already
+picked removes it from the deck rather than shipping it silently. Make an archive
+permanent with `python tools\check-drift.py --apply-archives`, which writes
+`retired: true` into `meta.yaml` so git keeps the durable record.
+
+**Check** runs everything except publish. **Publish** runs the CLI's own pipeline
+(`tools/build-from-recipe.py`: compose → assemble → build-pdf → verify →
+publish) as a background job, and the dialog shows those five gates arriving as
+they finish, so you can see which one you are standing at. **Verify still
+blocks** — a deck that fails is not published, and the failures come back in
+words. On success it takes you to the deck, with the new version at the top of
+its timeline and the PDF ready.
+
+A slide that does not exist yet is still a CLI job, because it must compose only
+from documented design-system blocks. The panel at the bottom of the rail writes
+the prompt for you, including the chapter it must land in and the commands to run
+afterwards; once it is filed and synced it appears in the picker.
+
+Building needs the repo on disk, so the builder is local-only. Hosted, it returns
+a clear error and hands back the CLI prompt.
 
 ```
 cd app
@@ -108,8 +179,8 @@ version history serve all of them.
 
 | | |
 |---|---|
-| `decks` | every artifact: `kind` (deck·carousel·image·article·post), `page_format`, clearance, master flag, `pdf_core` |
-| `deck_versions` | the content, one immutable row per version (`html`, `verify_report`, `pdf_object`) |
+| `decks` | every artifact: `kind` (deck·carousel·image·article·post), `page_format`, clearance, master flag, `pdf_core`, and the finding aids (`note`, `starred`, `post_text`) |
+| `deck_versions` | the content, one immutable row per version (`html`, `verify_report`, `pdf_object`, `page_count`) |
 | `deck_assets` | its bundled images and fonts |
 | `publish_log` | posted / not posted, date, link, archived |
 | `app/.deck-cache/` | **pure cache** — rebuilt from the backend on demand, safe to delete at any moment |
@@ -118,18 +189,59 @@ version history serve all of them.
 the page geometry and which verify rules apply. It is **declared**, never guessed
 from the bytes.
 
+`page_count` is derived in the database from the `<section>` blocks, by a trigger
+on `deck_versions`, so the CLI publisher and the app editor cannot disagree about
+it and neither has to remember to set it.
+
 ## Areas
+
+The sidebar is grouped, and the two administrative pages sit at the bottom behind
+a rule because neither is somewhere you go to do the work.
+
+**Work** — Customers · Decks · Social output · Last 30 days
+**System** — Library · Knowledge
+**Bottom** — Accounts · Settings
 
 - **Customers** — a customer, its decks, and the intake that stages a new one to
   `dump/_app/` for the CLI to file.
-- **Decks** — masters, company decks, customer decks. Every row carries the same
-  actions: **Open · Edit · PDF**.
-- **Social output** — carousels, images and articles, tabbed by category, with
-  publish status. Same rows, same actions: social is not a different system.
+- **Decks** — masters, company decks, customer decks.
+- **Social output** — carousels, images and articles. Same rows, same actions:
+  social is not a different system. On **All** you can look at it flat or grouped
+  by type; posted state is a checkbox in one fixed column, so "what have I not
+  posted yet" reads straight down the page.
 - **Library** — slides, graphics, icons, design system. Each slide and block can
   be **downloaded on its own** as self-contained HTML, PNG or PDF.
-- **Last 30 days** — the research brain, runs, ideas and performance (read-only).
-- **Knowledge** — design philosophy, best practices, recipes, config.
+- **Last 30 days** — the research brain, runs, ideas and performance.
+- **Knowledge** — design philosophy, best practices, recipes.
+- **Accounts** — who can sign in, and what they may do.
+- **Settings** — the read-only browser over the studio's own knowledge files
+  (this was Knowledge's Config tab).
+
+### The overview answers "which one do I want?"
+
+Every artifact row states how long it is, when it last changed and who changed
+it, whatever you wrote about it, and whether you starred it. The note is edited
+where it is read, the star sorts its artifact first in its section, and the
+filter bar searches titles **and** notes — a deck you can only find by its exact
+title is a deck you have to remember the title of.
+
+**Edit is not in the list.** It is on the artifact's own page, one click in:
+editing is something you do to an artifact you have already chosen, and an Edit
+button on every row made every row look like a fork in the road. The row actions
+are **Open · [Post text] · PDF**.
+
+### Post text
+
+A carousel or an image goes out with copy above it. **Post text** opens the
+Unicode post editor: bold/italic/bold-italic (Mathematical Alphanumeric Symbols,
+because LinkedIn has no rich text), the marks LinkedIn keeps, a live feed preview
+with the 140-character fold, a character count against the 3.000 limit, **Copy
+all**, and **Save**. Digits are deliberately never mapped — a bolded number
+cannot be indexed and a screen reader spells it out.
+
+The text lives on the artifact as `decks.post_text`, not in a file beside a build
+folder. Saving it does **not** make a version: rewording a caption is not a new
+carousel.
 
 ## The PDF is always the version you are looking at
 

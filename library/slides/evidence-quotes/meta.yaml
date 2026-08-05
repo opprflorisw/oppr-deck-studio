@@ -14,7 +14,12 @@ images: []
 variables:
 - deck_footer
 - total
-used_in:
-- product-showcase
-- management-outlook
+used_in: []
 notes: Three anonymised operations-leader quotes with 'what we did'.
+chapter: ch-evidence
+goal: Three voices, each with what was actually done.
+why: The soft counterpart to the numbers. Use alongside outcomes-reference, not instead
+  of it.
+with:
+- outcomes-reference
+- running-projects

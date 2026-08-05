@@ -1,0 +1,29 @@
+id: running-projects-detail
+role: running-projects
+title: Already on the floor across manufacturing.
+css:
+- deck.css
+- showcase.css
+entitlement: public
+language: en
+tags:
+- references
+- projects
+- industries
+- quotes
+- testimonial
+images: []
+variables:
+- deck_footer
+- total
+used_in: []
+notes: 'The combined evidence slide: running-projects'' three engagements, each with
+  what we did and, where one exists, a quote. Two of the three carry a quote; the
+  pigments producer carries a plain statement instead, because moving a quote onto
+  a company it did not come from is not something a reference slide may do.'
+chapter: ch-evidence
+goal: The portfolio, what we did on each, and what they said, on one slide.
+why: Use when the deck has room for one evidence slide rather than two. Pick running-projects
+  + evidence-quotes instead when there is room to give each its own page.
+with:
+- outcomes-reference

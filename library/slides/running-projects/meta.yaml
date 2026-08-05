@@ -10,7 +10,6 @@ tags:
 - references
 - projects
 - industries
-- nda
 images: []
 variables:
 - deck_footer
@@ -18,3 +17,10 @@ variables:
 used_in:
 - product-showcase
 notes: Three current engagements by process type (NL/FR), no names.
+chapter: ch-evidence
+goal: The portfolio, described by process type.
+why: Use when the audience wants to know whether their kind of plant is represented.
+  Holds the pigments kiln, which appears nowhere else.
+with:
+- outcomes-reference
+- evidence-quotes

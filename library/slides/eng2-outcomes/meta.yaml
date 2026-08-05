@@ -17,3 +17,10 @@ variables:
 used_in:
 - engagement
 notes: v2 (slimmed, sales-facing). v1 equivalent kept as eng-* for reference.
+chapter: ch-decision
+goal: Convert, extend, or wind down cleanly.
+why: Use in any deck that describes the Proof in detail. It is the answer to 'and
+  then what are we locked into', so leaving it out invites the question.
+with:
+- eng2-step2
+- step3

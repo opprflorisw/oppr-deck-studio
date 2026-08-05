@@ -164,6 +164,39 @@
   .facts-line { margin-top: 16px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em; color: var(--muted); }
   .facts-line b { color: var(--ink); font-weight: 600; }
 
+  /* --- Brandmark at slide scale ---------------------------------------
+     The footer carries a 13px `.wm`. A slide that shows the actual logo (the
+     back cover, the company slide) needs the same mark big enough to read as a
+     logo. It is TEXT, not an imported SVG: the deck embeds Archivo, so this
+     renders identically, stays vector in the PDF, and cannot go stale when the
+     brand kit is regenerated. */
+  .brandmark { font-family: var(--sans); font-weight: 700; font-size: 44px;
+               letter-spacing: -0.045em; line-height: 1; color: var(--ink); }
+  .brandmark b { color: var(--accent); }
+  .slide--ink .brandmark { color: var(--bg); }
+  .brandmark--sm { font-size: 30px; }
+
+  /* --- Closer: contact beside a QR ------------------------------------
+     The last slide is the one people photograph, so it carries everything at
+     once: who to contact, how, and a code that puts the profile on their phone
+     without anyone typing an address. The QR is inline VECTOR; a raster one
+     blurs through the PDF, and a blurred QR is a QR that does not scan. */
+  .closer { display: flex; gap: 54px; align-items: flex-end; }
+  .closer .cl-main { flex: 1; min-width: 0; }
+  .closer .cl-contact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+                        gap: 9px 34px; margin-top: 24px; }
+  .closer .cl-contact .row { display: flex; gap: 12px; align-items: baseline; }
+  .closer .cl-contact .k { flex: 0 0 58px; font-family: var(--mono); font-size: 10px;
+                           letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent); }
+  .closer .cl-contact .v { font-size: 15px; color: rgba(242, 242, 237, 0.92); }
+  .closer .cl-contact .v b { color: var(--bg); }
+  .qrbox { flex: none; text-align: center; }
+  .qrbox .qr { width: 152px; height: 152px; padding: 9px; border-radius: 10px;
+               background: var(--bg); }
+  .qrbox .qr svg { display: block; width: 100%; height: 100%; }
+  .qrbox figcaption { margin: 10px 0 0; font-family: var(--mono); font-size: 10px;
+                      letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent); }
+
   /* --- Who is Oppr --------------------------------------------------- */
   .who { display: flex; gap: 40px; margin-top: 6px; }
   .who .kv { flex: 0 0 360px; display: flex; flex-direction: column; justify-content: center; }
@@ -172,7 +205,11 @@
   .who .kv .k { flex: 0 0 84px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); padding-top: 3px; }
   .who .kv .v { flex: 1; font-size: 14px; line-height: 1.4; }
   .who .princ { flex: 1; display: flex; flex-direction: column; gap: 10px; }
-  .who .princ .card { flex: 1; padding: 13px 22px; display: flex; flex-direction: column; justify-content: center; }
+  /* Icon beside the words, not above them: these three cards are short and
+     stacked, so a chip on its own line would cost a third of each card. */
+  .who .princ .card { flex: 1; padding: 13px 22px; display: flex; flex-direction: row;
+                      align-items: center; gap: 16px; }
+  .who .princ .card .pr-body { flex: 1; min-width: 0; }
   .who .princ .card h3 { font-size: 18px; margin-bottom: 4px; }
   .who .princ .card p { font-size: 13.5px; color: var(--muted); line-height: 1.45; }
   .founder { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 13.5px; font-style: italic; color: var(--muted); line-height: 1.45; }
@@ -214,6 +251,37 @@
   .proj .card .lead .lt { flex: 1; }
   .proj .card .lead h3 { margin-top: 4px; }
 
+  /* --- Running projects, expanded --------------------------------------
+     `running-projects` answers "is my kind of plant here". `evidence-quotes`
+     answers "what did they say". This is both at once, for a deck with room
+     for one slide rather than two.
+
+     A quote is OPTIONAL per card, and that is the load-bearing part: two of the
+     three engagements have one on record and the third does not. Moving a quote
+     onto the company it did not come from is the one thing a reference slide
+     must never do, so where there is no quote the slot carries a plain
+     statement instead, unquoted and with no person attributed. The difference
+     stays visible rather than papered over. */
+  .projx { display: flex; gap: 18px; margin-top: 14px; }
+  .projx .card { flex: 1; display: flex; flex-direction: column; padding: 20px 22px; }
+  .projx .px-head { display: flex; gap: 13px; align-items: flex-start; margin-bottom: 12px; }
+  .projx .px-head .lt { flex: 1; min-width: 0; }
+  .projx .px-head h3 { font-size: 18px; margin-top: 5px; }
+  .projx .px-what { font-size: 13px; line-height: 1.45; color: var(--muted); margin: 0 0 14px; }
+  .projx .did-lbl { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em;
+                    text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .projx ul { list-style: none; padding: 0; margin: 0 0 14px; }
+  .projx li { position: relative; padding-left: 17px; font-size: 12.5px; line-height: 1.4; margin-bottom: 6px; }
+  .projx li::before { content: ""; position: absolute; left: 0; top: 6px; width: 6px; height: 6px;
+                      border-radius: 50%; background: var(--accent); }
+  /* Terracotta rule = a person said this. Grey rule = we are describing it. */
+  .projx blockquote { margin: 0 0 12px; padding-left: 14px; border-left: 2px solid var(--accent);
+                      font-size: 13.5px; line-height: 1.45; letter-spacing: -0.01em; }
+  .projx .px-pull { margin: 0 0 12px; padding-left: 14px; border-left: 2px solid var(--line);
+                    font-size: 13.5px; line-height: 1.45; color: var(--ink); }
+  .projx .att { margin-top: auto; font-family: var(--mono); font-size: 10.5px; color: var(--accent);
+                line-height: 1.5; letter-spacing: 0.02em; }
+
   /* --- CTA left-to-right timeline ------------------------------------ */
   .ctatl { position: relative; margin-top: 40px; max-width: 1080px; }
   .ctatl .line { position: absolute; top: 22px; left: 24px; right: 24px; height: 2px; background: rgba(242,242,237,0.28); }
@@ -226,6 +294,10 @@
   /* --- Icon chip for 2x2 grid cards --------------------------------- */
   .g2ico { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: var(--accent); margin-bottom: 14px; }
   .g2ico svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  /* Small variant: a chip sitting BESIDE the text rather than above it, for
+     short stacked cards where a 44px chip plus a margin eats the card. */
+  .g2ico--sm { width: 34px; height: 34px; margin-bottom: 0; flex: none; }
+  .g2ico--sm svg { width: 17px; height: 17px; }
 
   /* ===================================================================
      Proposal blocks

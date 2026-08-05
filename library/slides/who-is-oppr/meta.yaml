@@ -18,4 +18,10 @@ variables:
 used_in:
 - product-showcase
 - management-outlook
-notes: Company facts + three principles + founder line.
+notes: Company facts + three principles + founder line. Carries the brandmark and
+  one icon per principle (mic / shield / execute).
+chapter: ch-company
+goal: Who we are.
+why: Use in any first-contact deck. Skip once the relationship exists.
+with:
+- eng-next-step
