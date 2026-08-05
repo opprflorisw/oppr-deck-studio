@@ -1,0 +1,38 @@
+# What NOT to ship to Vercel.
+#
+# The project root is the repo root (see vercel.json + package.json "main"), so
+# everything here is uploaded unless it is listed below. That is deliberate: the
+# hosted app serves brand imagery, library slides and templates from /repo, and
+# those files have to travel with the function.
+#
+# What stays behind is anything the running app never reads.
+
+# Installed / generated, rebuilt by the platform
+node_modules
+__pycache__
+app/index.json
+
+# Local caches and secrets
+.deck-cache
+.env
+.env.*
+
+# Local agent tooling, not the deck studio
+.agents
+.impeccable
+.claude
+skills-lock.json
+
+# The design history: read by humans in the repo, never by the app
+.scratch
+
+# Build scratch (content lives in the backend, not on disk)
+decks
+dump
+social
+
+# The unpacked design kit; the app serves the zip next to it
+library/kit/assets
+library/kit/css
+library/kit/fonts
+library/kit/img

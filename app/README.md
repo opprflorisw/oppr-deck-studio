@@ -75,10 +75,23 @@ Building needs the repo on disk, so the builder is local-only. Hosted, it return
 a clear error and hands back the CLI prompt.
 
 ```
-cd app
-npm install        # pdf-lib, and Chromium for printing
+npm install        # from the REPO ROOT, not from app/
 npm run dev        # -> http://127.0.0.1:4173
 ```
+
+**The Node project is the repo root; the app is `app/`.** `package.json`,
+`package-lock.json` and `vercel.json` sit at the root with `"main":
+"app/server.mjs"`, because Vercel builds a GitHub push from the repo root and a
+root with no entrypoint is a failed build. One manifest, one lockfile, one
+`node_modules`, and `git push` is the deploy.
+
+Inside `app/` the split is the obvious one:
+
+| | |
+|---|---|
+| `server.mjs` | the back end: one router, every route |
+| `lib/*.mjs` | the back end's modules (auth, Supabase, verify, htmlcheck, render, jobs, deck cache, env) |
+| `web/` | the front end: `index.html`, `app.css`, `js/` (plain ES modules, no build step) |
 
 **Hosted:** https://deck-manager-oppr.vercel.app — same `server.mjs`, same router,
 same gate. Vercel runs it as the root entrypoint via its default export; `npm run
@@ -86,11 +99,19 @@ dev` wraps the identical handler in an http server. There is deliberately no
 separate serverless implementation, because two implementations is how a hosted
 app and a local app quietly stop behaving the same.
 
-Deploy with `npx vercel deploy --prod` from `app/`.
+Deploy by pushing to `main`. `npx vercel deploy --prod` from the repo root does
+the same thing by hand.
 
-No install step, no dependencies: the server uses only Node built-ins (Node 18+).
-It also needs **Python on PATH** (library index, verify, element export),
-**Chrome or Edge** (printing), and **git** (slide version history).
+Three dependencies, all of them for printing when hosted (`pdf-lib`,
+`puppeteer-core`, `@sparticuz/chromium`); locally it prints with the Chrome or
+Edge already on the machine. It also needs **Python on PATH** (library index,
+verify, element export) and **git** (slide version history).
+
+**Hosted, there is no repo on disk.** `server.mjs` points `REPO_ROOT` at a path
+that cannot exist when `VERCEL` is set, so every read takes its Supabase Storage
+fallback. That is deliberate: the builder traces a few repo JSON files into the
+function, and a partial repo is worse than none — a `brain.json` frozen at deploy
+time would quietly beat the synced one.
 
 ## Signing in
 

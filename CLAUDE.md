@@ -151,10 +151,18 @@ building route of `/deckbuilder` have a hard approval gate — an unattended run
 stops at the proposed plan and waits for a human to approve before building.
 
 The **Deck Studio App** (optional, for browsing/composing visually) needs
-**Node 18+**: `cd app && npm install && npm run dev` → http://127.0.0.1:4173. It
-calls Python for its library index, and has three npm dependencies, all of them
-for rendering when hosted: `pdf-lib`, `puppeteer-core` and `@sparticuz/chromium`.
-Locally it prints with the Chrome or Edge already on the machine.
+**Node 18+**: `npm install && npm run dev` **from the repo root** →
+http://127.0.0.1:4173. It calls Python for its library index, and has three npm
+dependencies, all of them for rendering when hosted: `pdf-lib`, `puppeteer-core`
+and `@sparticuz/chromium`. Locally it prints with the Chrome or Edge already on
+the machine.
+
+**The Node project is the repo root; the app is `app/`** (2026-08-05).
+`package.json` + `package-lock.json` + `vercel.json` live at the root, with
+`"main": "app/server.mjs"`, because Vercel builds a GitHub push from the repo
+root: a root with no entrypoint is a failed build, and the green deploys before
+this were hand-pushed from inside `app/`, which is not something a push can do.
+One manifest, one lockfile, one `node_modules`, and **`git push` is the deploy**.
 
 ## How a deck is composed
 
@@ -356,7 +364,13 @@ manual regeneration.
 - `research/last30days/` — recorded `/last30days` runs (`runs/<slug>/run.json`
   + `raw.md` + `brief.html`), the generated `brain.json`/`brain.md`, and
   LinkedIn drafts in `posts/`. Rebuild with `python tools/research-brain.py`.
-- `app/` — the Deck Studio App (`server.mjs`, `web/`; `npm run dev`)
+- `package.json` · `package-lock.json` · `vercel.json` — the Node project, at the
+  repo root so a `git push` builds on Vercel. `"main"` points into `app/`.
+- `app/` — the Deck Studio App, split the obvious way: `server.mjs` (the router)
+  and `lib/*.mjs` (auth, Supabase, verify, htmlcheck, render, jobs, deck cache,
+  env) are the **back end**; `web/` (`index.html`, `app.css`, `js/`) is the
+  **front end**, plain ES modules with no build step. Run it from the repo root
+  with `npm run dev`.
 - `tools/` — the engine and the gates:
   - **compose + publish**: `deckstudio.py`, `assemble-deck.py`, `snapshot.py`
     (deck folder → self-contained snapshot), `snapshot_html.py` (an already-built

@@ -1,0 +1,21 @@
+{
+  "name": "oppr-deck-studio",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Oppr Deck Studio. The Node project lives at the repo root so a plain `git push` builds on Vercel; the app itself is app/ — server.mjs + lib/ are the back end, web/ is the front end.",
+  "main": "app/server.mjs",
+  "scripts": {
+    "dev": "node app/server.mjs",
+    "start": "node app/server.mjs",
+    "check": "node --check app/server.mjs && node --check app/lib/verify.mjs && node --check app/lib/htmlcheck.mjs"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^131.0.0",
+    "pdf-lib": "^1.17.1",
+    "puppeteer-core": "^23.10.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

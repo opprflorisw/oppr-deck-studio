@@ -6,12 +6,23 @@
 .tmp-catalog/
 
 # --- Secrets: never commit. Real values live only in .env (see .env.example) ---
+# Every .env variant, at any depth: `vercel build` writes .vercel/.env.*.local
+# and app/.env.local (a short-lived OIDC token), and a rule that only matched the
+# one name at the root would have let those through.
 .env
+.env.*
+**/.env
+**/.env.*
+!.env.example
 
-# --- App (deck-studio-app): node deps are never used (zero-dependency server),
-# but ignore them if a future dep is added, and ignore the generated index. ---
-app/node_modules/
+# --- The Node project (root: package.json + vercel.json; code in app/) -------
+# Deps install at the repo root so `vercel build` finds an entrypoint from a
+# plain `git push`. app/index.json is the generated library index.
+node_modules/
 app/index.json
+
+# --- Vercel: the local project link, written by `vercel link`/`vercel build` --
+.vercel/
 
 # --- Python cache ---
 __pycache__/
@@ -37,6 +48,7 @@ Desktop.ini
 
 # Local deck materialization cache (agent): never committed
 app/.deck-cache/
+.deck-cache/
 
 # --- CONTENT lives in Supabase, not the repo -------------------------------
 # The repo is the TOOL only. Content (decks, social outputs, references) lives in

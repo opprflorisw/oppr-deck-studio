@@ -93,7 +93,21 @@ function driftOf(recipe, libHash) {
 }
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(APP_DIR, "..");
+
+// Hosted there is no repo, and that is a decision rather than an accident.
+//
+// The Vercel project root is the repo root (so a plain `git push` finds an
+// entrypoint), which means the builder traces a handful of repo JSON files into
+// the function: brain.json, a couple of run.json, the draft files. A PARTIAL
+// repo is worse than none. Every read below is "disk first, Storage second", so
+// a brain.json frozen at deploy time would quietly win over the synced one, and
+// researchWriteJson would try to write to a read-only filesystem. Pointing
+// REPO_ROOT at a path that cannot exist makes every one of those fallbacks fire
+// as designed, which is exactly how the app behaved before the move.
+const SERVERLESS = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const REPO_ROOT = SERVERLESS
+  ? path.join(APP_DIR, "..", "no-repo-when-hosted")
+  : path.resolve(APP_DIR, "..");
 const WEB_DIR = path.join(APP_DIR, "web");
 const DRAFTS_DIR = path.join(REPO_ROOT, "decks", "drafts");
 const SOCIAL_DRAFTS_DIR = path.join(REPO_ROOT, "social", "drafts");
