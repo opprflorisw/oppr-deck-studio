@@ -37,11 +37,20 @@ TREES = [
     # empty everywhere except this laptop — including the .zip, which is the
     # point of the kit.
     ("brand/kit", {".svg", ".png", ".woff2", ".json", ".html", ".txt", ".zip"}),
-    ("library/slides", {".png"}),              # thumbnails
+    # Slide thumbnails, and the fragments themselves. Hosted, the Deck builder
+    # previews a slide by fetching /repo/library/slides/<id>/slide.html, which
+    # falls back to Storage when there is no repo on disk — so without the .html
+    # every preview in the hosted builder is an error card. meta.yaml rides along
+    # because it is what says which chapter and role a slide is.
+    ("library/slides", {".png", ".html", ".yaml"}),
     ("library/design-system", {".html", ".css"}),
     ("library/icons", {".svg", ".json"}),
+    ("library", {".yaml"}),                    # chapters.yaml, top level only
     ("templates", {".css"}),
 ]
+
+# Trees published one level deep instead of recursively.
+TOP_ONLY = {"brand", "library"}
 
 STATE = REPO_ROOT / ".scratch" / ".asset-hashes.json"
 
@@ -98,8 +107,7 @@ def files_to_publish() -> list[Path]:
         root = REPO_ROOT / rel
         if not root.exists():
             continue
-        top_only = rel == "brand"
-        it = root.glob("*") if top_only else root.rglob("*")
+        it = root.glob("*") if rel in TOP_ONLY else root.rglob("*")
         for p in it:
             if p.is_file() and p.suffix.lower() in suffixes:
                 out.append(p)
