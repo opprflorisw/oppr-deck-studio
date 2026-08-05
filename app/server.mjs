@@ -351,9 +351,36 @@ async function listDraftsIn(baseDir, shape) {
   }
 }
 // The social publish-status store (social/_status.json): { slug: {status, posted_date, url} }.
+// Which built outputs are posted, when, and where. Tracking metadata the app
+// owns, kept next to the outputs in the repo — and therefore, hosted, nowhere.
+//
+// Same rule as the research files: disk when there is a repo, Storage when there
+// is not, and both kept in step so they do not drift until the next sync.
+// Without this, marking a post as posted on Vercel wrote to a read-only
+// filesystem: a 500, and the tick silently did not stick.
+const SOCIAL_STATUS_OBJECT = "social/_status.json";
+
 async function readSocialStatus() {
   try { return JSON.parse(await fsp.readFile(SOCIAL_STATUS_FILE, "utf-8")) || {}; }
+  catch { /* hosted, or not written yet */ }
+  if (!supabaseConfigured()) return {};
+  try { return JSON.parse((await db.download(SOCIAL_STATUS_OBJECT)).toString("utf-8")) || {}; }
   catch { return {}; }
+}
+
+async function writeSocialStatus(all) {
+  const text = JSON.stringify(all, null, 2);
+  let onDisk = false;
+  try {
+    await fsp.writeFile(SOCIAL_STATUS_FILE, text, "utf-8");
+    onDisk = true;
+  } catch { /* hosted: read-only, Storage below is the only copy */ }
+  if (supabaseConfigured()) {
+    try { await db.upload(SOCIAL_STATUS_OBJECT, Buffer.from(text, "utf-8"), "application/json"); }
+    catch (e) { if (!onDisk) throw new Error("could not save: no disk and no backend"); }
+  } else if (!onDisk) {
+    throw new Error("could not save: no disk and no backend");
+  }
 }
 
 // --- Last 30 days research helpers -------------------------------------------
@@ -906,6 +933,14 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === "POST" && p === "/api/import-graphics") {
+    // Staging for /ingest-dump, which files the images into brand/img/ and
+    // describes them in library.json. Both halves have to be on one machine, so
+    // there is nothing useful this can do hosted.
+    if (SERVERLESS) {
+      return needsCli(res,
+        "Imported graphics are staged in the repo for /ingest-dump to file, so importing runs on your machine.",
+        "/ingest-dump");
+    }
     let data;
     try { data = JSON.parse(await readBody(req, 40_000_000)); } catch { return sendJson(res, 400, { error: "bad json" }); }
     const files = Array.isArray(data.files) ? data.files : [];
@@ -939,6 +974,11 @@ async function handleApi(req, res, url) {
   // dump/_app/<slug>/ for the CLI to file into customers/<slug>/ and build. The
   // app never writes customers/ itself — that stays CLI-owned.
   if (req.method === "POST" && p === "/api/customer-intake") {
+    if (SERVERLESS) {
+      return needsCli(res,
+        "A new customer is filed into customers/ by /ingest-dump, so adding one runs on your machine.",
+        "/ingest-dump");
+    }
     let data; try { data = JSON.parse(await readBody(req, 40_000_000)); } catch { return sendJson(res, 400, { error: "bad json" }); }
     const name = String(data.name || "").trim().slice(0, 120);
     if (!name) return sendJson(res, 400, { error: "name is required" });
@@ -977,6 +1017,13 @@ async function handleApi(req, res, url) {
     const dir = safeResolve(SOCIAL_DRAFTS_DIR, "/" + slug);
     if (!dir || dir === SOCIAL_DRAFTS_DIR) return sendJson(res, 400, { error: "invalid slug" });
     const file = path.join(dir, "draft.json");
+    // A social draft is staging the CLI then builds, so writing one hosted would
+    // stage it where no CLI can reach it.
+    if (SERVERLESS && req.method !== "GET") {
+      return needsCli(res,
+        "A social draft is staged in the repo for /deckbuilder to build, so it is written on your machine.",
+        `/deckbuilder build social ${slug}`);
+    }
     if (req.method === "GET") {
       try { return sendJson(res, 200, JSON.parse(await fsp.readFile(file, "utf-8"))); }
       catch { return sendJson(res, 404, { error: "no such draft" }); }
@@ -1024,7 +1071,8 @@ async function handleApi(req, res, url) {
     const all = await readSocialStatus();
     if (status === "draft" && !date && !url && !archived) delete all[slug];
     else all[slug] = { status, posted_date: date, url, archived };
-    await fsp.writeFile(SOCIAL_STATUS_FILE, JSON.stringify(all, null, 2), "utf-8");
+    try { await writeSocialStatus(all); }
+    catch (e) { return sendJson(res, 500, { error: String(e.message || e) }); }
     return sendJson(res, 200, { ok: true, slug, entry: all[slug] || { status: "draft", posted_date: "", url: "", archived: false } });
   }
 
@@ -1061,7 +1109,7 @@ async function handleApi(req, res, url) {
         try { await db.del("publish_log", { slug }); } catch {}
       }
       const all = await readSocialStatus();
-      if (all[slug]) { delete all[slug]; await fsp.writeFile(SOCIAL_STATUS_FILE, JSON.stringify(all, null, 2), "utf-8"); }
+      if (all[slug]) { delete all[slug]; await writeSocialStatus(all); }
       _knowledgeCache = null;
       await regenerateIndex();
       return sendJson(res, 200, { ok: true, slug, removed: existed });
@@ -1174,6 +1222,14 @@ async function handleApi(req, res, url) {
     const dir = draftDir(slug);
     if (!dir) return sendJson(res, 400, { error: "invalid slug" });
     const file = path.join(dir, "draft.json");
+
+    // A deck draft is staging for /new-deck. Composing a deck hosted goes
+    // through the Deck builder instead, which publishes rather than stages.
+    if (SERVERLESS && req.method !== "GET") {
+      return needsCli(res,
+        "A deck draft is staged in the repo for /new-deck to build. Hosted, compose it in the Deck builder instead.",
+        "/new-deck");
+    }
 
     if (req.method === "GET") {
       try {
