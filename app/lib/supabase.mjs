@@ -90,7 +90,15 @@ export async function upload(objectPath, buffer, contentType = "application/octe
 export async function download(objectPath) {
   const { url } = cfg();
   const r = await fetch(`${url}/storage/v1/object/${BUCKET}/${objectPath}`, { headers: headers() });
-  if (!r.ok) throw new Error(`download ${objectPath}: ${r.status}`);
+  // The status rides on the error. A caller that has to tell "this object is not
+  // there" from "the request did not get through" cannot do it from a message,
+  // and treating the second as the first is how a failed read turns into a
+  // silently different document.
+  if (!r.ok) {
+    const e = new Error(`download ${objectPath}: ${r.status}`);
+    e.status = r.status;
+    throw e;
+  }
   return Buffer.from(await r.arrayBuffer());
 }
 

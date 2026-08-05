@@ -1410,6 +1410,20 @@ async function handleDeckApi(req, res, url) {
       // vanish into the server log.
       await audit(req.member, recipe.dry_run ? "deck.build.dryrun" : "deck.build", null,
                   { slug: recipe.slug, job_id: job.id, version_of: recipe.version_of || null });
+      // Hosted, a job outliving its request is a bet, not a design: the instance
+      // can be frozen the moment the response is sent, and the poll that follows
+      // may land on a different one, where an in-memory job id means nothing. So
+      // serverless finishes the work inside this invocation and answers with the
+      // result. That is affordable because the JS pipeline is seconds rather than
+      // the minute four Python subprocesses took, which is what made the job
+      // worth streaming in the first place.
+      if (SERVERLESS) {
+        await job.done;
+        return sendJson(res, 200, {
+          job_id: job.id, state: job.state, steps: job.steps,
+          result: job.result, error: job.error || "",
+        });
+      }
       return sendJson(res, 202, { job_id: job.id, state: job.state, steps: job.steps });
     }
 

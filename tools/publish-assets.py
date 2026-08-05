@@ -31,6 +31,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 TREES = [
     ("brand/img", {".png", ".jpg", ".jpeg", ".webp", ".svg", ".json"}),
     ("brand/fonts", {".woff2", ".woff", ".ttf"}),
+    # The static instances, which are what the PRINT stylesheets load
+    # (templates/deck.css @font-face -> ../brand/fonts-static/). A snapshot
+    # assembled in the cloud bundles them out of Storage; without them Chrome
+    # falls back and embeds Type 3 glyphs, which is what made the PDFs heavy.
+    ("brand/fonts-static", {".woff2", ".woff", ".ttf"}),
     ("brand", {".svg"}),                       # wordmark + icon, top level only
     # The shareable brand kit. The Library's Brand tab reads kit.json and then
     # links every file in it, so the whole tree has to be here or the tab is

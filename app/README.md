@@ -71,8 +71,24 @@ from documented design-system blocks. The panel at the bottom of the rail writes
 the prompt for you, including the chapter it must land in and the commands to run
 afterwards; once it is filed and synced it appears in the picker.
 
-Building needs the repo on disk, so the builder is local-only. Hosted, it returns
-a clear error and hands back the CLI prompt.
+**Building works hosted too** (2026-08-05). Locally the five gates are the CLI's
+own Python (`tools/build-from-recipe.py`). Hosted there is no Python and no repo,
+so the same five gates run in JavaScript over Supabase Storage:
+`app/lib/assemble.mjs` composes and snapshots, `render.mjs` prints,
+`verify.mjs` blocks, `publish.mjs` writes the rows.
+
+It is one transform with two runners, not two pipelines.
+`tools/check-assemble-parity.py` builds the same recipe both ways and diffs the
+snapshot **byte for byte**, including the asset bundle, so they cannot drift
+apart quietly — the same guard `check-verify-parity.py` gives the verify gate.
+Run it (with `--via-storage` for the path that actually runs hosted) whenever you
+change either assembler.
+
+One difference is real and stays: hosted the build finishes inside the POST
+rather than as a polled job, because a serverless instance can be frozen the
+moment it answers and the next poll may land somewhere that never had the job.
+That is affordable because the JS pipeline takes seconds where four Python
+subprocesses took the better part of a minute.
 
 ```
 npm install        # from the REPO ROOT, not from app/

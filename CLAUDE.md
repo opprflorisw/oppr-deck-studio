@@ -304,6 +304,16 @@ manual regeneration.
   the app shells out to `tools/build-from-recipe.py`, which runs the CLI's own
   compose → assemble → build-pdf → verify → publish. **One gate, not two.**
 
+  **Revised 2026-08-05: the builder works hosted.** On Vercel there is no Python
+  to shell out to, so the same five steps run in JavaScript
+  (`app/lib/assemble.mjs` composes and snapshots, `render.mjs` prints,
+  `verify.mjs` blocks, `publish.mjs` writes the rows) over the library mirrored
+  into Storage. Still **one transform**, now with two runners:
+  `tools/check-assemble-parity.py` builds the same recipe both ways and diffs the
+  snapshot **byte for byte**, asset bundle included, so the second runner cannot
+  drift. Same guard, same shape as `check-verify-parity.py`. Change one
+  assembler, change both, run the check.
+
   | The CLI creates | The app changes and ships |
   |---|---|
   | A new **library slide** or design-system block | Compose a deck from chapters (Deck builder) |
@@ -379,6 +389,12 @@ manual regeneration.
   - **gates**: `verifylib.py` (the single rule source), `verify-deck.py`,
     `verify-carousel.py` (the LinkedIn playbook), `check-docs.py` (doc drift, and
     that every live slide is in exactly one chapter)
+  - **parity** (one transform, two runners — the guards that stop them drifting):
+    `check-verify-parity.py` (`verifylib.py` vs `app/lib/verify.mjs`) and
+    `check-assemble-parity.py` (`deckstudio.py` + `snapshot.py` vs
+    `app/lib/assemble.mjs`; `--via-storage` runs the JS side the way it runs
+    hosted, reading every input out of Storage). Both diff real artifacts, so a
+    rule changed on one side and not the other is caught rather than shipped.
   - **propagation**: `check-drift.py` (which published decks are behind their
     library slides; `--sync` mirrors the library into `library_slides` so the
     hosted app can answer it without a repo on disk), `check-story.py` (the
@@ -434,9 +450,11 @@ PDFs are **not** committed; the PDF of record is the `pdf_object` on its version
 
 - Other social formats (X, one-pagers) follow the LinkedIn pattern: give the new
   output a `kind` and a `page_format`, never a parallel store.
-- **Hosting the app.** It stays localhost-only. 2.0 avoided adding new local-only
-  dependencies so this is not a rewrite later, but Chrome-print, Python-verify
-  and the secret-key-holding agent are the anchors that would have to move.
+- ~~**Hosting the app.**~~ **Done.** All three anchors moved: Chrome-print became
+  `app/lib/render.mjs` (serverless Chromium), Python-verify became
+  `app/lib/verify.mjs`, and the agent holds the secret key server-side on Vercel.
+  Composing followed on 2026-08-05 (`app/lib/assemble.mjs` + `publish.mjs`), so
+  **a deck can now be built from the hosted app as well as from this laptop.**
 - Team access & sharing (deliberately deferred — the app is single-user/local).
 - Translation-alignment tooling for language variants.
 - An **article** (`kind=article`) has no HTML document yet, so it is the one

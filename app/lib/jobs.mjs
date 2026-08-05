@@ -15,6 +15,9 @@ import * as db from "./supabase.mjs";
 import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./deckcache.mjs";
 import { print as renderPrint, rendererName, isServerless } from "./render.mjs";
 import { verifySnapshot } from "./verify.mjs";
+import { RepoFiles } from "./repofiles.mjs";
+import { buildSnapshot, chapterOrder, composeSlides, pdfNameForSlug } from "./assemble.mjs";
+import { publishNewDeck, publishVersion } from "./publish.mjs";
 
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(APP_DIR, "..", "..");
@@ -121,9 +124,13 @@ function runPython(args, onLine = null) {
  * back the CLI prompt the way it already does for structural edits.
  */
 export async function buildFromRecipe(recipe, { dryRun = false, onStep = null } = {}) {
-  if (isServerless) {
-    return { ok: false, code: "ENOREPO",
-      error: "Building needs the repo on disk. Run this from the local app, or use the CLI." };
+  // Hosted there is no Python and no repo, so the JS pipeline runs instead. It
+  // is the same five gates in the same order over the same inputs, and
+  // tools/check-assemble-parity.py proves the snapshot it produces is byte for
+  // byte the one the CLI produces. DECK_JS_BUILD=1 forces it locally, which is
+  // how that check is run against a machine that HAS Python.
+  if (isServerless || process.env.DECK_JS_BUILD) {
+    return buildFromRecipeJs(recipe, { dryRun, onStep });
   }
   const dir = path.join(REPO_ROOT, "decks", "drafts", "_recipes");
   await fsp.mkdir(dir, { recursive: true });
@@ -152,6 +159,143 @@ export async function buildFromRecipe(recipe, { dryRun = false, onStep = null } 
     return { ok: false, code: "BADOUTPUT",
       error: (r.stderr || r.stdout || "the build produced no readable result").slice(-2000) };
   }
+}
+
+// --- the recipe build, without Python ----------------------------------------
+//
+// compose -> assemble -> pdf -> verify -> publish, the CLI's pipeline in the
+// CLI's order. The step names, the step details and the result shape are the
+// ones build-from-recipe.py emits, so the builder dialog cannot tell which one
+// ran — only the machine it is running on can.
+//
+// VERIFY STILL BLOCKS. It is the same gate object the local app runs, and a deck
+// that fails is not published; the failures come back to the caller.
+
+async function buildFromRecipeJs(recipe, { dryRun = false, onStep = null } = {}) {
+  const emit = (step, state, detail = "") => onStep?.({ step, state, detail });
+  const steps = [];
+  const record = (step, ok, detail = "", out = "", state = "") => {
+    steps.push({ step, ok, detail, out });
+    emit(step, state || (ok ? "ok" : "fail"), detail);
+  };
+  const result = { slug: recipe.slug, steps, ok: false };
+  const files = new RepoFiles();
+
+  // 1. compose
+  emit("compose", "running");
+  let deck, slides;
+  try {
+    const order = chapterOrder(await files.mustText("library/chapters.yaml", "the chapter set"));
+    deck = composeSlides(recipe, order);
+    slides = deck.slides;
+  } catch (e) {
+    record("compose", false, String(e.message || e));
+    return result;
+  }
+  record("compose", true,
+    `${slides.length} slides across ${Object.keys(deck.chapters || {}).length} chapters`);
+
+  // 2. assemble
+  emit("assemble", "running");
+  let snap;
+  try {
+    snap = await buildSnapshot(deck, recipe.slug, { files });
+  } catch (e) {
+    record("assemble", false, "could not assemble", String(e.message || e));
+    return result;
+  }
+  record("assemble", true, `footers filled, pages numbered 1 to ${slides.length}`);
+
+  // 3. pdf — the snapshot has to exist as files before Chrome can print it,
+  // because the assets it references are relative to the document.
+  emit("pdf", "running");
+  const work = await fsp.mkdtemp(path.join(os.tmpdir(), "oppr-build-"));
+  const indexHtml = path.join(work, "index.html");
+  const pdfName = await recipePdfName(recipe, deck);
+  const outPdf = path.join(work, pdfName);
+  let pdfBytes = null;
+  try {
+    await fsp.writeFile(indexHtml, snap.html, "utf-8");
+    await fsp.mkdir(path.join(work, "assets"), { recursive: true });
+    for (const [fn, a] of Object.entries(snap.assets)) {
+      await fsp.writeFile(path.join(work, "assets", fn), a.bytes);
+    }
+    await renderPrint(indexHtml, outPdf);
+    pdfBytes = await fsp.readFile(outPdf);
+  } catch (e) {
+    record("pdf", false, "the print failed", String(e.message || e));
+    await fsp.rm(work, { recursive: true, force: true });
+    return result;
+  }
+  record("pdf", true, `PDF, ${slides.length} pages`);
+
+  // 4. verify — blocking
+  emit("verify", "running");
+  let report;
+  try {
+    report = await verifySnapshot({ html: snap.html, pdfBytes, pdfName });
+  } catch (e) {
+    report = { fails: [`verify did not run: ${e.message}`], warns: [], entries: [] };
+  }
+  const passed = report.fails.length === 0;
+  const nWarn = report.warns.length;
+  record("verify", passed,
+    passed ? `clean (${nWarn} warning${nWarn === 1 ? "" : "s"})`
+           : `${report.fails.length} failure${report.fails.length === 1 ? "" : "s"}; nothing published`,
+    [...report.fails.map((f) => `FAIL ${f}`), ...report.warns.map((w) => `WARN ${w}`)].join("\n"));
+  result.verify_report = report;
+  if (!passed) {
+    await fsp.rm(work, { recursive: true, force: true });
+    return result;
+  }
+
+  if (dryRun) {
+    result.ok = true;
+    record("publish", true, "skipped: this was a check", "", "skip");
+    await fsp.rm(work, { recursive: true, force: true });
+    return result;
+  }
+
+  // 5. publish
+  emit("publish", "running");
+  try {
+    const common = {
+      html: snap.html, assets: snap.assets, recipe: snap.recipe,
+      pdfBytes, pdfName, note: recipe.note || "", author: "app",
+      verifyReport: report, pageCount: slides.length,
+    };
+    const landed = recipe.version_of
+      ? await publishVersion({ versionOf: recipe.version_of, ...common })
+      : await publishNewDeck({
+          slug: recipe.slug, deck, ...common,
+          type: recipe.type || "", client: recipe.client || "", customer: recipe.customer || "",
+          derivedFrom: recipe.derived_from || "",
+        });
+    record("publish", true, "immutable version written");
+    result.ok = true;
+    result.deck = {
+      id: landed.deck_id, slug: landed.slug, title: deck.title,
+      version: landed.version, page_count: slides.length,
+    };
+  } catch (e) {
+    record("publish", false, "the publish failed", String(e.message || e));
+  }
+  await fsp.rm(work, { recursive: true, force: true });
+  return result;
+}
+
+// The filename a version of this deck gets. A rebuild inherits the existing
+// deck's naming (the date, the client slug and any rename already applied);
+// a new deck derives it from its slug, exactly as deckstudio.pdf_name does.
+async function recipePdfName(recipe, deck) {
+  if (recipe.version_of) {
+    const rows = await db.select("decks", {
+      slug: `eq.${recipe.version_of}`,
+      select: "slug,type,is_master,pdf_core,client_slug",
+    });
+    if (rows.length) return pdfNameFor(rows[0]);
+  }
+  return pdfNameForSlug(recipe.slug, recipe.client || deck.client || "");
 }
 
 // --- the recipe build as a JOB ----------------------------------------------

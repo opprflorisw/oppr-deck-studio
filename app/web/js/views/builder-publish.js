@@ -131,6 +131,16 @@ export function openPublish(work, { dryRun = false, onDone = null } = {}) {
     }
     steps.innerHTML = job.steps.map(stepRow).join("");
 
+    // Hosted the build finishes inside the POST, so the answer is already here.
+    // Polling for it would ask an instance that never had the job and retry
+    // forever on the 404, which looks exactly like a build that never ends.
+    if (job.state && job.state !== "running") {
+      $("#p-cancel", m).disabled = false;
+      $("#p-cancel", m).textContent = "Close";
+      await finish(job);
+      return;
+    }
+
     const poll = setInterval(async () => {
       let s;
       try { s = await api.getBuildJob(job.job_id); } catch { return; }
