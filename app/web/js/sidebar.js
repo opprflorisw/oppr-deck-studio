@@ -9,7 +9,9 @@
 // sits under an app rather than inside its flow.
 
 import { $, $$ } from "./util.js";
-import { current } from "./router.js";
+// The PATH, not the raw hash: an area link must still light up when the route
+// carries a query (`#/build/new?for=<customer>`).
+import { currentPath } from "./router.js";
 import { AREAS, NAV_GROUPS, areaPath } from "./areas.js";
 import { icon } from "./icons.js";
 import { state } from "./state.js";
@@ -22,7 +24,7 @@ const behindCount = () =>
 
 export function renderSidebar() {
   const aside = $("#sidebar");
-  const path = current();
+  const path = currentPath();
 
   const link = (a) => {
     const active = path === `/${a.id}` || path.startsWith(`/${a.id}/`) || isAlias(a.id, path);
@@ -59,7 +61,7 @@ export function renderSidebar() {
 }
 
 export function markActive() {
-  const path = current();
+  const path = currentPath();
   $$(".side-link").forEach((a) => {
     const id = a.dataset.area;
     a.classList.toggle("active", path === `/${id}` || path.startsWith(`/${id}/`) || isAlias(id, path));

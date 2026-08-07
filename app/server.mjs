@@ -40,6 +40,7 @@ import { validateSave, fingerprint } from "./lib/htmlcheck.mjs";
 import * as jobs from "./lib/jobs.mjs";
 import { pdfNameFor, printElement } from "./lib/jobs.mjs";
 import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./lib/deckcache.mjs";
+import { clearanceForCustomer } from "./lib/namescope.mjs";
 
 /**
  * Which pages of a published version no longer match their library slide.
@@ -1326,6 +1327,11 @@ async function handleDeckApi(req, res, url) {
     if (p === "/api/customers2") {
       if (req.method === "GET") {
         const rows = await db.select("customers", { select: "*", order: "name.asc" });
+        // `clearance` is the entitlement slug a deck must hold to name this
+        // customer. Computed here from the same rule the gate uses, so the chip
+        // the New deck dialog offers and the scope verify enforces are the same
+        // string rather than two hopefully-equal ones.
+        for (const c of rows) c.clearance = clearanceForCustomer(c);
         return sendJson(res, 200, { customers: rows });
       }
       if (req.method === "POST") {
@@ -1334,10 +1340,14 @@ async function handleDeckApi(req, res, url) {
         if (!name) return sendJson(res, 400, { error: "name required" });
         const slug = slugify(d.slug || name).slice(0, 60);
         if (!SLUG_RE.test(slug)) return sendJson(res, 400, { error: "invalid slug" });
-        const existing = await db.select("customers", { slug: `eq.${slug}`, select: "id" });
-        if (existing.length) return sendJson(res, 200, { ok: true, id: existing[0].id, existed: true });
+        const existing = await db.select("customers", { slug: `eq.${slug}`, select: "*" });
+        if (existing.length) {
+          return sendJson(res, 200, { ok: true, id: existing[0].id, existed: true,
+                                      customer: { ...existing[0], clearance: clearanceForCustomer(existing[0]) } });
+        }
         const row = await db.insert("customers", { slug, name, notes: String(d.notes || "") });
-        return sendJson(res, 200, { ok: true, id: row[0].id });
+        return sendJson(res, 200, { ok: true, id: row[0].id,
+                                    customer: { ...row[0], clearance: clearanceForCustomer(row[0]) } });
       }
     }
 
@@ -1413,6 +1423,13 @@ async function handleDeckApi(req, res, url) {
         // implies anything about the published version or its PDF, which stay
         // byte-identical until someone accepts.
         d.behind = driftOf(current && current.recipe, libHash);
+        // Whether this deck can be the BASIS of a new one. Starting from an
+        // existing deck copies its recipe, so a version published before the
+        // recipe existed has nothing to copy — the New deck dialog says so
+        // rather than offering a base that would silently start you empty.
+        d.has_recipe = Boolean(current && current.recipe
+                               && Array.isArray(current.recipe.chapters)
+                               && current.recipe.chapters.length);
         // A deck left half-composed in the builder. The boolean is all the list
         // needs; shipping every draft recipe here would be a payload for nothing.
         d.has_draft = Boolean(d.draft_recipe);

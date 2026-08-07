@@ -88,9 +88,12 @@ export function renderDetail(slug) {
       <div id="cust-decks"></div>
     </div>`);
   $("#back", wrap).addEventListener("click", () => go("/customers"));
-  $("#add-deck", wrap).addEventListener("click", () => go("/customers/new?for=" + encodeURIComponent(c.slug)));
+  // A customer's first deck is built, not staged. This opens the builder's
+  // create dialog already bound to this customer, so the deck it publishes is
+  // filed here rather than needing a hand-off to the CLI.
+  $("#add-deck", wrap).addEventListener("click", () => go("/build/new?for=" + encodeURIComponent(c.slug)));
   const decks = $("#cust-decks", wrap);
-  if (!list.length) decks.innerHTML = `<p class="note">No decks yet. Personalize a master for this customer, or use New deck to stage a brief for the CLI.</p>`;
+  if (!list.length) decks.innerHTML = `<p class="note">No decks yet. <b>New deck</b> opens the builder for ${esc(c.name)} — start from scratch, or from an existing deck and change it.</p>`;
   else for (const d of list) decks.append(deckRow(d));
   return wrap;
 }
@@ -113,50 +116,38 @@ function deckRow(d) {
 }
 
 // ---- new customer -----------------------------------------------------------
+// Registering the company, and nothing else. Building its deck used to be a
+// brief staged here for the CLI; the builder does that job now, so a customer's
+// New deck goes to `#/build/new?for=<slug>` and this page is one thing again.
 export function renderNew() {
-  const forSlug = new URLSearchParams(location.hash.split("?")[1] || "").get("for") || "";
-  const forCust = forSlug ? customers().find((x) => x.slug === forSlug) : null;
-  const d = { name: forCust ? forCust.name : "", logo: "", notes: "", brief: "" };
+  const d = { name: "", notes: "" };
   const wrap = el(`
     <div>
       <div class="detail-head">
-        <button class="ghost" id="back">${ibtn("prev", forCust ? "Back to " + esc(forCust.name) : "Customers")}</button>
-        <h1>${forCust ? "New deck for " + esc(forCust.name) : "New customer"}</h1>
+        <button class="ghost" id="back">${ibtn("prev", "Customers")}</button>
+        <h1>New customer</h1>
       </div>
-      <p class="note">${forCust
-        ? `This <b>stages a brief</b> to <span class="mono">dump/_app/</span> for the CLI to build. Or personalize a master from <a href="#/output/masters">Output</a>.`
-        : `Register the company now. Its decks appear here once built or personalized.`}</p>
+      <p class="note">Register the company now. Its decks appear here once you build one,
+        and its name becomes a clearance a deck can be cleared for.</p>
       <div class="panel" style="max-width:640px">
-        <div class="field"><label>Company name</label><input id="c-name" value="${esc(d.name)}" placeholder="Acme Manufacturing" ${forCust ? "readonly" : ""}></div>
-        ${forCust ? "" : `<div class="field"><label>Notes (optional)</label><input id="c-notes" placeholder="industry, contact"></div>`}
-        ${forCust ? `<div class="field"><label>Brief — what the deck should say</label><textarea id="c-brief" style="min-height:120px" placeholder="Audience, the one message, any numbers, which deck type to base it on."></textarea></div>` : ""}
+        <div class="field"><label>Company name</label><input id="c-name" placeholder="Acme Manufacturing"></div>
+        <div class="field"><label>Notes (optional)</label><input id="c-notes" placeholder="industry, contact"></div>
         <div class="panel handoff-panel">
-          <button class="primary" id="c-save">${ibtn("save", forCust ? "Stage brief for the CLI" : "Add customer")}</button>
-          <div id="c-result" style="margin-top:12px"></div>
+          <button class="primary" id="c-save">${ibtn("save", "Add customer")}</button>
         </div>
       </div>
     </div>`);
-  $("#back", wrap).addEventListener("click", () => go(forCust ? "/customers/" + encodeURIComponent(forCust.slug) : "/customers"));
-  $("#c-name", wrap)?.addEventListener("input", (e) => (d.name = e.target.value));
-  $("#c-notes", wrap)?.addEventListener("input", (e) => (d.notes = e.target.value));
-  $("#c-brief", wrap)?.addEventListener("input", (e) => (d.brief = e.target.value));
+  $("#back", wrap).addEventListener("click", () => go("/customers"));
+  $("#c-name", wrap).addEventListener("input", (e) => (d.name = e.target.value));
+  $("#c-notes", wrap).addEventListener("input", (e) => (d.notes = e.target.value));
 
   $("#c-save", wrap).addEventListener("click", async () => {
     if (!d.name.trim()) { toast("Company name is required."); return; }
     try {
-      if (forCust) {
-        // stage a brief for the CLI (deck building stays CLI-only)
-        const out = await api.customerIntake({ name: d.name.trim(), notes: "", brief: d.brief, slug: forCust.slug });
-        $("#c-result", wrap).innerHTML = `
-          <p class="note">Staged to <span class="mono">${esc(out.dir)}</span>. Run in the CLI:</p>
-          <div class="prompt-box"><code>${esc(out.prompt)}</code></div>`;
-        toast("Brief staged.");
-      } else {
-        await api.createCustomer2({ name: d.name.trim(), notes: d.notes });
-        await loadBackend(api);
-        toast("Customer added.");
-        go("/customers");
-      }
+      const out = await api.createCustomer2({ name: d.name.trim(), notes: d.notes });
+      await loadBackend(api);
+      toast("Customer added.");
+      go("/customers/" + encodeURIComponent(out.customer?.slug || ""));
     } catch (err) { toast(err.message || "could not save"); }
   });
   return wrap;

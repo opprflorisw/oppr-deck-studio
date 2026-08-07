@@ -31,8 +31,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 APP = REPO_ROOT / "app"
 
 
-def js_verify(html: str, pdf: bytes | None, pdf_name: str) -> dict:
-    """Run app/lib/verify.mjs on the same inputs."""
+def js_verify(html: str, pdf: bytes | None, pdf_name: str, customers: list[dict]) -> dict:
+    """Run app/lib/verify.mjs on the same inputs.
+
+    `customers` is passed to BOTH sides: the name-leak scopes are customer-driven
+    now, so feeding one side the registered customers and the other the built-ins
+    would report a disagreement that is the harness's fault, not the gate's."""
     with tempfile.TemporaryDirectory() as td:
         d = Path(td)
         (d / "index.html").write_text(html, encoding="utf-8")
@@ -44,7 +48,8 @@ import fs from "node:fs";
 const html = fs.readFileSync({json.dumps((d / "index.html").as_posix())}, "utf-8");
 const pdfPath = {json.dumps((d / pdf_name).as_posix()) if pdf else "null"};
 const pdfBytes = pdfPath && fs.existsSync(pdfPath) ? fs.readFileSync(pdfPath) : null;
-const out = await verifySnapshot({{ html, pdfBytes, pdfName: {json.dumps(pdf_name)} }});
+const customers = {json.dumps(customers)};
+const out = await verifySnapshot({{ html, pdfBytes, pdfName: {json.dumps(pdf_name)}, customers }});
 process.stdout.write(JSON.stringify(out));
 """
         f = d / "run.mjs"
@@ -59,7 +64,8 @@ def _node() -> str:
     return "node"
 
 
-def py_verify(html: str, pdf: bytes | None, pdf_name: str, assets: dict) -> dict:
+def py_verify(html: str, pdf: bytes | None, pdf_name: str, assets: dict,
+              customers: list[dict]) -> dict:
     """The Python gate resolves images against the DISK, while the JS gate
     resolves them against the manifest (it has no disk in a function). Both are
     correct for a real snapshot, so the harness materializes the assets to give
@@ -74,7 +80,7 @@ def py_verify(html: str, pdf: bytes | None, pdf_name: str, assets: dict) -> dict
             (adir / name).write_bytes(data)
         if pdf:
             (d / pdf_name).write_bytes(pdf)
-        return verifylib.verify_snapshot(d).as_dict()
+        return verifylib.verify_snapshot(d, customers=customers).as_dict()
 
 
 # Codes only one side can produce, with the reason. Anything NOT listed here must
@@ -99,6 +105,8 @@ def main() -> int:
 
     sb = Supa()
     decks = sb.select("decks", {"select": "id,slug,current_version_n", "order": "slug.asc"})
+    # The name-leak scopes are customer-driven, so both gates get the real list.
+    customers = sb.select("customers", {"select": "slug,name"})
     mismatches, tested = [], 0
 
     for d in decks:
@@ -125,8 +133,8 @@ def main() -> int:
                 pass
 
         try:
-            p = py_verify(html, pdf, pdf_name, assets)
-            j = js_verify(html, pdf, pdf_name)
+            p = py_verify(html, pdf, pdf_name, assets, customers)
+            j = js_verify(html, pdf, pdf_name, customers)
         except Exception as e:  # noqa: BLE001
             mismatches.append((d["slug"], f"could not run both gates: {e}"))
             continue

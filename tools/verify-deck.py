@@ -29,6 +29,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import verifylib
 
 
+def _customers() -> list[dict]:
+    """Registered customers, so the name-leak gate covers the ones added since
+    the built-in table was written. Best-effort on purpose: with no backend
+    configured this falls back to the built-in scopes rather than refusing to
+    verify, because a gate that cannot run offline is a gate nobody runs."""
+    try:
+        from supa import Supa
+        return Supa().select("customers", {"select": "slug,name"})
+    except Exception:
+        return []
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Verify an assembled deck or snapshot.")
     ap.add_argument("target", help="deck folder (or snapshot folder with --snapshot)")
@@ -36,7 +48,9 @@ def main() -> int:
     ap.add_argument("--json", action="store_true", help="print the report as JSON")
     args = ap.parse_args()
 
-    r = verifylib.verify_snapshot(Path(args.target)) if args.snapshot else verifylib.verify_dir(Path(args.target))
+    custs = _customers()
+    r = (verifylib.verify_snapshot(Path(args.target), customers=custs) if args.snapshot
+         else verifylib.verify_dir(Path(args.target), customers=custs))
 
     if args.json:
         print(json.dumps(r.as_dict(), ensure_ascii=False))

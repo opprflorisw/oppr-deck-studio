@@ -13,6 +13,7 @@ says which deck you are in, and that is what makes the version rule structural:
 |---|---|
 | `#/build` | the chooser: start a new deck, or open one of yours |
 | `#/build/new` | a deck that does not exist yet; publishes as **v1** |
+| `#/build/new?for=<customer>` | the same, bound to a customer from their page |
 | `#/build/<deck-id>` | an existing deck; publishes as its **next version** |
 
 **A version can only come from a deck.** There is no "new version of" dropdown:
@@ -21,8 +22,17 @@ version, with the slug, client and clearance inherited and read-only. For a
 variant rather than a version, **Save as a new deck** in the publish dialog
 starts its own timeline and records where it came from.
 
-You get there two ways: **Deck builder** in the sidebar, or **Edit slides** on
-any deck. A deck's Edit is two doors, because the server already treats them as
+**Start from** (in the create dialog) is how a deck begins as another one: it
+copies that deck's **recipe** — its slides and their order — into the workspace.
+A copy, not a link, so the deck you copied is untouched and this one publishes as
+its own v1. Slides the new deck's clearance does not cover are dropped on the way
+in, and the footer and cover meta follow the new title. A deck published before
+recipes existed is listed but not selectable, with the reason on the option.
+(Copying the published *document* rather than the recipe is **Personalize**, on
+a master.)
+
+You get there three ways: **Deck builder** in the sidebar, **Edit slides** on
+any deck, or **New deck** on a customer. A deck's Edit is two doors, because the server already treats them as
 two jobs — *Edit slides* (structure, here) and *Edit text* (words and images, in
 the editor, enforced by `lib/htmlcheck.mjs`).
 
@@ -43,6 +53,15 @@ clearance`) instead of failing verify 40 seconds into a build. The rule is
 computed from the same per-image manifest `verifylib` uses, mirrored into
 `library_slides.entitlements` by `check-drift.py --sync`, so the picker and the
 gate cannot disagree.
+
+**The clearances on offer come from the customers table**, not from a list in
+the code: every entitlement in the image manifest, plus every registered
+customer. A customer registered today owns no images yet, so without this their
+own deck could not be cleared for them. `lib/namescope.mjs` computes it, the
+server puts it on each customer as `clearance`, and the same module gives the
+verify gate its name-leak scopes — so the chip you tick and the scope that
+blocks are the same string. `tools/check-verify-parity.py` feeds the Python and
+JavaScript gates the same customers and diffs the findings.
 
 **Your work is saved as you go.** An open deck's working recipe lives on the deck
 row (`decks.draft_recipe`), so it survives a reload and is not trapped in one
@@ -239,8 +258,10 @@ a rule because neither is somewhere you go to do the work.
 **System** — Library · Knowledge
 **Bottom** — Accounts · Settings
 
-- **Customers** — a customer, its decks, and the intake that stages a new one to
-  `dump/_app/` for the CLI to file.
+- **Customers** — a customer, its decks, and **New deck**, which opens the Deck
+  builder bound to that customer (`#/build/new?for=<slug>`) so the deck it
+  publishes is filed under them. Registering a customer also creates its
+  clearance, which is what lets a deck be cleared to name them.
 - **Decks** — masters, company decks, customer decks.
 - **Social output** — carousels, images and articles. Same rows, same actions:
   social is not a different system. On **All** you can look at it flat or grouped

@@ -25,21 +25,9 @@ export const PAGE_FORMATS = {
 const pageRules = (f) => PAGE_FORMATS[f || "deck-16x9"] || PAGE_FORMATS["deck-16x9"];
 
 // One clearance slug per customer. A deck must be cleared for exactly the
-// customers it names.
-const NAME_SCOPE = {
-  mutares: "mutares", holliday: "holliday", venator: "venator",
-  attero: "attero", keeeper: "keeeper", omniplast: "omniplast",
-  sonneborn: "sonneborn", host: "host", selo: "selo", wavin: "wavin",
-};
-
-// Two customer names are ordinary English words, so \bname\b would fail any deck
-// containing "the plant that would host it" or "select". Same trade-off as the
-// Python side: a bare "HoSt" slips through, which the visual pass can catch,
-// rather than a false FAIL that trains people to ignore the gate.
-const NAME_PATTERN = {
-  host: /host\s*bioenergy/,
-  selo: /\bselo\b(?!ct)/,
-};
+// customers it names. The table is the built-in ten plus every registered
+// customer; see namescope.mjs for why the built-ins are never renamed.
+import { buildNameScope } from "./namescope.mjs";
 
 class Report {
   constructor() { this.entries = []; }
@@ -116,7 +104,7 @@ function unescapeHtml(s) {
 
 const stripTags = (s) => s.replace(/<[^>]*>/g, " ");
 
-function checkHtml(doc, n, slides, allowed, r, pageFormat) {
+function checkHtml(doc, n, slides, allowed, r, pageFormat, nameScope) {
   const structural = pageRules(pageFormat).structural;
   const visible = visibleLines(doc);
   const text = unescapeHtml(visible.map(([, l]) => l).join("\n"));
@@ -171,10 +159,9 @@ function checkHtml(doc, n, slides, allowed, r, pageFormat) {
 
   // 6. customer-name text leak
   const low = stripTags(text).toLowerCase();
-  for (const [name, scope] of Object.entries(NAME_SCOPE)) {
+  for (const { name, scope, pattern } of nameScope) {
     if (allowed.has(scope)) continue;
-    const re = NAME_PATTERN[name] || new RegExp(`\\b${name}\\b`);
-    if (re.test(low)) {
+    if (new RegExp(pattern).test(low)) {
       r.fail(`customer name '${name}' present but deck clearance is ${[...allowed].sort().join(", ")}`, "name-leak");
     }
   }
@@ -228,7 +215,10 @@ async function checkPdf(pdfBytes, pdfName, n, client, r, pageFormat) {
 
 // Verify a materialized snapshot: index.html + assets/ + optional PDF.
 // Mirrors verifylib.verify_snapshot.
-export async function verifySnapshot({ html, pdfBytes = null, pdfName = "" }) {
+// `customers` are the registered customers whose names the gate should watch
+// for, on top of the built-in scopes. Omitting them checks the built-ins only,
+// which is the behaviour this had before customers drove the table.
+export async function verifySnapshot({ html, pdfBytes = null, pdfName = "", customers = [] }) {
   const r = new Report();
   if (!html) { r.fail("no index.html in snapshot", "no-index"); return r.asDict(); }
 
@@ -245,7 +235,7 @@ export async function verifySnapshot({ html, pdfBytes = null, pdfName = "" }) {
   const client = meta.client || "";
   const pageFormat = meta.page_format || "deck-16x9";
 
-  checkHtml(html, n, slides, allowed, r, pageFormat);
+  checkHtml(html, n, slides, allowed, r, pageFormat, buildNameScope(customers));
 
   // images: every <img> must point into the bundle, and its entitlement must be
   // within the artifact's clearance.

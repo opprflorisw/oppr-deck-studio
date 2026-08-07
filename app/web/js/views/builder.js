@@ -28,7 +28,7 @@
 import { $, $$, el, esc, toast, decodeEntities } from "../util.js";
 import { state, loadBackend } from "../state.js";
 import * as api from "../api.js";
-import { go } from "../router.js";
+import { go, query } from "../router.js";
 import { icon, ibtn } from "../icons.js";
 import { previewFrame, fetchFragment } from "../preview.js";
 import { openDeckViewer, recipePages } from "./viewer.js";
@@ -536,18 +536,92 @@ function deckRow(d) {
 // than existing only as a button press.
 export async function renderNew(mount) {
   await renderChooser(mount);
-  openNewDeck((meta) => startNewDeck(meta));
+  // `?for=<customer>` is how the Customers page starts a deck: the customer is
+  // bound before composing, so the deck it publishes is filed under them rather
+  // than needing to be re-homed afterwards.
+  const forSlug = query().get("for") || "";
+  const forCustomer = forSlug
+    ? (state.backend.customers || []).find((c) => c.slug === forSlug) || null
+    : null;
+  if (forSlug && !forCustomer) toast(`No customer '${forSlug}'. Starting an unbound deck.`);
+  openNewDeck((meta) => startNewDeck(meta), { forCustomer });
 }
 
-function startNewDeck(meta) {
+async function startNewDeck(meta) {
+  const { base_deck_id: baseId, ...fixed } = meta;
   const id = `d${Date.now().toString(36)}`;
-  const w = { ...blankWork(), ...meta, localId: id };
-  w.vars.deck_footer = meta.title.replace(/^oppr\s*[·.\-]\s*/i, "");
-  w.vars.cover_meta = meta.title.replace(/^oppr\s*[·.\-]\s*/i, "");
+  const w = { ...blankWork(), ...fixed, localId: id };
+  w.vars.deck_footer = fixed.title.replace(/^oppr\s*[·.\-]\s*/i, "");
+  w.vars.cover_meta = fixed.title.replace(/^oppr\s*[·.\-]\s*/i, "");
+
+  if (baseId) {
+    try {
+      const [r] = await Promise.all([api.getDeckRecipe(baseId), ensureModel()]);
+      if (!r.recipe?.chapters?.length) {
+        toast("That deck has no recipe to copy. Starting empty.");
+      } else {
+        // Seed through the working shape, then drop anything this deck is not
+        // cleared for. A base deck may be cleared for a customer this one is
+        // not, and carrying those slides across would either leak that customer
+        // into someone else's deck or fail verify a minute into the first build.
+        // Dropping them here is the same rule the picker enforces, applied at
+        // the one moment the slides arrive without passing through the picker.
+        work = w;
+        applyRecipe(r.recipe);
+        w.vars = { ...w.vars, ...(r.recipe.vars || {}) };
+        // The footer and cover meta name the DECK, so they follow the new title,
+        // not the copied one. Everything else in vars is content and carries over.
+        w.vars.deck_footer = fixed.title.replace(/^oppr\s*[·.\-]\s*/i, "");
+        w.vars.cover_meta = fixed.title.replace(/^oppr\s*[·.\-]\s*/i, "");
+        const dropped = dropUncleared(w);
+        toast(dropped
+          ? `Copied ${w.order.length} slides; left out ${dropped} this deck is not cleared for.`
+          : `Copied ${w.order.length} slides. Change anything you like.`);
+      }
+    } catch (e) {
+      toast(`Could not copy that deck: ${e.message}. Starting empty.`);
+    }
+  }
+
   const all = localDrafts();
   all[id] = { ...w, saved_at: new Date().toISOString() };
   writeLocalDrafts(all);
   go(`/build/draft/${id}`);
+}
+
+// The library model, loaded on demand. The chooser does not need it, but copying
+// a deck does: without it the entitlement filter below has nothing to check
+// against and uncleared slides would ride into the deck unnoticed, to be caught
+// a minute later by verify instead of now.
+async function ensureModel() {
+  if (model) return model;
+  const data = await api.getLibraryChapters();
+  model = {
+    chapters: data.chapters || [],
+    slidesById: new Map((data.chapters || []).flatMap((c) => c.slides).map((s) => [s.slide_id, s])),
+  };
+  return model;
+}
+
+// Remove picks the deck's clearance does not cover. With no model it drops
+// nothing and the picker greys them out instead, which is a softer failure than
+// guessing.
+function dropUncleared(w) {
+  if (!model) return 0;
+  const allowed = new Set([...(w.allowed_entitlements || []), "public"]);
+  const bad = w.order.filter((sid) => {
+    const s = model.slidesById.get(sid);
+    return s && (s.entitlements || []).some((e) => !allowed.has(e));
+  });
+  if (!bad.length) return 0;
+  const drop = new Set(bad);
+  w.order = w.order.filter((s) => !drop.has(s));
+  for (const cid of Object.keys(w.chapters)) {
+    const kept = w.chapters[cid].filter((s) => !drop.has(s));
+    if (kept.length) w.chapters[cid] = kept;
+    else delete w.chapters[cid];
+  }
+  return bad.length;
 }
 
 // ---------------------------------------------------------------- the workspace

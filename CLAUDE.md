@@ -84,6 +84,23 @@ should be able to build a deck from these docs alone.
    deck**, not a version. Composing is saved as you go in `decks.draft_recipe` —
    a draft, never a version, surfaced as **unpublished changes**.
 
+   **A customer's first deck is built, not staged (2026-08-06).** **New deck** on
+   a customer opens `#/build/new?for=<slug>`: the create dialog bound to that
+   customer, so client and clearance are fixed up front and the deck it publishes
+   is filed under them instead of landing nowhere and needing to be re-homed. The
+   dialog asks one more thing — **Start from**: an empty deck, or an existing one.
+   Starting from a deck **copies its recipe** (its slides and their order) into
+   the builder, which is a copy and not a link: the deck you copied is untouched
+   and this one still publishes as its own v1. A customer deck defaults to
+   copying the generic **customer** master, because that is what the generic one
+   is for. Two things the copy does on the way in: it drops any slide the new
+   deck's clearance does not cover (so one customer's material cannot ride into
+   another's deck), and it keeps the footer and cover meta of the *new* title
+   rather than the copied one. A deck whose version predates recipes is offered
+   but not selectable — it says so rather than starting you silently empty.
+   Copying the published *document* instead of the recipe is a different act and
+   still exists: that is **Personalize** on a master.
+
    Open any artifact and **Edit** it in place: click text and retype, nudge
    spacing, swap an entitlement-filtered image. Every save is a new immutable
    version. **Download PDF** always gives you the version on screen, printing it
@@ -256,6 +273,19 @@ manual regeneration.
   separate customer at the same level, because a PE-level pitch and a plant-level
   pitch are different decks. A deck must be cleared for exactly the customers it
   names, so a Holliday deck naming Attero is now a hard FAIL.
+
+  **The customers table drives clearance (2026-08-06).** That list above is the
+  *built-in* set, and it is a historical contract: never rename or remove an
+  entry, because published decks carry these slugs in `allowed_entitlements` and
+  a rename retroactively fails a deck that was correct when it was built.
+  **Registering a customer now adds its clearance and its name gate on top.**
+  Before this, a customer added in the app could not be cleared for anything and
+  no deck naming them was gated, so the newest customers were exactly the ones
+  the leak rule did not cover. One rule, implemented per runner and proved equal:
+  `app/lib/namescope.mjs` and `verifylib.build_name_scope()` derive byte-identical
+  patterns, and `check-verify-parity.py` feeds both the same customers. A
+  customer whose name a built-in scope already claims collapses into it rather
+  than creating a second scope for the same words: HoSt Bioenergy stays `host`.
 - **Brand + canonical language** live in `brand/BRAND.md` — colors, type, the
   Capture → Connect → Execute framing (never LOGS/IDA/DOCS as the story),
   Analyze → Prove → Scale path, verified reference stats, current pricing. Verify

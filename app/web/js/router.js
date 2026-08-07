@@ -15,13 +15,23 @@ export function current() {
   return location.hash.replace(/^#/, "") || "/slides";
 }
 
+// The path a route matches against, without the query. A route pattern is a
+// path, so matching the raw hash meant `#/customers/new?for=rhyze` missed the
+// literal `/customers/new` route and fell through to `/customers/:slug` with a
+// slug of `new?for=rhyze` — which is what made every "New deck" button on a
+// customer page land on "No such customer".
+export const currentPath = () => current().split("?")[0];
+
+// The query a view reads its arguments from (`?for=<customer>`).
+export const query = () => new URLSearchParams(current().split("?")[1] || "");
+
 export function go(path) {
   if (current() === path) dispatch();
   else location.hash = path;
 }
 
 export function dispatch() {
-  const path = current();
+  const path = currentPath();
   for (const [rx, handler] of routes) {
     const m = path.match(rx);
     if (m) return handler(...m.slice(1).map(decodeURIComponent));

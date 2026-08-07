@@ -23,6 +23,15 @@ const APP_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(APP_DIR, "..", "..");
 const TOOLS = path.join(REPO_ROOT, "tools");
 
+// The registered customers, for the name-leak gate: a customer added on the
+// Customers page has to be a scope verify enforces, or the newest customers are
+// the only ones the leak rule does not cover. Best-effort — an unreachable
+// backend falls back to the built-in scopes rather than failing the build.
+async function nameScopeCustomers() {
+  try { return await db.select("customers", { select: "slug,name" }); }
+  catch { return []; }
+}
+
 const jobs = new Map();       // jobId -> {id, deckId, versionN, state, verify_report, pdf, error}
 const runningByDeck = new Map(); // deckId -> jobId
 
@@ -233,7 +242,8 @@ async function buildFromRecipeJs(recipe, { dryRun = false, onStep = null } = {})
   emit("verify", "running");
   let report;
   try {
-    report = await verifySnapshot({ html: snap.html, pdfBytes, pdfName });
+    report = await verifySnapshot({ html: snap.html, pdfBytes, pdfName,
+                                    customers: await nameScopeCustomers() });
   } catch (e) {
     report = { fails: [`verify did not run: ${e.message}`], warns: [], entries: [] };
   }
@@ -488,6 +498,7 @@ async function _run(job, deck) {
       html: await fsp.readFile(indexHtml, "utf-8"),
       pdfBytes: fs.existsSync(outPdf) ? await fsp.readFile(outPdf) : null,
       pdfName,
+      customers: await nameScopeCustomers(),
     });
   } catch (e) {
     report = { fails: [`verify did not run: ${e.message}`], warns: [], entries: [] };

@@ -58,6 +58,10 @@ def page_rules(page_format: str) -> dict:
 # deck carry any other customer's material, which is weaker than per-customer.
 # A customer's own name is its scope, so a deck must be cleared for exactly the
 # customers it names.
+# Historical contract: never rename or remove an entry. Published decks carry
+# `allowed_entitlements` naming these scopes, and changing a slug would
+# retroactively fail decks that were correct when they were built. Registered
+# customers are merged ON TOP by build_name_scope(), never over.
 NAME_SCOPE = {
     "mutares": "mutares", "holliday": "holliday", "venator": "venator",
     "attero": "attero", "keeeper": "keeeper", "omniplast": "omniplast",
@@ -75,6 +79,55 @@ NAME_PATTERN = {
     "host": r"host\s*bioenergy",
     "selo": r"\bselo\b(?!ct)",
 }
+
+
+def _head(s: str) -> str:
+    """First word of a slug or name. How a derived scope is tested for collision
+    with a built-in one: the 'HoSt Bioenergy' customer row would otherwise derive
+    a second scope (`host-bioenergy`) matching the same text the built-in `host`
+    scope already claims, and a deck correctly cleared for `host` would start
+    failing on a scope it had no way to know about."""
+    return re.split(r"[-\s]+", str(s or "").lower())[0]
+
+
+def clearance_for_customer(customer: dict) -> str:
+    """A registered customer's effective clearance slug, or '' when a built-in
+    scope already covers it. Mirrors namescope.mjs clearanceForCustomer."""
+    slug = str(customer.get("slug") or "").lower()
+    if not slug:
+        return ""
+    if slug in NAME_SCOPE:
+        return NAME_SCOPE[slug]
+    for h in (_head(slug), _head(customer.get("name"))):
+        if h in NAME_SCOPE:
+            return NAME_SCOPE[h]
+    return slug
+
+
+def build_name_scope(customers: list[dict] | None = None) -> list[dict]:
+    """The scopes the gate enforces: the built-in table, plus one entry per
+    registered customer not already covered by it. Mirrors namescope.mjs
+    buildNameScope; `tools/check-verify-parity.py` feeds both the same customers
+    and diffs the findings, so the two cannot drift."""
+    out = [{"name": n, "scope": s, "pattern": NAME_PATTERN.get(n, rf"\b{re.escape(n)}\b")}
+           for n, s in NAME_SCOPE.items()]
+    seen = {e["scope"] for e in out}
+    for c in customers or []:
+        scope = clearance_for_customer(c)
+        if not scope or scope in seen:      # built-in wins, and never twice
+            continue
+        # Match the company NAME as it would be written on a slide, not the slug:
+        # 'HoSt Bioenergy' is written with a space, and a slug never appears in copy.
+        label = str(c.get("name") or c.get("slug") or "").strip().lower()
+        if not label:
+            continue
+        # Split on whitespace FIRST, then escape: re.escape() escapes a space, so
+        # substituting the escaped run for \s+ would leave a stray backslash and
+        # produce a pattern the JS side does not derive.
+        pattern = r"\b" + r"\s+".join(re.escape(p) for p in label.split()) + r"\b"
+        out.append({"name": scope, "scope": scope, "pattern": pattern})
+        seen.add(scope)
+    return out
 
 
 class Report:
@@ -138,7 +191,8 @@ def _visible_lines(doc: str) -> list[tuple[int, str]]:
 
 
 def _check_html(doc: str, n: int, slides: list[dict], allowed: set, r: Report,
-                page_format: str = "deck-16x9") -> None:
+                page_format: str = "deck-16x9",
+                name_scope: list[dict] | None = None) -> None:
     """slides: [{'id','role'}]. Runs the HTML-level gates on an assembled doc.
 
     Universal rules run for every page_format; the structural ones (footer
@@ -180,11 +234,11 @@ def _check_html(doc: str, n: int, slides: list[dict], allowed: set, r: Report,
 
     # 6. customer-name text leak
     low = text.lower()
-    for name, scope in NAME_SCOPE.items():
-        if scope in allowed:
+    for entry in (name_scope if name_scope is not None else build_name_scope()):
+        if entry["scope"] in allowed:
             continue
-        if re.search(NAME_PATTERN.get(name, rf"\b{name}\b"), low):
-            r.fail(f"customer name '{name}' present but deck clearance is {sorted(allowed)}", "name-leak")
+        if re.search(entry["pattern"], low):
+            r.fail(f"customer name '{entry['name']}' present but deck clearance is {sorted(allowed)}", "name-leak")
 
     # 7. euro number format (WARN)
     for m in re.findall(r"€\s?\d{1,3},\d{3}", text):
@@ -239,7 +293,11 @@ def _check_images(doc: str, base_dir: Path, allowed: set, ent_map: dict, r: Repo
 
 # --- public entry points -----------------------------------------------------
 
-def verify_dir(deckdir: Path, r: Report | None = None) -> Report:
+def verify_dir(deckdir: Path, r: Report | None = None,
+               customers: list[dict] | None = None) -> Report:
+    """`customers` are the registered customers whose names the gate should watch
+    for, on top of the built-in scopes. Omitting them checks the built-ins only,
+    which is the behaviour this had before customers drove the table."""
     r = r or Report()
     deckdir = Path(deckdir).resolve()
     deck = ds.load_deck(deckdir)
@@ -260,7 +318,7 @@ def verify_dir(deckdir: Path, r: Report | None = None) -> Report:
             role = (yaml.safe_load(meta.read_text(encoding="utf-8")) or {}).get("role", "")
         slides.append({"id": sid, "role": role})
 
-    _check_html(doc, n, slides, allowed, r)
+    _check_html(doc, n, slides, allowed, r, name_scope=build_name_scope(customers))
     _check_images(doc, deckdir, allowed, _image_entitlements(), r)
 
     pdfs = list(deckdir.glob("*.pdf"))
@@ -274,9 +332,11 @@ def verify_dir(deckdir: Path, r: Report | None = None) -> Report:
     return r
 
 
-def verify_snapshot(snapdir: Path, r: Report | None = None) -> Report:
+def verify_snapshot(snapdir: Path, r: Report | None = None,
+                    customers: list[dict] | None = None) -> Report:
     """Verify a materialized snapshot: index.html + assets/ + optional *.pdf.
-    Role, client and entitlements come from the embedded deck-meta JSON."""
+    Role, client and entitlements come from the embedded deck-meta JSON.
+    `customers` extends the name-leak scopes; see verify_dir."""
     r = r or Report()
     snapdir = Path(snapdir).resolve()
     index = snapdir / "index.html"
@@ -298,7 +358,7 @@ def verify_snapshot(snapdir: Path, r: Report | None = None) -> Report:
     # bytes, so a carousel is checked as a carousel and a deck as a deck.
     page_format = meta.get("page_format", "deck-16x9")
 
-    _check_html(doc, n, slides, allowed, r, page_format)
+    _check_html(doc, n, slides, allowed, r, page_format, build_name_scope(customers))
 
     # images: resolve inside the snapshot dir; entitlement from the manifest's assets
     asset_ent = {f"assets/{fn}": a.get("entitlement", "public") for fn, a in meta.get("assets", {}).items()}
