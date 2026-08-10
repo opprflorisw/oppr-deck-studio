@@ -1,0 +1,213 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect an app · Oppr Deck Studio</title>
+<link rel="stylesheet" href="/app.css">
+<style>
+  /* Standalone on purpose. This page is NOT part of the hash-routed app: it is
+     the last thing a person sees before handing an outside application access
+     to Deck Studio, and it must render even if the app's router, state or
+     backend are unavailable. A consent screen that fails to load is a consent
+     screen that cannot be refused. */
+  body { display: grid; place-items: center; min-height: 100vh; margin: 0; }
+  .consent { width: min(440px, 92vw); padding: 28px 30px 26px; }
+  .brand { font-weight: 700; letter-spacing: -.01em; margin: 0 0 22px; }
+  .brand i { color: var(--accent, #b84a26); font-style: normal; }
+  h1 { font-size: 20px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .who { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; opacity: .7; margin: 0 0 20px; }
+  .scopes { margin: 0 0 20px; padding: 14px 16px; border: 1px solid var(--line, #d6dae1); border-radius: 6px; }
+  .scopes h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; opacity: .6; margin: 0 0 9px; }
+  .scopes ul { margin: 0; padding-left: 18px; font-size: 14px; }
+  .scopes li { margin-bottom: 4px; }
+  .row { display: flex; gap: 10px; margin-top: 18px; }
+  .row button { flex: 1; padding: 10px 14px; font-size: 15px; cursor: pointer; }
+  .note { font-size: 13px; opacity: .7; line-height: 1.5; }
+  .err { color: #a8231f; font-size: 14px; margin: 12px 0 0; }
+  label { display: block; font-size: 13px; margin: 12px 0 4px; opacity: .8; }
+  input { width: 100%; padding: 9px 11px; font-size: 15px; box-sizing: border-box; }
+  .spin { opacity: .6; font-size: 14px; }
+</style>
+
+<div class="consent card">
+  <p class="brand">oppr<i>.</i> <span style="opacity:.55;font-weight:500">DECK STUDIO</span></p>
+  <div id="body"><p class="spin">Checking the request…</p></div>
+</div>
+
+<script type="module">
+// The OAuth consent screen (2026-08-10).
+//
+// Supabase's OAuth server sends the user here with ?authorization_id=... and
+// expects this page to identify them, show what is being asked for, and record
+// approve or deny. Its own docs put this in supabase-js; this app has no
+// supabase-js, so the three REST calls behind those helpers are made directly:
+//
+//   GET  /auth/v1/oauth/authorizations/<id>            -> client + scopes
+//   POST /auth/v1/oauth/authorizations/<id>/consent    -> {action:"approve"|"deny"}
+//
+// All three carry the USER's access token, not the project's secret key. That is
+// the point: consent is something a person gives, so the call has to be made as
+// that person. The secret key is never in the browser and could not grant
+// consent on anyone's behalf even if it were.
+
+const KEY = "oppr.session";                 // the same session the app stores
+const $ = (s) => document.querySelector(s);
+const body = $("#body");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+const authId = new URLSearchParams(location.search).get("authorization_id") || "";
+
+let cfg = null;
+let session = null;
+try { session = JSON.parse(localStorage.getItem(KEY) || "null"); } catch { session = null; }
+
+const show = (html) => { body.innerHTML = html; };
+
+async function config() {
+  if (cfg) return cfg;
+  const r = await fetch("/api/config");
+  cfg = await r.json();
+  return cfg;
+}
+
+function sbFetch(path, opts = {}) {
+  return fetch(`${cfg.supabase_url}${path}`, {
+    ...opts,
+    headers: {
+      apikey: cfg.anon_key,
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      ...(opts.headers || {}),
+    },
+  });
+}
+
+// An access token lasts an hour and this page is often opened cold, so a stale
+// one is the common case rather than the exception. Refresh once before giving
+// up, or a returning user is told to sign in again for no reason.
+async function refresh() {
+  if (!session?.refresh_token) return false;
+  const r = await fetch(`${cfg.supabase_url}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { apikey: cfg.anon_key, "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: session.refresh_token }),
+  });
+  if (!r.ok) return false;
+  session = await r.json();
+  localStorage.setItem(KEY, JSON.stringify(session));
+  return true;
+}
+
+async function sbAuthed(path, opts) {
+  let r = await sbFetch(path, opts);
+  if (r.status === 401 && await refresh()) r = await sbFetch(path, opts);
+  return r;
+}
+
+function signInForm(msg = "") {
+  show(`
+    <h1>Sign in to continue</h1>
+    <p class="note">An application is asking for access to Deck Studio. Sign in so we know who is granting it.</p>
+    ${msg ? `<p class="err">${esc(msg)}</p>` : ""}
+    <label for="em">Email</label><input id="em" type="email" autocomplete="username">
+    <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password">
+    <div class="row"><button id="go" class="primary">Sign in</button></div>`);
+  const go = async () => {
+    const email = $("#em").value.trim(), password = $("#pw").value;
+    if (!email || !password) return signInForm("Enter your email and password.");
+    show(`<p class="spin">Signing in…</p>`);
+    const r = await fetch(`${cfg.supabase_url}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey: cfg.anon_key, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!r.ok) return signInForm("That email and password do not match.");
+    session = await r.json();
+    localStorage.setItem(KEY, JSON.stringify(session));
+    start();
+  };
+  $("#go").addEventListener("click", go);
+  $("#pw").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  $("#em").focus();
+}
+
+// What a scope actually lets the app do, in words. The raw strings are OIDC
+// jargon and mean nothing to the person being asked to approve them.
+const SCOPE_WORDS = {
+  openid: "Confirm who you are",
+  email: "See your email address",
+  profile: "See your name",
+  offline_access: "Stay connected without asking again each time",
+};
+
+function consentScreen(d) {
+  const client = d.client_name || d.client?.client_name || d.client_id || "An application";
+  const scopes = String(d.scope || d.scopes || "").split(/[\s,]+/).filter(Boolean);
+  show(`
+    <h1>${esc(client)} wants to connect</h1>
+    <p class="who">to Oppr Deck Studio</p>
+    <div class="scopes">
+      <h2>It will be able to</h2>
+      <ul>${scopes.length
+        ? scopes.map((s) => `<li>${esc(SCOPE_WORDS[s] || s)}</li>`).join("")
+        : "<li>Confirm who you are</li>"}</ul>
+    </div>
+    <p class="note">It acts as <b>you</b>: it sees exactly what your account sees, and
+      nothing it does can exceed what you are allowed to do. Company decks and the
+      slide library stay owner-only either way.</p>
+    <div class="row">
+      <button id="deny">Cancel</button>
+      <button id="approve" class="primary">Connect</button>
+    </div>
+    <p class="err" id="e"></p>`);
+  $("#approve").addEventListener("click", () => decide("approve"));
+  $("#deny").addEventListener("click", () => decide("deny"));
+}
+
+async function decide(action) {
+  show(`<p class="spin">${action === "approve" ? "Connecting…" : "Cancelling…"}</p>`);
+  const r = await sbAuthed(`/auth/v1/oauth/authorizations/${encodeURIComponent(authId)}/consent`, {
+    method: "POST",
+    body: JSON.stringify({ action }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    return show(`<h1>That did not work</h1>
+      <p class="err">${esc(d.msg || d.error_description || d.error || `HTTP ${r.status}`)}</p>
+      <p class="note">Close this window and start the connection again from the application.</p>`);
+  }
+  // Both outcomes hand back where to send the browser; the deny case carries the
+  // error back to the client, which is how it learns it was refused.
+  if (d.redirect_url) { location.href = d.redirect_url; return; }
+  show(`<h1>${action === "approve" ? "Connected" : "Cancelled"}</h1>
+    <p class="note">You can close this window.</p>`);
+}
+
+async function start() {
+  await config();
+  if (!cfg.configured) {
+    return show(`<h1>Not configured</h1><p class="note">This deployment has no Supabase project set.</p>`);
+  }
+  if (!authId) {
+    return show(`<h1>Nothing to approve</h1>
+      <p class="note">This page is opened by an application asking for access. There is no
+        request in this link, so there is nothing to grant.</p>`);
+  }
+  if (!session?.access_token) return signInForm();
+
+  const r = await sbAuthed(`/auth/v1/oauth/authorizations/${encodeURIComponent(authId)}`);
+  if (r.status === 401 || r.status === 403) return signInForm("Please sign in again.");
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    return show(`<h1>This request is not valid</h1>
+      <p class="err">${esc(d.msg || d.error_description || d.error || `HTTP ${r.status}`)}</p>
+      <p class="note">It may have expired. Start the connection again from the application.</p>`);
+  }
+  // Already consented: Supabase answers with somewhere to go rather than details
+  // to show, and asking again would be noise.
+  if (d.redirect_url && !d.authorization_id) { location.href = d.redirect_url; return; }
+  consentScreen(d);
+}
+
+start().catch((e) => show(`<h1>Something went wrong</h1><p class="err">${esc(e.message)}</p>`));
+</script>

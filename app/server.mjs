@@ -2351,6 +2351,14 @@ export async function handleRequest(req, res) {
     // Front-end.
     if (req.method !== "GET") return send(res, 405, "method not allowed");
     if (p === "/" || p === "") return serveFile(res, path.join(WEB_DIR, "index.html"));
+    // The OAuth consent screen. A real path, not a hash route: Supabase's OAuth
+    // server sends people here with ?authorization_id=..., and it is configured
+    // as `Authorization Path` in the dashboard, so the URL is fixed on their
+    // side. Served UNAUTHENTICATED on purpose -- the page signs the person in
+    // itself, because someone arriving from another application will often not
+    // have a session yet, and bouncing them into the app would lose the
+    // authorization_id and strand the connection.
+    if (p === "/oauth/consent") return serveFile(res, path.join(WEB_DIR, "oauth-consent.html"));
     const abs = safeResolve(WEB_DIR, p);
     if (!abs) return send(res, 403, "forbidden");
     return serveFile(res, abs);
