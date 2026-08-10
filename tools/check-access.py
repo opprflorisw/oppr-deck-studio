@@ -183,20 +183,48 @@ def main() -> int:
     #    grant made to `authenticated`.
     #
     #    So the invariant is checked directly now, not inferred from behaviour.
+    #     A check that cannot read its answer must FAIL, not report "clean". The
+    #     first version of this treated any non-array body as an empty list, so a
+    #     shape change, a null, or an error object would have printed PASS —
+    #     which is the same "green while wide open" failure it was written for.
     r = requests.post(f"{url}/rest/v1/rpc/policy_audit", headers=adm, timeout=20)
-    if r.ok:
-        blanket = r.json() if r.text.startswith("[") else []
-        names = ", ".join(f"{b['table_name']}.{b['policy_name']} ({b['cmd']})" for b in blanket)
-        check(not blanket, "no policy grants unconditionally to a non-service role",
-              names or "clean")
-    else:
+    if not r.ok:
         check(False, "policy_audit() is callable", f"HTTP {r.status_code}")
+    else:
+        try:
+            blanket = r.json()
+        except ValueError:
+            blanket = None
+        if not isinstance(blanket, list):
+            check(False, "no policy grants unconditionally to a non-service role",
+                  f"unreadable result: {r.text[:80]!r}")
+        else:
+            names = ", ".join(f"{b['table_name']}.{b['policy_name']} ({b['cmd']})" for b in blanket)
+            check(not blanket, "no policy grants unconditionally to a non-service role",
+                  names or "clean")
 
-    # 10. Every content table must actually have RLS turned on. A table with RLS
-    #     disabled needs no bad policy to be wide open.
+    # 10. The audit function must not itself be a way in.
     r = requests.post(f"{url}/rest/v1/rpc/policy_audit", headers=pub, timeout=20)
     check(r.status_code in (401, 403, 404),
           "anon cannot call policy_audit()", f"HTTP {r.status_code}")
+
+    # 11. RLS must actually be ENABLED on every content table. A table with it
+    #     switched off needs no bad policy to be wide open, and the policy audit
+    #     above would not see it — the policies would simply never be consulted.
+    r = requests.post(f"{url}/rest/v1/rpc/rls_disabled_tables", headers=adm, timeout=20)
+    if not r.ok:
+        check(False, "rls_disabled_tables() is callable", f"HTTP {r.status_code}")
+    else:
+        try:
+            off = r.json()
+        except ValueError:
+            off = None
+        if not isinstance(off, list):
+            check(False, "row level security is enabled on every table",
+                  f"unreadable result: {r.text[:80]!r}")
+        else:
+            check(not off, "row level security is enabled on every table",
+                  ", ".join(t.get("table_name", "?") for t in off) or "all enabled")
 
     # --- report ---------------------------------------------------------------
     print()

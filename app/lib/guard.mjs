@@ -41,8 +41,16 @@ export async function requireLeaf(deckId, member, what, fields = null) {
   let rows;
   try {
     rows = await db.select("decks", { id: `eq.${deckId}`, select: "id,is_master,title,type" });
-  } catch {
-    return null;            // let the route's own lookup produce the real error
+  } catch (e) {
+    // FAIL CLOSED. Returning null here would turn a transient Supabase error, a
+    // rate limit or a network blip into an ALLOWED owner-only write -- the guard
+    // waving through exactly what it exists to stop, at the moment it is least
+    // able to tell. A refusal you can retry is the safe side of that trade.
+    return {
+      error: "guard_unavailable",
+      message: `Could not confirm whether this is a company deck, so the change was not made. ` +
+               `Try again in a moment. (${e.message})`,
+    };
   }
   const deck = rows[0];
   if (!deck || !deck.is_master) return null;

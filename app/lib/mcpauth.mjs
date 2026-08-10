@@ -125,6 +125,23 @@ export function audienceOk(claims, resourceUrl) {
 }
 
 /**
+ * Why a token was refused, in words a person can act on.
+ *
+ * Without this an audience rejection and a missing token produce the identical
+ * 401, so a token that is perfectly valid but carries Supabase's generic
+ * `aud: "authenticated"` sends Claude round the OAuth loop forever with nothing
+ * to read. Supabase's OAuth server could not be reached to confirm which
+ * audience it issues (it is disabled on this project), so the case is named
+ * rather than assumed.
+ */
+export function refusalReason(claims) {
+  if (!claims) return "Authentication required";
+  const aud = Array.isArray(claims.aud) ? claims.aud.join(",") : String(claims.aud || "");
+  return `Token audience "${aud}" is not this MCP server. ` +
+         `If your identity provider cannot set it, run with MCP_REQUIRE_AUDIENCE=0.`;
+}
+
+/**
  * The RFC 9728 Protected Resource Metadata document.
  *
  * `resource` must equal the URL the user typed into Claude, path included, or

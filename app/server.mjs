@@ -41,48 +41,12 @@ import * as jobs from "./lib/jobs.mjs";
 import { pdfNameFor, printElement } from "./lib/jobs.mjs";
 import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./lib/deckcache.mjs";
 import { clearanceForCustomer, patternForCustomer } from "./lib/namescope.mjs";
-import { wouldNewlyFail } from "./lib/verify.mjs";
+import { collidingDecks } from "./lib/collide.mjs";
 import { requireLeaf, MASTER_STRUCTURAL_FIELDS, motherRouteFor } from "./lib/guard.mjs";
-import { verifyJwt, audienceOk, protectedResourceMetadata, challenge } from "./lib/mcpauth.mjs";
+import { verifyJwt, audienceOk, protectedResourceMetadata, challenge,
+         refusalReason } from "./lib/mcpauth.mjs";
 import { TOOLS, callTool, negotiate, serverInfo, INSTRUCTIONS, SUPPORTED_VERSIONS,
          isWriteTool } from "./lib/mcp.mjs";
-
-/**
- * Published decks that would START failing if `pattern`/`scope` became a gated
- * customer name. The evidence behind the collision guard on customer creation.
- *
- * Only CURRENT versions of non-archived decks are considered: an older version
- * is history nobody will rebuild, and an archived deck is already out of the
- * index. Fetched in two passes so the (deck, n) bookkeeping happens on cheap
- * rows and only the handful of documents actually needed are pulled with their
- * HTML -- a snapshot inlines its stylesheet, so `html` is the expensive column.
- */
-async function collidingDecks(pattern, scope) {
-  const decks = await db.select("decks", {
-    select: "id,slug,title,current_version_n,archived",
-    archived: "is.false",
-  });
-  const wantN = new Map(decks.map((d) => [d.id, d.current_version_n]));
-  if (!wantN.size) return [];
-
-  const stubs = await db.select("deck_versions", { select: "id,deck_id,n" });
-  const wanted = stubs.filter((v) => wantN.get(v.deck_id) === v.n).map((v) => v.id);
-  if (!wanted.length) return [];
-
-  const docs = await db.select("deck_versions", {
-    select: "deck_id,html",
-    id: `in.(${wanted.join(",")})`,
-  });
-
-  const byId = new Map(decks.map((d) => [d.id, d]));
-  const hits = [];
-  for (const v of docs) {
-    if (!wouldNewlyFail(v.html, pattern, scope)) continue;
-    const d = byId.get(v.deck_id);
-    if (d) hits.push({ slug: d.slug, title: d.title });
-  }
-  return hits;
-}
 
 /**
  * Which pages of a published version no longer match their library slide.
@@ -1427,10 +1391,20 @@ async function handleDeckApi(req, res, url) {
         // `\bselo\b(?!ct)`, `host` is `host\s*bioenergy`); a name typed in by a
         // salesperson gets no such tuning, so the machine checks it instead.
         //
-        // Dry-run first, refuse with the evidence. `force` is the owner's escape
-        // hatch for a name that genuinely is the company's name.
+        // Dry-run first, refuse with the evidence. `force` is the OWNER's escape
+        // hatch for a name that genuinely is the company's name: an editor
+        // passing force:true would otherwise walk straight past the guard and
+        // retroactively fail every deck containing an ordinary word, which is
+        // the entire thing this check exists to stop.
+        const forced = Boolean(d.force) && isOwner(req.member);
+        if (Boolean(d.force) && !isOwner(req.member)) {
+          return sendJson(res, 403, {
+            error: "owner_only",
+            message: "Only an owner can force a customer name past the collision check.",
+          });
+        }
         const probe = patternForCustomer({ slug, name });
-        if (probe && !d.force) {
+        if (probe && !forced) {
           const clashes = await collidingDecks(probe, clearanceForCustomer({ slug, name }));
           if (clashes.length) {
             return sendJson(res, 409, {
@@ -1444,13 +1418,13 @@ async function handleDeckApi(req, res, url) {
                 `deck${clashes.length === 1 ? "" : "s"} already use ` +
                 `${clashes.length === 1 ? "it" : "them"} without being cleared for it. ` +
                 `Use the fuller company name, or an owner can force it.`,
-              can_force: isOwner(member),
+              can_force: isOwner(req.member),
             });
           }
         }
 
         const row = await db.insert("customers", { slug, name, notes: String(d.notes || "") });
-        await audit(member, "customer.create", null, { slug, name, forced: Boolean(d.force) });
+        await audit(req.member, "customer.create", null, { slug, name, forced });
         return sendJson(res, 200, { ok: true, id: row[0].id,
                                     customer: { ...row[0], clearance: clearanceForCustomer(row[0]) } });
       }
@@ -1613,7 +1587,7 @@ async function handleDeckApi(req, res, url) {
       if (row[0].retired) {
         return sendJson(res, 409, { error: "that slide is already retired in the repo" });
       }
-      await db.update("library_slides", { slide_id: `eq.${sid}` }, {
+      await db.update("library_slides", { slide_id: sid }, {
         archived,
         archived_at: archived ? new Date().toISOString() : null,
         archived_by: archived ? (req.member?.email || "app") : null,
@@ -1853,6 +1827,14 @@ async function handleDeckApi(req, res, url) {
         if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
         const n = Number(d.version_n) || decks[0].current_version_n;
         if (!n) return sendJson(res, 400, { error: "that deck has no published version to send" });
+        // Unvalidated, `{"version_n": 99}` is stored verbatim: the timeline then
+        // shows v99 and computes stale = 99 < current = false, so a deck reads as
+        // current against a version that never existed.
+        if (!Number.isInteger(n) || n < 1 || n > decks[0].current_version_n) {
+          return sendJson(res, 400, {
+            error: `no such version: that deck is at v${decks[0].current_version_n}`,
+          });
+        }
         const row = await db.insert("deck_sends", {
           deck_id: id,
           version_n: n,
@@ -2246,6 +2228,15 @@ async function handleMcp(req, res, url) {
   catch { return sendJson(res, 400, { jsonrpc: "2.0", id: null,
     error: { code: -32700, message: "Parse error" } }); }
 
+  // A JSON-RPC BATCH is an array, and an array has no `id`, so the notification
+  // rule below would answer it 202-with-no-body and leave a conforming
+  // 2025-03-26 client waiting forever for results it will never get. Refuse it
+  // plainly instead: this server does not batch.
+  if (Array.isArray(msg)) {
+    return sendJson(res, 400, { jsonrpc: "2.0", id: null,
+      error: { code: -32600, message: "Batched requests are not supported; send one message per request." } });
+  }
+
   // A notification has no id and MUST get 202 with an empty body. Answering it
   // with a JSON-RPC response breaks strict clients.
   if (msg == null || msg.id === undefined) { res.writeHead(202); return res.end(); }
@@ -2273,8 +2264,14 @@ async function handleMcp(req, res, url) {
   const resource = `${base}/mcp`;
   const member = claims && audienceOk(claims, resource) ? await mcpMember(claims) : null;
   if (!member) {
-    res.setHeader("WWW-Authenticate", challenge(base));
-    return sendJson(res, 401, { error: "invalid_token", error_description: "Authentication required" });
+    // Say WHICH refusal it was. A valid token rejected on audience and no token
+    // at all otherwise produce an identical 401, and the first one sends Claude
+    // round the OAuth loop with nothing to read.
+    const why = claims && !audienceOk(claims, resource)
+      ? refusalReason(claims)
+      : "Authentication required";
+    res.setHeader("WWW-Authenticate", challenge(base, "invalid_token", why));
+    return sendJson(res, 401, { error: "invalid_token", error_description: why });
   }
 
   if (msg.method === "tools/list") return rpc({ tools: TOOLS, nextCursor: null });

@@ -28,7 +28,7 @@
 import * as db from "./supabase.mjs";
 import { requireLeaf } from "./guard.mjs";
 import { clearanceForCustomer, patternForCustomer } from "./namescope.mjs";
-import { wouldNewlyFail } from "./verify.mjs";
+import { collidingDecks } from "./collide.mjs";
 
 export const SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18", "2025-11-25"];
 const LATEST = "2025-11-25";
@@ -189,8 +189,6 @@ async function customersList() {
   return text(`${rows.length} customers:\n${lines.join("\n")}`);
 }
 
-// Shares collidingDecks' reasoning with the HTTP route by using the same
-// patternForCustomer + wouldNewlyFail pair; see server.mjs collidingDecks.
 async function customerCreate({ name, notes }, member) {
   const clean = String(name || "").trim();
   if (!clean) return fail("A name is required.");
@@ -202,31 +200,18 @@ async function customerCreate({ name, notes }, member) {
     return text(`"${decode(existing[0].name)}" is already registered (slug: ${slug}).`);
   }
 
+  // The same collision check the browser route runs, from the same module --
+  // this was a copied body once, and the two had already drifted.
   const scope = clearanceForCustomer({ slug, name: clean });
-  const pattern = patternForCustomer({ slug, name: clean });
-  if (pattern) {
-    const decks = await db.select("decks", {
-      select: "id,slug,title,current_version_n,archived", archived: "is.false",
-    });
-    const wantN = new Map(decks.map((d) => [d.id, d.current_version_n]));
-    const stubs = await db.select("deck_versions", { select: "id,deck_id,n" });
-    const wanted = stubs.filter((v) => wantN.get(v.deck_id) === v.n).map((v) => v.id);
-    if (wanted.length) {
-      const docs = await db.select("deck_versions", {
-        select: "deck_id,html", id: `in.(${wanted.join(",")})`,
-      });
-      const byId = new Map(decks.map((d) => [d.id, d]));
-      const hits = docs.filter((v) => wouldNewlyFail(v.html, pattern, scope))
-        .map((v) => byId.get(v.deck_id)?.slug).filter(Boolean);
-      if (hits.length) {
-        return fail(
-          `Refusing to register "${clean}". Its name would become a gated term ` +
-          `(${pattern}), and ${hits.length} published deck${hits.length === 1 ? "" : "s"} ` +
-          `already use those words without clearance for it: ${hits.slice(0, 8).join(", ")}` +
-          `${hits.length > 8 ? ", ..." : ""}. Registering it would fail decks that are ` +
-          `correct today. Use the fuller company name, or ask an owner to force it in the app.`);
-      }
-    }
+  const hits = await collidingDecks(patternForCustomer({ slug, name: clean }), scope);
+  if (hits.length) {
+    const names = hits.slice(0, 8).map((h) => h.slug).join(", ");
+    return fail(
+      `Refusing to register "${clean}". Its name would become a gated term, and ` +
+      `${hits.length} published deck${hits.length === 1 ? "" : "s"} already use those ` +
+      `words without clearance for it: ${names}${hits.length > 8 ? ", ..." : ""}. ` +
+      `Registering it would fail decks that are correct today. Use the fuller ` +
+      `company name, or ask an owner to force it in the app.`);
   }
 
   const row = await db.insert("customers", { slug, name: clean, notes: String(notes || "") });
@@ -306,6 +291,11 @@ async function deckRecordSent({ slug, recipient, note, version, sent_at }, membe
   if (!deck) return fail(`No deck with slug "${slug}".`);
   const n = Number(version) || deck.current_version_n;
   if (!n) return fail(`Deck "${slug}" has no published version to send.`);
+  // A version that does not exist would render as "v99" on the timeline and
+  // compute stale=false, so the deck would read as up to date against nothing.
+  if (!Number.isInteger(n) || n < 1 || n > deck.current_version_n) {
+    return fail(`Deck "${slug}" has no version ${version}. It is at v${deck.current_version_n}.`);
+  }
   await db.insert("deck_sends", {
     deck_id: deck.id,
     version_n: n,
