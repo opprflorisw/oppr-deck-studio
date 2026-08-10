@@ -213,6 +213,41 @@ async function checkPdf(pdfBytes, pdfName, n, client, r, pageFormat) {
   r.warn("blank-page check not run (raster scan is CLI-only)", "blank-page-skipped");
 }
 
+const META_RE = /<script type="application\/json" id="deck-meta">\s*(\{[\s\S]*?\})\s*<\/script>/;
+
+/**
+ * Would this published deck NEWLY fail if `scope` became a gated name matched by
+ * `pattern`? True means registering that customer breaks a deck that is correct
+ * today.
+ *
+ * This is the dry-run behind the customer-name collision guard. Registering a
+ * customer creates a gated term (namescope.buildNameScope), so a customer called
+ * "Core" would make `\bcore\b` a failing word and retroactively fail every deck
+ * using it -- decks that were correct when they were built and that nobody
+ * touched. The built-in scopes are hand-tuned for exactly this (`selo` is
+ * `\bselo\b(?!ct)`), but a name typed in by a salesperson gets no such tuning.
+ *
+ * It deliberately reuses the gate's own extraction (visibleLines -> unescapeHtml
+ * -> stripTags -> lowercase) and the gate's own reading of allowed_entitlements,
+ * because a guard that predicts the gate using different code is a guard that
+ * will one day predict wrongly. Same input, same pipeline, same answer.
+ */
+export function wouldNewlyFail(html, pattern, scope) {
+  if (!html || !pattern) return false;
+  let allowed = new Set(["public"]);
+  const m = META_RE.exec(html);
+  if (m) {
+    try {
+      const meta = JSON.parse(m[1]);
+      allowed = new Set([...(meta.allowed_entitlements || ["public"]), "public"]);
+    } catch { /* unreadable meta: treat as public-only, the strictest reading */ }
+  }
+  // Already cleared for it, so the new scope changes nothing for this deck.
+  if (allowed.has(scope)) return false;
+  const text = unescapeHtml(visibleLines(html).map(([, l]) => l).join("\n"));
+  return new RegExp(pattern).test(stripTags(text).toLowerCase());
+}
+
 // Verify a materialized snapshot: index.html + assets/ + optional PDF.
 // Mirrors verifylib.verify_snapshot.
 // `customers` are the registered customers whose names the gate should watch
@@ -222,7 +257,7 @@ export async function verifySnapshot({ html, pdfBytes = null, pdfName = "", cust
   const r = new Report();
   if (!html) { r.fail("no index.html in snapshot", "no-index"); return r.asDict(); }
 
-  const m = /<script type="application\/json" id="deck-meta">\s*(\{[\s\S]*?\})\s*<\/script>/.exec(html);
+  const m = META_RE.exec(html);
   if (!m) { r.fail("snapshot is missing its deck-meta manifest", "no-meta"); return r.asDict(); }
 
   let meta;

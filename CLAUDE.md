@@ -118,6 +118,23 @@ should be able to build a deck from these docs alone.
    triggers on `auth.users`: an owner adds people on the **Accounts** page, or
    with `python tools\manage-users.py` when nobody can sign in yet.
 
+   **Deck Studio over MCP (2026-08-07).** `/mcp` on the same Vercel app is a
+   second front door for Claude on desktop, web or a phone: list customers,
+   register one, read a deck, see what a customer holds, record a send, search
+   the library. It shares the browser's handlers and `app/lib/guard.mjs`, so it
+   is not a second pipeline and not a second permission model. **There is
+   deliberately no tool for editing a master or the library** — that absence is
+   the mother/leaf boundary made structural. Streamable HTTP, **stateless** (no
+   session id: one serverless instance's session means nothing to the next), spec
+   `2025-11-25` and its two predecessors. Auth is OAuth 2.1 delegated to
+   **Supabase's OAuth server**, with the token verified against the project JWKS
+   in `app/lib/mcpauth.mjs` (ES256, via `node:crypto`, so no new dependency).
+   A refusal is an HTTP **401 with `WWW-Authenticate`**, never a 200 carrying
+   `isError` — only the former makes Claude offer a Connect button.
+   **Requires the OAuth server to be enabled** in the Supabase dashboard
+   (Authentication → OAuth Server); until it is, `/mcp` answers every tool call
+   with 401 by design.
+
    The browser talks only to the **local agent** (`app/server.mjs` + `app/lib/*`),
    which holds the Supabase secret key and runs print/verify; the browser never
    sees the key. Creating anything new, and any structural change, stays CLI —
@@ -286,6 +303,38 @@ manual regeneration.
   patterns, and `check-verify-parity.py` feeds both the same customers. A
   customer whose name a built-in scope already claims collapses into it rather
   than creating a second scope for the same words: HoSt Bioenergy stays `host`.
+- **Mother work and leaf work (2026-08-07).** The permission line is **blast
+  radius**, not seniority. **Leaf** work affects one customer's artifact: register
+  the customer, copy a company deck into their teaser/engagement/proof-of-value
+  deck, edit its text, publish a version, record that it was sent. Any **editor**
+  may do it, from the app or over MCP, because it is the daily job of the
+  commercial team. **Mother** work changes every deck built from then on: editing
+  a **master**, archiving a library slide, reassigning `is_master`, rebuilding the
+  index or the research brain. That needs an **owner**. A colleague who wants to
+  improve the pitch uses **Save as a new deck**, which already records where it
+  came from, and an owner promotes it. One implementation, in
+  `app/lib/guard.mjs`, imported by both the browser routes and the MCP server:
+  the rule is enforced in code, and a rule written twice eventually disagrees
+  with itself. Motherhood is per-row for `versions`/`restore`/`assets`/`build`
+  (a master is only a deck with `is_master`) and per-field for `PATCH`
+  (`title`/`pdf_core`/`type`/`archived` are structural on a master; note, star
+  and post text never are).
+- **Registering a customer creates a gated term, so it is checked first.**
+  `buildNameScope` derives `\b<name>\b` from a customer row, which is right for
+  "Rhyze" and a disaster for "Data": every published deck using that ordinary
+  word would start failing. `POST /api/customers2` therefore dry-runs the derived
+  pattern against every current version before accepting the name, and refuses
+  with the list of decks it would break (an owner can `force`). The prediction
+  and the gate share one implementation — `patternForCustomer` in
+  `namescope.mjs`, `wouldNewlyFail` in `verify.mjs` — because a guard that
+  predicts the gate with different code will one day predict wrongly.
+- **A send is an event, not a property.** `deck_sends` records which deck, **which
+  version**, when, to whom. Pinned to `(deck_id, version_n)` because versions are
+  immutable and the deck keeps moving: "sent on the 7th" cannot answer what the
+  customer is holding, and comparing the sent version to `current_version_n`
+  gives "they have v1, we are on v3" for free. It is a table rather than columns
+  on `decks` because there can be many per deck — which is exactly why it does
+  not violate the "note, star and post_text are columns, not a side table" rule.
 - **Brand + canonical language** live in `brand/BRAND.md` — colors, type, the
   Capture → Connect → Execute framing (never LOGS/IDA/DOCS as the story),
   Analyze → Prove → Scale path, verified reference stats, current pricing. Verify
@@ -451,6 +500,12 @@ manual regeneration.
     page, README and zip; `--check` fails when any output is stale)
   - **indexes**: `build_app_index.py`, `build-asset-index.ps1`,
     `build-slide-catalog.ps1`, `build-design-system.ps1`
+  - **access**: `check-access.py` — adversarial only, never a happy path. Since
+    2026-08-07 it also checks the **insider** case via the `policy_audit()` RPC:
+    no policy may grant unconditionally to a non-service role. That check exists
+    because a `allow_authenticated` policy (`ALL`, `USING(true)`) sat on eight
+    tables while the suite reported 17/17 — it tested only as `anon`, and an
+    outsider test cannot see a grant made to `authenticated`.
   - **other**: `supa.py` (backend client), `deck_pdf_name.py`,
     `generate-image.py`, `research-brain.py` (`--check` for CI),
     `manage-users.py` (accounts + passwords), `check-access.py` (adversarial

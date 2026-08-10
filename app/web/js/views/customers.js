@@ -86,6 +86,8 @@ export function renderDetail(slug) {
       </div>
       <div class="section-head"><h2>Decks</h2><span class="section-count">${list.length}</span></div>
       <div id="cust-decks"></div>
+      <div class="section-head"><h2>Sent</h2><span class="section-count" id="sent-count">·</span></div>
+      <div id="cust-sends"><p class="note">Loading…</p></div>
     </div>`);
   $("#back", wrap).addEventListener("click", () => go("/customers"));
   // A customer's first deck is built, not staged. This opens the builder's
@@ -95,7 +97,58 @@ export function renderDetail(slug) {
   const decks = $("#cust-decks", wrap);
   if (!list.length) decks.innerHTML = `<p class="note">No decks yet. <b>New deck</b> opens the builder for ${esc(c.name)} — start from scratch, or from an existing deck and change it.</p>`;
   else for (const d of list) decks.append(deckRow(d));
+  loadSends(c, wrap);
   return wrap;
+}
+
+// The sales timeline: what went to this customer, when, and which version they
+// hold. Fetched rather than derived from state.backend because a send is an
+// event, not a property of the deck row, and there can be many per deck.
+async function loadSends(c, wrap) {
+  const box = $("#cust-sends", wrap);
+  const count = $("#sent-count", wrap);
+  let sends = [];
+  try {
+    ({ sends } = await api.getCustomerSends(c.slug));
+  } catch (e) {
+    box.innerHTML = `<p class="note">Could not load the send history. ${esc(e.message)}</p>`;
+    return;
+  }
+  count.textContent = sends.length;
+  if (!sends.length) {
+    box.innerHTML = `<p class="note">Nothing recorded as sent yet. Use <b>Record sent</b> on a deck once it has gone out, so you can tell later which version they are holding.</p>`;
+    return;
+  }
+  box.innerHTML = "";
+  for (const s of sends) {
+    box.append(el(`
+      <div class="deck-row">
+        <div class="head">
+          <h3>${esc(decodeEntities(s.deck_title))}</h3>
+          <span class="tags mono">v${s.version_n}</span>
+          ${s.stale ? `<span class="pill-status draft" title="The deck has moved on since this went out">now v${s.current_version_n}</span>` : ""}
+          <div class="spacer">
+            <span class="note mono">${esc(String(s.sent_at).slice(0, 10))}</span>
+          </div>
+        </div>
+        ${s.recipient || s.note
+          ? `<p class="note">${esc(s.recipient || "")}${s.note ? ` — ${esc(s.note)}` : ""}</p>` : ""}
+      </div>`));
+  }
+}
+
+// Recording a send is a fact about the world, not a change to the artifact, so
+// it is offered on every deck including a master and needs no owner.
+async function askRecordSent(d, onDone) {
+  const who = prompt(`Who did "${decodeEntities(d.title)}" v${d.current_version_n} go to?`, "");
+  if (who === null) return;
+  try {
+    await api.recordSend(d.id, { recipient: who, version_n: d.current_version_n });
+    toast(`Recorded: v${d.current_version_n} sent.`);
+    onDone?.();
+  } catch (e) {
+    toast(`Could not record it: ${e.message}`);
+  }
 }
 
 function deckRow(d) {
@@ -106,10 +159,16 @@ function deckRow(d) {
         <span class="tags mono">v${d.current_version_n}</span>
         ${d.status === "needs_cli" ? `<span class="pill-status draft">needs CLI</span>` : ""}
         <div class="spacer">
+          <button class="ghost sent">Record sent</button>
           <button class="ghost icon-only open" title="Open">${icon("open")}</button>
         </div>
       </div>
     </div>`);
+  row.querySelector(".sent").addEventListener("click", (e) => {
+    e.stopPropagation();
+    askRecordSent(d, () => go("/customers/" + encodeURIComponent(
+      (customers().find((c) => c.id === d.customer_id) || {}).slug || "")));
+  });
   row.querySelector(".open").addEventListener("click", () => go("/deck/" + d.id));
   row.addEventListener("click", (e) => { if (!e.target.closest("button")) go("/deck/" + d.id); });
   return row;

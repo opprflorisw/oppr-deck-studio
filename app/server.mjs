@@ -40,7 +40,49 @@ import { validateSave, fingerprint } from "./lib/htmlcheck.mjs";
 import * as jobs from "./lib/jobs.mjs";
 import { pdfNameFor, printElement } from "./lib/jobs.mjs";
 import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./lib/deckcache.mjs";
-import { clearanceForCustomer } from "./lib/namescope.mjs";
+import { clearanceForCustomer, patternForCustomer } from "./lib/namescope.mjs";
+import { wouldNewlyFail } from "./lib/verify.mjs";
+import { requireLeaf, MASTER_STRUCTURAL_FIELDS, motherRouteFor } from "./lib/guard.mjs";
+import { verifyJwt, audienceOk, protectedResourceMetadata, challenge } from "./lib/mcpauth.mjs";
+import { TOOLS, callTool, negotiate, serverInfo, INSTRUCTIONS, SUPPORTED_VERSIONS,
+         isWriteTool } from "./lib/mcp.mjs";
+
+/**
+ * Published decks that would START failing if `pattern`/`scope` became a gated
+ * customer name. The evidence behind the collision guard on customer creation.
+ *
+ * Only CURRENT versions of non-archived decks are considered: an older version
+ * is history nobody will rebuild, and an archived deck is already out of the
+ * index. Fetched in two passes so the (deck, n) bookkeeping happens on cheap
+ * rows and only the handful of documents actually needed are pulled with their
+ * HTML -- a snapshot inlines its stylesheet, so `html` is the expensive column.
+ */
+async function collidingDecks(pattern, scope) {
+  const decks = await db.select("decks", {
+    select: "id,slug,title,current_version_n,archived",
+    archived: "is.false",
+  });
+  const wantN = new Map(decks.map((d) => [d.id, d.current_version_n]));
+  if (!wantN.size) return [];
+
+  const stubs = await db.select("deck_versions", { select: "id,deck_id,n" });
+  const wanted = stubs.filter((v) => wantN.get(v.deck_id) === v.n).map((v) => v.id);
+  if (!wanted.length) return [];
+
+  const docs = await db.select("deck_versions", {
+    select: "deck_id,html",
+    id: `in.(${wanted.join(",")})`,
+  });
+
+  const byId = new Map(decks.map((d) => [d.id, d]));
+  const hits = [];
+  for (const v of docs) {
+    if (!wouldNewlyFail(v.html, pattern, scope)) continue;
+    const d = byId.get(v.deck_id);
+    if (d) hits.push({ slug: d.slug, title: d.title });
+  }
+  return hits;
+}
 
 /**
  * Which pages of a published version no longer match their library slide.
@@ -736,6 +778,34 @@ async function handleApi(req, res, url) {
       error: `Your account is ${member.role}, which can view but not change anything. Ask an owner to make you an editor.`,
     });
   }
+
+  // MOTHER WORK NEEDS AN OWNER (2026-08-07).
+  //
+  // Until here the only distinction was view-vs-change, so an editor could do
+  // anything an owner could except manage accounts. That was fine when the only
+  // editors were the two people who built this. With a commercial team it is
+  // not: these routes do not change one customer's deck, they change what EVERY
+  // FUTURE DECK will be made of.
+  //
+  // The line is blast radius, not seniority. Reassigning `is_master` re-points a
+  // whole deck type; archiving a library slide removes it from every picker;
+  // refresh, the research rebuild/sync and graphics import rewrite artifacts the
+  // whole system reads. A colleague who wants to improve the pitch uses "Save as
+  // a new deck", which already records where it came from, and an owner promotes
+  // it. Routes whose motherhood depends on WHICH deck they target cannot be
+  // decided from the path, so they call requireLeaf() once they know the row.
+  // Both halves live in lib/guard.mjs, because the MCP server is a second front
+  // door onto the same rule and a rule implemented twice eventually disagrees.
+  if (req.method !== "GET" && !isOwner(member)) {
+    const what = motherRouteFor(p);
+    if (what) {
+      return sendJson(res, 403, {
+        error: "owner_only",
+        message: `Only an owner can ${what}. That changes every deck made from here on, ` +
+                 `not just one customer's. Ask an owner, or save your change as a new deck.`,
+      });
+    }
+  }
   req.member = member;
 
   // --- accounts (the registry) ---------------------------------------------
@@ -1345,7 +1415,42 @@ async function handleDeckApi(req, res, url) {
           return sendJson(res, 200, { ok: true, id: existing[0].id, existed: true,
                                       customer: { ...existing[0], clearance: clearanceForCustomer(existing[0]) } });
         }
+        // THE COLLISION GUARD. Registering a customer does not just add a folder
+        // to file decks under: it creates a GATED TERM. buildNameScope derives
+        // `\b<name>\b` from this row, and from then on any deck containing those
+        // words fails verify unless it is cleared for this customer.
+        //
+        // That is exactly right for "Rhyze" and a disaster for "Core": every
+        // published deck using an ordinary word would start failing, decks that
+        // were correct when they were built and that nobody has touched since.
+        // The built-in ten are hand-tuned against this (`selo` is
+        // `\bselo\b(?!ct)`, `host` is `host\s*bioenergy`); a name typed in by a
+        // salesperson gets no such tuning, so the machine checks it instead.
+        //
+        // Dry-run first, refuse with the evidence. `force` is the owner's escape
+        // hatch for a name that genuinely is the company's name.
+        const probe = patternForCustomer({ slug, name });
+        if (probe && !d.force) {
+          const clashes = await collidingDecks(probe, clearanceForCustomer({ slug, name }));
+          if (clashes.length) {
+            return sendJson(res, 409, {
+              error: "name_would_break_decks",
+              pattern: probe,
+              decks: clashes.slice(0, 12),
+              count: clashes.length,
+              message:
+                `Registering "${name}" would gate the word${/\s/.test(name) ? "s" : ""} ` +
+                `"${name.toLowerCase()}", and ${clashes.length} published ` +
+                `deck${clashes.length === 1 ? "" : "s"} already use ` +
+                `${clashes.length === 1 ? "it" : "them"} without being cleared for it. ` +
+                `Use the fuller company name, or an owner can force it.`,
+              can_force: isOwner(member),
+            });
+          }
+        }
+
         const row = await db.insert("customers", { slug, name, notes: String(d.notes || "") });
+        await audit(member, "customer.create", null, { slug, name, forced: Boolean(d.force) });
         return sendJson(res, 200, { ok: true, id: row[0].id,
                                     customer: { ...row[0], clearance: clearanceForCustomer(row[0]) } });
       }
@@ -1529,6 +1634,23 @@ async function handleDeckApi(req, res, url) {
       if (!recipe.slug || !recipe.title) {
         return sendJson(res, 400, { error: "recipe needs a slug and a title" });
       }
+      // `version_of` names a deck by SLUG, and that deck may be a master, so this
+      // route is the one place a new version of a master can be published without
+      // ever touching /api/decks/<id>/versions. A dry run publishes nothing and
+      // is how you check a deck before asking an owner, so it stays open.
+      if (recipe.version_of && !recipe.dry_run && !isOwner(req.member)) {
+        const tgt = await db.select("decks", {
+          slug: `eq.${recipe.version_of}`, select: "id,is_master,title,type",
+        });
+        if (tgt[0]?.is_master) {
+          return sendJson(res, 403, {
+            error: "owner_only",
+            message: `"${tgt[0].title}" is the ${tgt[0].type || "company"} master. Only an owner can ` +
+                     `publish a new version of it. Publish this as a new deck instead, ` +
+                     `and an owner can promote it.`,
+          });
+        }
+      }
       const job = jobs.startRecipeBuild(recipe, { dryRun: Boolean(recipe.dry_run) });
       // deck_id is a uuid column and a slug is not one, so the slug belongs in
       // the detail. Passing it as the id made every build's audit row 400 and
@@ -1681,6 +1803,21 @@ async function handleDeckApi(req, res, url) {
       // punctuation behind their back is worse than the rule it enforces.
       if (typeof d.post_text === "string") patch.post_text = d.post_text.slice(0, 20_000);
       if (!Object.keys(patch).length) return sendJson(res, 400, { error: "nothing to change" });
+      // Motherhood is per-FIELD here. A note, a star and post copy are findability
+      // metadata on any deck, master or not, and stay open to editors. Title,
+      // pdf_core, type and archived are different: on a master they rewrite the
+      // filename contract (`oppr_<type>.pdf`) or shelve the thing every customer
+      // deck is copied from. The row is already loaded, so this needs no lookup.
+      if (rows[0].is_master && !isOwner(req.member)) {
+        const structural = Object.keys(patch).filter((k) => MASTER_STRUCTURAL_FIELDS.has(k));
+        if (structural.length) {
+          return sendJson(res, 403, {
+            error: "owner_only",
+            message: `"${rows[0].title}" is the ${rows[0].type || "company"} master. Only an owner can ` +
+                     `change ${structural.join(", ")} on it. You can still set its note, star and post text.`,
+          });
+        }
+      }
       patch.updated_by_id = req.member.id;
       await db.update("decks", { id }, patch);
       // Audit what changed, not what it changed to: a 3.000-character post body
@@ -1688,6 +1825,75 @@ async function handleDeckApi(req, res, url) {
       await audit(req.member, "deck.patch", id, { fields: Object.keys(patch) });
       const after = { ...rows[0], ...patch };
       return sendJson(res, 200, { ok: true, deck: after, pdf_name: pdfNameFor(after) });
+    }
+
+    // --- sends: when a deck went out, and WHICH VERSION they got -----------
+    //
+    // Pinned to a version rather than just a deck, because versions are immutable
+    // and the deck keeps moving: "sent on the 7th" cannot answer what the
+    // customer is holding, and that is the question you ask most. Comparing the
+    // sent version against current_version_n then gives "they have v1, we are on
+    // v3" for free, with no extra bookkeeping.
+    //
+    // Recording a send is LEAF work on any deck, master included: it is a fact
+    // about the world, not a change to the artifact, so it needs no requireLeaf.
+    let sm = p.match(/^\/api\/decks\/([^/]+)\/sends$/);
+    if (sm) {
+      const id = sm[1];
+      if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+
+      if (req.method === "GET") {
+        const rows = await db.select("deck_sends", { deck_id: `eq.${id}`, order: "sent_at.desc" });
+        return sendJson(res, 200, { sends: rows });
+      }
+
+      if (req.method === "POST") {
+        const d = JSON.parse(await readBody(req, 100_000));
+        const decks = await db.select("decks", { id: `eq.${id}`, select: "id,title,current_version_n" });
+        if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
+        const n = Number(d.version_n) || decks[0].current_version_n;
+        if (!n) return sendJson(res, 400, { error: "that deck has no published version to send" });
+        const row = await db.insert("deck_sends", {
+          deck_id: id,
+          version_n: n,
+          sent_at: d.sent_at ? new Date(d.sent_at).toISOString() : new Date().toISOString(),
+          sent_by: req.member.id,
+          sent_by_email: req.member.email,
+          recipient: String(d.recipient || "").slice(0, 200),
+          note: String(d.note || "").slice(0, 500),
+        });
+        await audit(req.member, "deck.sent", id, { version_n: n, recipient: d.recipient || "" });
+        return sendJson(res, 200, { ok: true, send: row[0] });
+      }
+    }
+
+    // Every send for a customer, newest first: the sales timeline behind their
+    // page. Joined here rather than in the browser so the "is it stale" answer
+    // is computed once, in the place that already knows both numbers.
+    let cts = p.match(/^\/api\/customers2\/([^/]+)\/sends$/);
+    if (cts && req.method === "GET") {
+      const cust = cts[1];
+      const cs = await db.select("customers", { slug: `eq.${cust}`, select: "id,slug,name" });
+      if (!cs.length) return sendJson(res, 404, { error: "no such customer" });
+      const decks = await db.select("decks", {
+        customer_id: `eq.${cs[0].id}`, select: "id,slug,title,type,current_version_n",
+      });
+      if (!decks.length) return sendJson(res, 200, { sends: [] });
+      const byId = new Map(decks.map((d) => [d.id, d]));
+      const rows = await db.select("deck_sends", {
+        deck_id: `in.(${decks.map((d) => d.id).join(",")})`, order: "sent_at.desc",
+      });
+      return sendJson(res, 200, {
+        sends: rows.map((s) => {
+          const d = byId.get(s.deck_id);
+          return {
+            ...s,
+            deck_slug: d?.slug || "", deck_title: d?.title || "", deck_type: d?.type || "",
+            current_version_n: d?.current_version_n || null,
+            stale: Boolean(d && s.version_n < d.current_version_n),
+          };
+        }),
+      });
     }
 
     // --- version thumbnail (page 1 by default) -----------------------------
@@ -1768,6 +1974,8 @@ async function handleDeckApi(req, res, url) {
     if (sv && req.method === "POST") {
       const id = sv[1];
       if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const bar = await requireLeaf(id, req.member, "publish a new version of");
+      if (bar) return sendJson(res, 403, bar);
       const d = JSON.parse(await readBody(req, 4_000_000));
       const html = String(d.html || "");
       const decks = await db.select("decks", { id: `eq.${id}`, select: "id,current_version_n" });
@@ -1795,6 +2003,8 @@ async function handleDeckApi(req, res, url) {
     if (rm && req.method === "POST") {
       const id = rm[1];
       if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const bar = await requireLeaf(id, req.member, "roll back");
+      if (bar) return sendJson(res, 403, bar);
       const d = JSON.parse(await readBody(req, 50_000));
       const srcN = Number(d.n);
       const decks = await db.select("decks", { id: `eq.${id}`, select: "current_version_n" });
@@ -1835,6 +2045,8 @@ async function handleDeckApi(req, res, url) {
     if (am && req.method === "POST") {
       const id = am[1];
       if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const bar = await requireLeaf(id, req.member, "change the images in");
+      if (bar) return sendJson(res, 403, bar);
       const d = JSON.parse(await readBody(req, 200_000));
       const decks = await db.select("decks", { id: `eq.${id}`, select: "allowed_entitlements" });
       if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
@@ -1878,6 +2090,8 @@ async function handleDeckApi(req, res, url) {
     if (bm && req.method === "POST") {
       const id = bm[1];
       if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const bar = await requireLeaf(id, req.member, "regenerate the PDF of record for");
+      if (bar) return sendJson(res, 403, bar);
       if (jobs.runningFor(id)) return sendJson(res, 409, { error: "a build is already running", job_id: jobs.runningFor(id) });
       const decks = await db.select("decks", { id: `eq.${id}`, select: "*" });
       if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
@@ -1958,6 +2172,136 @@ async function personalize(req, res, masterId) {
 
 // The whole router, as one request handler.
 //
+// --- MCP over Streamable HTTP -----------------------------------------------
+//
+// One endpoint, stateless. See lib/mcp.mjs for what the tools are and why the
+// mother work is absent from them, and lib/mcpauth.mjs for token verification.
+//
+// The URL Claude is given must be exactly `<base>/mcp`, because the Protected
+// Resource Metadata `resource` field has to match it character for character or
+// the client refuses the pairing.
+
+// A JWT `sub` is a user id, not a role. The role and the disabled flag live on
+// `profiles`, and MCP callers are subject to exactly the same three roles as the
+// browser -- an MCP that carried its own notion of permission would be a second
+// access model, which is the failure this codebase already had once today.
+async function mcpMember(claims) {
+  if (!claims?.sub) return null;
+  const rows = await db.select("profiles", {
+    id: `eq.${claims.sub}`, select: "id,email,full_name,role,disabled",
+  });
+  const profile = rows[0];
+  if (!profile || profile.disabled) return null;
+  if (!String(profile.email || "").toLowerCase().endsWith("@oppr.ai")) return null;
+  return profile;
+}
+
+function mcpBase(req) {
+  const proto = (req.headers["x-forwarded-proto"] || "").split(",")[0]
+    || (req.socket?.encrypted ? "https" : "http");
+  return `${proto}://${req.headers.host}`;
+}
+
+async function handleMcp(req, res, url) {
+  const base = mcpBase(req);
+  const p = url.pathname;
+
+  // Discovery is unauthenticated by definition: it is how a client learns where
+  // to go and get a token in the first place.
+  if (p.startsWith("/.well-known/oauth-protected-resource")) {
+    if (req.method !== "GET") { res.setHeader("Allow", "GET"); return send(res, 405, "method not allowed"); }
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    return sendJson(res, 200, protectedResourceMetadata(base));
+  }
+
+  // DNS-rebinding guard. Claude's servers send no browser Origin, so this checks
+  // it only when present rather than requiring it.
+  const origin = req.headers.origin;
+  if (origin) {
+    let bad = true;
+    try {
+      const o = new URL(origin);
+      bad = !(o.host === req.headers.host || o.hostname === "127.0.0.1" || o.hostname === "localhost");
+    } catch { bad = true; }
+    if (bad) return sendJson(res, 403, { error: "forbidden origin" });
+  }
+
+  // Stateless: no GET stream, no session to DELETE. 405 is the compliant answer
+  // and is what the 2026-07-28 revision mandates anyway.
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return send(res, 405, "method not allowed");
+  }
+
+  // Absent means a pre-2025-06-18 client, which the spec says to treat as
+  // 2025-03-26 rather than reject.
+  const ver = String(req.headers["mcp-protocol-version"] || "2025-03-26");
+  if (!SUPPORTED_VERSIONS.includes(ver)) {
+    return sendJson(res, 400, { jsonrpc: "2.0", id: null,
+      error: { code: -32600, message: `Unsupported MCP-Protocol-Version: ${ver}` } });
+  }
+
+  let msg;
+  try { msg = JSON.parse(await readBody(req, 1_000_000)); }
+  catch { return sendJson(res, 400, { jsonrpc: "2.0", id: null,
+    error: { code: -32700, message: "Parse error" } }); }
+
+  // A notification has no id and MUST get 202 with an empty body. Answering it
+  // with a JSON-RPC response breaks strict clients.
+  if (msg == null || msg.id === undefined) { res.writeHead(202); return res.end(); }
+
+  const rpc = (result) => sendJson(res, 200, { jsonrpc: "2.0", id: msg.id, result });
+  const rpcError = (code, message) => sendJson(res, 200, { jsonrpc: "2.0", id: msg.id, error: { code, message } });
+
+  if (msg.method === "initialize") {
+    return rpc({
+      protocolVersion: negotiate(msg.params?.protocolVersion),
+      capabilities: { tools: { listChanged: false } },
+      serverInfo,
+      instructions: INSTRUCTIONS,
+    });
+  }
+  if (msg.method === "ping") return rpc({});
+
+  // AUTH, at the HTTP layer. A 401 carrying WWW-Authenticate is the only thing
+  // that makes Claude run OAuth and show a Connect button; a 200 with
+  // `isError: true` and the words "please sign in" is handed to the model as an
+  // ordinary tool result and the user just reads an apology.
+  const auth = String(req.headers.authorization || "");
+  const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  const claims = token ? await verifyJwt(token) : null;
+  const resource = `${base}/mcp`;
+  const member = claims && audienceOk(claims, resource) ? await mcpMember(claims) : null;
+  if (!member) {
+    res.setHeader("WWW-Authenticate", challenge(base));
+    return sendJson(res, 401, { error: "invalid_token", error_description: "Authentication required" });
+  }
+
+  if (msg.method === "tools/list") return rpc({ tools: TOOLS, nextCursor: null });
+
+  if (msg.method === "tools/call") {
+    const name = msg.params?.name;
+    // The browser's write gate keys on `req.method !== "GET"`, which cannot help
+    // here: every MCP call is a POST, reads included. So the role is checked
+    // explicitly, or a viewer would register customers and record sends through
+    // a door that never asked what they were allowed to do.
+    if (isWriteTool(name) && !canWrite(member)) {
+      return rpc({
+        content: [{ type: "text", text:
+          `Your account is ${member.role}, which can read Deck Studio but not change it. ` +
+          `Ask an owner to make you an editor.` }],
+        isError: true,
+      });
+    }
+    const out = await callTool(name, msg.params?.arguments, member);
+    if (out?.unknown) return rpcError(-32602, `Unknown tool: ${name}`);
+    await audit(member, "mcp.tool", null, { tool: name });
+    return rpc(out);
+  }
+
+  return rpcError(-32601, `Method not found: ${msg.method}`);
+}
+
 // Locally it is wrapped in an http server; on Vercel `api/index.mjs` calls it
 // directly. One implementation either way — a second copy of the routing is how
 // a hosted app and a local app quietly stop behaving the same.
@@ -1966,6 +2310,9 @@ export async function handleRequest(req, res) {
     const url = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
     const p = url.pathname;
 
+    if (p === "/mcp" || p.startsWith("/.well-known/oauth-protected-resource")) {
+      return handleMcp(req, res, url);
+    }
     if (p.startsWith("/api/")) return handleApi(req, res, url);
 
     // Read-only window onto the repo (thumbs, images, assembled deck previews).

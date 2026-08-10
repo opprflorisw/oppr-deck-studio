@@ -63,6 +63,29 @@ export function clearanceForCustomer(customer) {
 }
 
 /**
+ * The pattern a registered customer's name would be gated by, or "" when a
+ * built-in scope already claims it (and therefore already has a hand-tuned
+ * pattern that must not be replaced).
+ *
+ * Split out so the COLLISION GUARD and the GATE derive the pattern from one
+ * piece of code. Registering a customer creates a gated term, so a customer
+ * called "Core" would make `\bcore\b` a failing word and retroactively break
+ * every deck using it. The guard dry-runs this pattern against published decks
+ * before accepting the name; if it derived the pattern separately from
+ * buildNameScope, the prediction and the enforcement could disagree, which is
+ * the whole failure mode this file exists to prevent.
+ */
+export function patternForCustomer(customer) {
+  const scope = clearanceForCustomer(customer);
+  if (!scope || BUILTIN_NAME_SCOPE[scope]) return "";
+  // Match the company NAME as it would be written on a slide, not the slug:
+  // "HoSt Bioenergy" is written with a space, and a slug never appears in copy.
+  const label = String(customer?.name || customer?.slug || "").trim().toLowerCase();
+  if (!label) return "";
+  return `\\b${label.split(/\s+/).map(escapeRx).join("\\s+")}\\b`;
+}
+
+/**
  * The scopes the gate enforces: the built-in table, plus one entry per
  * registered customer not already covered by it.
  * @returns {Array<{name: string, scope: string, pattern: string}>}
@@ -76,11 +99,8 @@ export function buildNameScope(customers = []) {
   for (const c of customers || []) {
     const scope = clearanceForCustomer(c);
     if (!scope || seen.has(scope)) continue;   // built-in wins, and never twice
-    // Match the company NAME as it would be written on a slide, not the slug:
-    // "HoSt Bioenergy" is written with a space, and a slug never appears in copy.
-    const label = String(c.name || c.slug || "").trim().toLowerCase();
-    if (!label) continue;
-    const pattern = `\\b${label.split(/\s+/).map(escapeRx).join("\\s+")}\\b`;
+    const pattern = patternForCustomer(c);
+    if (!pattern) continue;
     out.push({ name: scope, scope, pattern });
     seen.add(scope);
   }

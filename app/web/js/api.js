@@ -155,6 +155,11 @@ export async function downloadDeckPdf(id, n, { unverified = false } = {}) {
 }
 export const getJob = (jobId) => j(`/api/jobs/${jobId}`);
 export const getCustomers2 = () => j("/api/customers2");
+// Sends: which version of a deck went to whom, and when. Pinned to a version,
+// so the timeline can say "they hold v1, we are on v3" without guessing.
+export const getCustomerSends = (slug) => j(`/api/customers2/${encodeURIComponent(slug)}/sends`);
+export const recordSend = (deckId, payload) =>
+  jpost(`/api/decks/${deckId}/sends`, payload);
 export const createCustomer2 = (payload) => jpost("/api/customers2", payload);
 
 // === accounts + audit (Deck Studio cloud) ===================================

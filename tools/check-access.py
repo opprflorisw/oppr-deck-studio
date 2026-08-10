@@ -169,6 +169,35 @@ def main() -> int:
         except Exception as e:  # noqa: BLE001
             check(False, "deployed /api/config reachable", str(e)[:60])
 
+    # 9. THE INSIDER CASES. Everything above plays an outsider holding the public
+    #    key, which maps to the `anon` role. That is only half the threat model,
+    #    and the half that was tested is not the half that failed.
+    #
+    #    On 2026-08-07 a policy named `allow_authenticated` was found on eight
+    #    tables: PERMISSIVE, role `authenticated`, cmd ALL, USING(true) WITH
+    #    CHECK(true). Postgres OR's permissive policies, so it nullified every
+    #    is_member()/is_editor()/is_owner() rule written beside it -- any signed-in
+    #    member, including a `disabled` one and including a `viewer`, could read,
+    #    write and DELETE all eight tables straight through PostgREST. The suite
+    #    reported 17/17 the whole time, because an anon-only test cannot see a
+    #    grant made to `authenticated`.
+    #
+    #    So the invariant is checked directly now, not inferred from behaviour.
+    r = requests.post(f"{url}/rest/v1/rpc/policy_audit", headers=adm, timeout=20)
+    if r.ok:
+        blanket = r.json() if r.text.startswith("[") else []
+        names = ", ".join(f"{b['table_name']}.{b['policy_name']} ({b['cmd']})" for b in blanket)
+        check(not blanket, "no policy grants unconditionally to a non-service role",
+              names or "clean")
+    else:
+        check(False, "policy_audit() is callable", f"HTTP {r.status_code}")
+
+    # 10. Every content table must actually have RLS turned on. A table with RLS
+    #     disabled needs no bad policy to be wide open.
+    r = requests.post(f"{url}/rest/v1/rpc/policy_audit", headers=pub, timeout=20)
+    check(r.status_code in (401, 403, 404),
+          "anon cannot call policy_audit()", f"HTTP {r.status_code}")
+
     # --- report ---------------------------------------------------------------
     print()
     failed = 0

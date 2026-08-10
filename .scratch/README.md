@@ -13,12 +13,13 @@ says what superseded it.
 
 | Effort | What it decides |
 |---|---|
-| [`deck-studio-3/SPEC.md`](deck-studio-3/SPEC.md) | **The current map.** Chapters over slides, and mother-slide propagation by flag-and-accept: update a library slide and every deck using it is flagged, with nothing already sent ever changing. Plus the PDF fix (static fonts, baked cover scrim) and the advisory story check. Charted at [`deck-studio-3/MAP.md`](deck-studio-3/MAP.md); all twelve decision tickets closed 2026-08-04. |
+| [`deck-studio-4/MAP.md`](deck-studio-4/MAP.md) | **The current map.** The commercial team and Deck Studio over MCP. Mother work (masters, the library) needs an owner; leaf work (a customer's decks and sends) is any editor's, from the app or from Claude on a phone. Adds `deck_sends` pinned to a version, a mechanical guard on customer names that would gate an ordinary word, and the MCP server. Also records the `allow_authenticated` RLS hole found and fixed on 2026-08-07. Ten decisions closed; two phases, the library migration still to come. |
 
 ## Delivered
 
 | Effort | What shipped, and what it parked |
 |---|---|
+| [`deck-studio-3/`](deck-studio-3/SPEC.md) | **Delivered 2026-08-04**, superseded as the live map by `deck-studio-4/`. Its decisions still stand: chapters over slides, mother-slide propagation by flag-and-accept, the PDF fix, the advisory story check. Deck Studio 4 sits above it and generalises its mother/leaf idea from slides to permissions. |
 | [`deck-studio-cloud/`](deck-studio-cloud/MAP.md) | **Destination reached 2026-08-03.** Deck Studio deployed on Vercel, colleagues sign in with email and password, rendering and verification run in the cloud, and access is proved by `tools/check-access.py` (17 adversarial checks, all passing). Deliberately parked as fog rather than decided: custom domain, concurrent editing, whether the CLI keeps direct backend access, and cost at rest. Not superseded by Deck Studio 3, which sits above it. |
 
 ## Current design rationale (still true, still cited)

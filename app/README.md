@@ -54,6 +54,31 @@ computed from the same per-image manifest `verifylib` uses, mirrored into
 `library_slides.entitlements` by `check-drift.py --sync`, so the picker and the
 gate cannot disagree.
 
+**Mother work needs an owner** (2026-08-07). Editors get the whole leaf column:
+register a customer, copy a company deck into theirs, edit text, publish
+versions, record sends, set notes and stars. Editing a **master**, archiving a
+library slide, reassigning `is_master`, renaming, archiving and the system
+rebuilds are owner-only, because they change every deck built afterwards rather
+than one customer's. Proposing a change to a master is **Save as a new deck**,
+which already records where it came from. `lib/guard.mjs` holds the rule once and
+both the browser routes and the MCP server import it.
+
+**Sends** (2026-08-07). A customer's page shows what went to them, when, and
+which version they hold, with a `now vN` pill when the deck has moved on since.
+Recorded on the deck row's **Record sent**, stored in `deck_sends` against
+`(deck_id, version_n)` — a send is an event about a version, not a property of
+the deck, which is why it is a table and the note/star/post-text rule does not
+apply to it.
+
+**Deck Studio over MCP** (2026-08-07). `/mcp` is a second front door for Claude
+on desktop, web or a phone: list and register customers, read a deck, see a
+customer's timeline, record a send, search the library. Same handlers, same
+guard, same three roles. There is **no tool for editing a master or the
+library** — the absence is the boundary. Stateless Streamable HTTP; auth is
+OAuth 2.1 through Supabase's OAuth server with the token verified against the
+project JWKS. It needs that server switched on in the Supabase dashboard;
+until then every tool call answers 401 by design.
+
 **The clearances on offer come from the customers table**, not from a list in
 the code: every entitlement in the image manifest, plus every registered
 customer. A customer registered today owns no images yet, so without this their
