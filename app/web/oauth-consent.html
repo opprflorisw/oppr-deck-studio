@@ -141,7 +141,12 @@ const SCOPE_WORDS = {
 };
 
 function consentScreen(d) {
-  const client = d.client_name || d.client?.client_name || d.client_id || "An application";
+  // Measured shape (2026-08-10): { authorization_id, redirect_uri, scope,
+  //   client: { id, name }, user: { id, email } }.
+  // The name is NESTED. Reading d.client_name first showed every application as
+  // "An application", which is the one word on this screen that has to be right:
+  // it is what the person is deciding about.
+  const client = d.client?.name || d.client_name || d.client?.id || "An application";
   const scopes = String(d.scope || d.scopes || "").split(/[\s,]+/).filter(Boolean);
   show(`
     <h1>${esc(client)} wants to connect</h1>

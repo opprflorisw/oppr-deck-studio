@@ -113,13 +113,33 @@ export async function verifyJwt(token) {
 export function audienceOk(claims, resourceUrl) {
   const aud = claims?.aud;
   const list = Array.isArray(aud) ? aud : (aud ? [aud] : []);
+
+  // The strict reading, kept first so it starts working the day Supabase honours
+  // the `resource` parameter without anyone having to remember this file.
   if (list.includes(resourceUrl)) return true;
 
-  // Supabase's generic audience. Accepting it means trusting "a valid user of
-  // THIS project" rather than "a token minted for this resource" -- weaker, but
-  // still project-scoped because `iss` was already checked above.
-  const lenient = process.env.MCP_REQUIRE_AUDIENCE === "0";
-  if (lenient && list.includes("authenticated")) return true;
+  // MEASURED 2026-08-10, not assumed: Supabase's OAuth 2.1 server IGNORES the
+  // RFC 8707 `resource` parameter. A full authorization_code flow passing
+  // `resource` on both /authorize and /token still returns aud="authenticated".
+  // So the audience check the MCP spec asks for is not available here, and
+  // demanding it rejects every real token -- which is a 401 loop, not security.
+  //
+  // `client_id` is what recovers most of it. It appears ONLY on a token minted
+  // through the OAuth server for a registered client that a person consented to;
+  // an ordinary browser session token (the kind the app itself holds, and the
+  // kind that would leak from localStorage) carries session_id/aal/amr and no
+  // client_id at all. So a session token still cannot be spent here, which is
+  // the substance of what the audience check was protecting.
+  //
+  // What this does NOT prove is that the token was minted for THIS resource
+  // rather than another client of the same project. That residual gap closes
+  // when Supabase honours `resource`; until then the gate is: valid signature,
+  // this issuer, an OAuth-issued token, and an active @oppr.ai member.
+  if (list.includes("authenticated") && claims?.client_id) return true;
+
+  // Last resort for an identity provider that offers neither: opt-in, so nobody
+  // discovers later that audience checking was quietly off.
+  if (process.env.MCP_REQUIRE_AUDIENCE === "0" && list.includes("authenticated")) return true;
 
   return false;
 }
