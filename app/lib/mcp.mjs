@@ -45,12 +45,21 @@ const slugify = (s) => String(s || "").toLowerCase().normalize("NFKD")
 // they are written into a document. The browser decodes them for display; a tool
 // result is read by a model that would otherwise repeat the entities back into a
 // customer-facing sentence, so they are decoded here too.
-// Written as unicode escapes, not literal characters: this table is pure
-// non-ASCII, and a tool that rewrites the file with the wrong encoding turns
-// every value into mojibake that still parses and still runs, so it ships.
-const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+// This table is almost entirely non-ASCII, and an editor that rewrites the file
+// in the wrong encoding turns every value into mojibake that still parses, still
+// runs, and therefore ships. After touching it, check it by CODEPOINT rather
+// than by eye -- a terminal that cannot print the character prints a question
+// mark for both the correct byte and the corrupted one.
+// `nbsp`/`thinsp` map to a plain space on purpose, so the whitespace collapse
+// downstream can see them. `euro` earns its place the hard way: every price in
+// the commercial slides is written `&euro;`, so without it a tool asked what a
+// deck says answers "&euro;10.000" 58 times over.
+const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+  nbsp: " ", thinsp: " ",
   middot: "·", ndash: "–", mdash: "—", hellip: "…",
   rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“",
+  euro: "€", pound: "£", deg: "°", times: "×",
+  minus: "−", ge: "≥", le: "≤", rarr: "→",
   eacute: "é", uuml: "ü", ouml: "ö", auml: "ä" };
 const decode = (s) => String(s || "")
   .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
@@ -253,17 +262,58 @@ async function companyDecksList() {
 function slideTexts(html) {
   const out = [];
   for (const m of String(html).matchAll(/<section\b[^>]*>([\s\S]*?)<\/section>/gi)) {
-    const body = m[1]
+    const raw = m[1]
       .replace(/<style[\s\S]*?<\/style>/gi, "")
       .replace(/<script[\s\S]*?<\/script>/gi, "")
       .replace(/<!--[\s\S]*?-->/g, "")
-      .replace(/<[^>]*>/g, " ")
-      .replace(/&nbsp;|&thinsp;/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+      .replace(/<[^>]*>/g, " ");
+    // Decode AFTER the tags are gone, never before: decoding first would turn an
+    // escaped "&lt;section&gt;" into markup this function then treats as real.
+    // Slide bodies need this for the same reason titles do -- they are the sales
+    // copy that gets quoted back, and "Product Showcase &middot; July" is not a
+    // sentence anyone should paste in front of a customer.
+    const body = decode(raw).replace(/\s+/g, " ").trim();
     if (body) out.push(body);
   }
   return out;
+}
+
+// How much of a deck a single read may return.
+//
+// MEASURED 2026-08-11, after this tool failed at its own job. The cap here was
+// 600 characters PER SLIDE, applied silently: reading `product-showcase` cut 14
+// of its 20 slides mid-sentence, and nothing in the output said so, so the
+// caller read "and never the reaso" as if that were the slide. A tool whose
+// whole purpose is "see what a deck actually says" must not quietly say
+// something else.
+//
+// The budget is generous because the data is small: the largest published
+// version in this backend is 16k characters of visible text, roughly 4k tokens.
+// So the normal case is the whole deck, and the caps exist only so one runaway
+// artifact cannot swallow a context window. Whatever is dropped is NAMED.
+const MAX_TOTAL_CHARS = 60_000;
+const MAX_SLIDE_CHARS = 6_000;
+
+function renderPages(pages) {
+  const total = pages.reduce((n, p) => n + p.length, 0);
+  const out = [];
+  let spent = 0;
+  for (let i = 0; i < pages.length; i++) {
+    let body = pages[i];
+    let mark = "";
+    if (body.length > MAX_SLIDE_CHARS) {
+      mark = `  [... slide ${i + 1} cut at ${MAX_SLIDE_CHARS} of ${body.length} characters]`;
+      body = body.slice(0, MAX_SLIDE_CHARS);
+    }
+    if (spent + body.length > MAX_TOTAL_CHARS) {
+      out.push(`\n[... slides ${i + 1}-${pages.length} omitted: this version holds ${total} ` +
+               `characters of text, over the ${MAX_TOTAL_CHARS}-character budget for one read]`);
+      break;
+    }
+    spent += body.length;
+    out.push(`\n[${String(i + 1).padStart(2, "0")}] ${body}${mark}`);
+  }
+  return out.join("");
 }
 
 async function deckRead({ slug, version }) {
@@ -282,8 +332,7 @@ async function deckRead({ slug, version }) {
     `version ${v.n} of ${deck.current_version_n} · ${v.page_count || pages.length} pages · ` +
     `cleared for: ${(deck.allowed_entitlements || ["public"]).join(", ")}\n` +
     (v.change_note ? `note: ${v.change_note}\n` : "");
-  const body = pages.map((t, i) => `\n[${String(i + 1).padStart(2, "0")}] ${t.slice(0, 600)}`).join("");
-  return text(head + body);
+  return text(head + renderPages(pages));
 }
 
 async function deckRecordSent({ slug, recipient, note, version, sent_at }, member) {
@@ -340,8 +389,14 @@ async function librarySearch({ query, chapter }) {
     .filter((s) => !chapter || String(s.chapter || "").toLowerCase() === String(chapter).toLowerCase())
     .filter((s) => !q || [s.slide_id, s.title, s.chapter, s.goal].join(" ").toLowerCase().includes(q));
   if (!live.length) return text("No slides match.");
-  return text(`${live.length} slides:\n` + live.slice(0, 60).map((s) =>
-    `- ${s.slide_id}  [${s.chapter || "-"}]  ${decode(s.title) || ""}${s.goal ? ` - ${s.goal}` : ""}`).join("\n"));
+  // Same rule as deck_read: a cap may exist, but it may not be silent. "27
+  // slides:" followed by 27 lines and "60 slides:" followed by 60 lines look
+  // identical to a caller who cannot count what it never saw.
+  const shown = live.slice(0, 60);
+  const cut = live.length - shown.length
+    ? `\n[... ${live.length - shown.length} more match; narrow with query or chapter]` : "";
+  return text(`${live.length} slides:\n` + shown.map((s) =>
+    `- ${s.slide_id}  [${s.chapter || "-"}]  ${decode(s.title) || ""}${s.goal ? ` - ${s.goal}` : ""}`).join("\n") + cut);
 }
 
 /**
