@@ -1211,3 +1211,20 @@ button.primary.full { width: 100%; justify-content: center; }
 .b-modal-meta p { margin: 0 0 12px; font-size: 13.5px; color: var(--muted); }
 .b-modal-meta b { color: var(--ink); }
 @media (max-width: 900px) { .b-modal-body { grid-template-columns: 1fr; } }
+
+/* ---- settings: connect Claude ---- */
+/* Read top-to-bottom once and then never again, so it is set as prose in a
+   narrow measure rather than as a dense panel grid. */
+.setup { max-width: 760px; }
+.setup > .note { margin: 0 0 18px; font-size: 14px; line-height: 1.6; }
+.setup .panel .note:last-child { margin-bottom: 0; }
+.setup .prompt-box { margin-bottom: 10px; }
+.setup-steps { margin: 0; padding-left: 22px; font-size: 14px; line-height: 1.6; }
+.setup-steps li { margin-bottom: 9px; }
+.setup-steps .note { display: block; }
+.setup-tools { list-style: none; margin: 6px 0 16px; padding: 0; }
+.setup-tools li { display: grid; grid-template-columns: 210px 1fr; gap: 14px;
+  padding: 7px 0; border-top: 1px solid var(--line); font-size: 13.5px; align-items: baseline; }
+.setup-tools li span { color: var(--muted); }
+.setup-tools:last-child { margin-bottom: 0; }
+@media (max-width: 700px) { .setup-tools li { grid-template-columns: 1fr; gap: 2px; } }

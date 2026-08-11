@@ -79,6 +79,15 @@ OAuth 2.1 through Supabase's OAuth server with the token verified against the
 project JWKS. It needs that server switched on in the Supabase dashboard;
 until then every tool call answers 401 by design.
 
+**How to connect it is in the app**: **Settings → Connect Claude**
+(`web/js/views/settings.js`). The address, the four steps, every tool split by
+whether it reads or writes, and what to do when it will not connect. The address
+is derived from the host you are reading it on, never hardcoded, and the page
+checks the discovery document live — so a deployment that cannot be connected to
+says so on the page rather than after four failed attempts in Claude. This is
+the one instruction a colleague needs in order to use Deck Studio from a phone,
+which is why it lives in the tool and not in a chat message.
+
 **The clearances on offer come from the customers table**, not from a list in
 the code: every entitlement in the image manifest, plus every registered
 customer. A customer registered today owns no images yet, so without this their

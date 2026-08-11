@@ -62,7 +62,12 @@ export const AREAS = [
   // The bottom block: who can get in, and how the studio is wired. Neither is
   // something you open to do the work, which is why neither is in the flow above.
   { id: "accounts", title: "Accounts", icon: "person", foot: true },
-  { id: "settings", title: "Settings", icon: "settings", foot: true },
+  // Settings gained a tab rather than a second sidebar entry: connecting Claude
+  // is wiring, and wiring is what this page already is.
+  { id: "settings", title: "Settings", icon: "settings", foot: true, tabs: [
+    { id: "connect", label: "Connect Claude", icon: "spark" },
+    { id: "files", label: "Studio files", icon: "text" },
+  ]},
 ];
 
 export const areaById = (id) => AREAS.find((a) => a.id === id);

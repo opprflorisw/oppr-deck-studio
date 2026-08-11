@@ -18,6 +18,7 @@ import * as customers from "./views/customers.js";
 import * as deck from "./views/deck.js";
 import * as editor from "./views/editor.js";
 import * as knowledge from "./views/knowledge.js";
+import * as settings from "./views/settings.js";
 import * as research from "./views/research.js";
 import * as designsystem from "./views/design-system.js";
 import * as iconsView from "./views/icons-view.js";
@@ -39,7 +40,10 @@ const RENDER = {
   // builder is routed directly (it mounts itself and loads async), not through
   // the area frame, so it has no entry here.
   accounts: () => accounts.render(),
-  settings: () => knowledge.renderBody("config"),
+  settings: {
+    connect: () => settings.renderBody("connect"),
+    files: () => settings.renderBody("files"),
+  },
   social: {
     all: () => artifacts.renderSocial("all"),
     carousel: () => artifacts.renderSocial("carousel"),
@@ -154,12 +158,12 @@ async function boot() {
   route("/build/:id", (id) => builder.renderWorkspace(mount, { deckId: id }));
   route("/builder", () => go("/build"));           // the old single-page builder
   route("/accounts", () => area("accounts"));
-  route("/settings", () => area("settings"));      // was Knowledge's Config tab
+  route("/settings/:tab", (tab) => area("settings", tab));
   route("/social/:tab", (tab) => area("social", tab));
   route("/library/:tab", (tab) => area("library", tab));
   route("/research/:tab", (tab) => area("research", tab));
   // Before /knowledge/:tab — first match wins, and Config moved to Settings.
-  route("/knowledge/config", () => go("/settings"));
+  route("/knowledge/config", () => go("/settings/files"));
   route("/knowledge/:tab", (tab) => area("knowledge", tab));
   route("/knowledge/best-practices/:type", (t) => area("knowledge", "best-practices", t));
   // Bare area path -> first (or remembered) tab.
@@ -167,6 +171,7 @@ async function boot() {
   route("/library", () => go(areaTab("library")));
   route("/research", () => go(areaTab("research")));
   route("/knowledge", () => go(areaTab("knowledge")));
+  route("/settings", () => go(areaTab("settings")));  // was Knowledge's Config tab
 
   // Legacy / short routes keep working and render the same area frame.
   route("/slides", () => area("library", "slides"));
@@ -178,7 +183,7 @@ async function boot() {
   route("/output/social", () => go("/social/all")); // Decks + Social output
   route("/output", () => go("/decks"));
   route("/social-out", () => go("/social/all"));
-  route("/config", () => go("/settings"));
+  route("/config", () => go("/settings/files"));   // Config is now Studio files
 
   // Detail / drill-down pages (standalone, no tabbar).
   route("/research/runs/:slug", (slug) => mount(research.renderRun(slug)));

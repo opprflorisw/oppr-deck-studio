@@ -53,8 +53,10 @@ should be able to build a deck from these docs alone.
    http://127.0.0.1:4173). **This is where you change and ship anything.**
    Sidebar, grouped (2026-08-04): **Work** — Customers (home) · Decks · Social
    output · Last 30 days; **System** — Library · Knowledge; and pinned at the
-   bottom behind a rule, **Accounts** · **Settings** (the old Knowledge → Config
-   tab), because neither is somewhere you go to do the work.
+   bottom behind a rule, **Accounts** · **Settings**, because neither is
+   somewhere you go to do the work. Settings has two tabs: **Connect Claude**
+   (how to add the MCP connector) and **Studio files** (the old Knowledge →
+   Config browser).
 
    **Two kinds of deck (2026-08-05), not three.** "Masters" and "company decks"
    described how a deck was tagged rather than what it is, and in practice the
@@ -134,6 +136,11 @@ should be able to build a deck from these docs alone.
    **Requires the OAuth server to be enabled** in the Supabase dashboard
    (Authentication → OAuth Server); until it is, `/mcp` answers every tool call
    with 401 by design.
+   **How to connect it is documented in the app**, at **Settings → Connect
+   Claude** — the address (derived from the host you are reading it on, and
+   checked live against the discovery document), the steps, the tools split by
+   read vs write, and the failure modes. A colleague who wants Deck Studio on
+   their phone should never need a chat history to find that.
 
    The browser talks only to the **local agent** (`app/server.mjs` + `app/lib/*`),
    which holds the Supabase secret key and runs print/verify; the browser never
