@@ -148,12 +148,15 @@ function runPython(args, onLine = null) {
  * back the CLI prompt the way it already does for structural edits.
  */
 export async function buildFromRecipe(recipe, { dryRun = false, onStep = null } = {}) {
-  // Hosted there is no Python and no repo, so the JS pipeline runs instead. It
-  // is the same five gates in the same order over the same inputs, and
-  // tools/check-assemble-parity.py proves the snapshot it produces is byte for
-  // byte the one the CLI produces. DECK_JS_BUILD=1 forces it locally, which is
-  // how that check is run against a machine that HAS Python.
-  if (isServerless || process.env.DECK_JS_BUILD) {
+  // ONE runtime (Deck Studio 5, D1). The JS pipeline is the pipeline, here and
+  // hosted, so a deck built on this laptop and a deck built on Vercel go through
+  // the same code rather than through two implementations held together by a
+  // parity check somebody has to remember to run.
+  //
+  // DECK_PY_BUILD=1 still routes to the Python path, as a way back if something
+  // is found before those tools are deleted. It is a temporary escape hatch, not
+  // a supported mode: the flag goes when the Python pipeline does.
+  if (!process.env.DECK_PY_BUILD) {
     return buildFromRecipeJs(recipe, { dryRun, onStep });
   }
   const dir = path.join(REPO_ROOT, "decks", "drafts", "_recipes");

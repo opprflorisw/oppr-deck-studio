@@ -19,6 +19,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 
 import { RepoFiles } from "./repofiles.mjs";
+import { slugify } from "./slug.mjs";
 
 // --- the document wrapper (deckstudio._WRAPPER, verbatim) --------------------
 
@@ -92,7 +93,9 @@ function unfilled(text) {
 
 // Re-exported so existing importers keep working; the definition lives in
 // slug.mjs, because five copies of this produced two different answers.
-export { slugify } from "./slug.mjs";
+// Imported as well as re-exported: `export ... from` forwards the name without
+// binding it in this module, so pdfNameForSlug below would not see it.
+export { slugify };
 
 const sha256 = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
 

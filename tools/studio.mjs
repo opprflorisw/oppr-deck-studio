@@ -188,6 +188,10 @@ command("build", "Build and publish an artifact from a recipe file",
     });
     if (r.verify_report) printReport(r.verify_report);
     if (!r.ok) die(r.error || "the build did not pass");
+    if (flags["dry-run"]) {
+      say(`${green("checked")} — it would build and pass. Nothing was published.`);
+      return;
+    }
     say(`${green("published")} ${r.deck?.slug} v${r.deck?.version}`);
   });
 
