@@ -37,7 +37,7 @@ discarded, and cost nothing to throw away. An idea that is worth shipping gets
 4. marks the idea spent in `posts/_status.json`,
 5. seeds a `performance.json` record so an unposted draft stays visible.
 
-It does **not** build the output. `/deckbuilder` still does, with its verify gate.
+It does **not** build the output. The builder still does, with its verify gate.
 From there the piece is fine-tuned and published in **Social output** as normal.
 
 ## The second confidence axis

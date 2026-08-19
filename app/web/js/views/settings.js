@@ -7,6 +7,7 @@
 // phone was the one instruction the tool itself never said.
 
 import { $, el, esc } from "../util.js";
+import * as api from "../api.js";
 import * as knowledge from "./knowledge.js";
 
 export function renderBody(tab = "connect") {
@@ -14,22 +15,11 @@ export function renderBody(tab = "connect") {
   return connect();
 }
 
-// The tools, grouped by what they do to the backend rather than by name. The
-// split is not cosmetic: `lib/mcp.mjs` classifies every tool as read or write
-// and refuses the write ones to a viewer, so this table is the user-facing face
-// of a rule that is actually enforced.
-const READS = [
-  ["List customers", "Every registered customer, their clearance slug and how many decks they have."],
-  ["Decks for a customer", "What is filed under them, with type, current version and page count."],
-  ["Customer timeline", "What was sent, when, and which version they are holding."],
-  ["List company decks", "The reusable decks, one per type — what a customer deck gets copied from."],
-  ["Read a deck", "The visible text of a version, slide by slide."],
-  ["Search the slide library", "Find slides by title, chapter, goal or id."],
-];
-const WRITES = [
-  ["Register a customer", "Refuses a name that would retroactively break published decks, and says which ones."],
-  ["Record that a deck was sent", "Pinned to the exact version they received."],
-];
+// The tool list is FETCHED, not typed. It used to be a hand-maintained copy of
+// lib/mcptools.mjs, and it had already drifted: it promised a page count that
+// the tool never returned. A page describing what a connector can do is worth
+// exactly as much as its agreement with the connector.
+let TOOLS = null;
 
 function connect() {
   // Derived, never hardcoded: the server builds the same address from the host
@@ -45,8 +35,9 @@ function connect() {
   const box = el(`
     <div class="setup">
       <p class="note">Deck Studio has a second front door. Point Claude at it and you can
-        register customers, read what a deck says, see what a customer is holding and record
-        a send — from the desktop app, the web app or your phone, without opening this one.</p>
+        register a customer, <b>build their deck from the slide library</b>, check it, publish it,
+        get the PDF and record that it went out — from the desktop app, the web app or your phone,
+        without opening this one.</p>
 
       <div class="panel">
         <h2>The address</h2>
@@ -73,22 +64,18 @@ function connect() {
 
       <div class="panel">
         <h2>What Claude can do with it</h2>
-        <p class="note">Reading — any active account, including a viewer.</p>
-        <ul class="setup-tools">
-          ${READS.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join("")}
-        </ul>
-        <p class="note">Changing — editors and owners only.</p>
-        <ul class="setup-tools">
-          ${WRITES.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join("")}
-        </ul>
+        <div class="tool-lists"><p class="note">Loading the tool list…</p></div>
       </div>
 
       <div class="panel">
         <h2>What it deliberately cannot do</h2>
-        <p class="note">There is no tool for editing a company deck, changing the slide library, or
-          publishing a version. That absence is the boundary, not an omission: work that changes
-          one customer's artifact is a connector job, and work that changes every deck built from
-          then on stays in this app, with an owner behind it.</p>
+        <p class="note">There is no tool for editing a company deck, changing the slide library,
+          archiving a slide, or moving which deck is the master. That absence is the boundary, not
+          an omission: work that affects one customer's artifact is a connector job, and work that
+          changes every deck built from then on stays here, with an owner behind it.</p>
+        <p class="note">Building a customer's deck <b>is</b> a connector job: pick slides from the
+          library, fill in the deck's details, check it, publish it, get the PDF. Composing a deck
+          never changes what the library holds.</p>
       </div>
 
       <div class="panel">
@@ -123,6 +110,25 @@ function connect() {
     .catch((e) => {
       $("#mcp-status", box).textContent =
         `This deployment did not answer the discovery request (${e.message}). Claude cannot connect until it does.`;
+    });
+
+  // The tools, from the server that serves them.
+  api.authedFetch("/api/mcp-tools")
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    .then((d) => {
+      TOOLS = d.tools || [];
+      const reads = TOOLS.filter((t) => t.read);
+      const writes = TOOLS.filter((t) => !t.read);
+      const list = (items) => `<ul class="setup-tools">${items.map((t) =>
+        `<li><b>${esc(t.title)}</b><span>${esc(t.description)}</span></li>`).join("")}</ul>`;
+      $(".tool-lists", box).innerHTML =
+        `<p class="note">Reading — any active account, including a viewer.</p>${list(reads)}` +
+        `<p class="note">Changing — editors and owners only. Everything here affects one ` +
+        `customer's artifact; nothing here changes what future decks are made of.</p>${list(writes)}`;
+    })
+    .catch(() => {
+      $(".tool-lists", box).innerHTML =
+        `<p class="note">The tool list could not be loaded. Reload the page.</p>`;
     });
 
   return box;

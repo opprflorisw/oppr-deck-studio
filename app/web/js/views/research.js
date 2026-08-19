@@ -343,7 +343,7 @@ async function promote(file, btn) {
   try {
     const r = await api.promoteIdea(file);
     if (r.hero && !r.hero.ok) toast("Draft created, but the hero failed to build.");
-    else toast(`Promoted to ${r.slug}. Build it with /deckbuilder.`);
+    else toast(`Promoted to ${r.slug}. It is ready to build.`);
     invalidate();
     go("/research/posts");
   } catch (e) {

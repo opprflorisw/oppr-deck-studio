@@ -1,7 +1,8 @@
 # library/ — the element library
 
 Reusable slides and described images. Edited only in **Edit mode**
-(`/edit-canonical`), never from `/new-deck`.
+(`/edit-canonical`), never while composing a deck. Composing picks from what is
+here; it never changes it.
 
 ## What a slide is
 

@@ -430,9 +430,11 @@ export async function render(id, mount) {
     const m = el(`<div class="modal"><div class="modal-box">
       <header><b>This change needs the CLI</b><button class="ghost icon-only close">${icon("close")}</button></header>
       <div class="modal-body">
-        <p>The edit changed the slide's structure (an element was added, removed, or restyled beyond a nudge). Fine-tuning covers text, spacing and image swaps; a structural change is rebuilt in the CLI.</p>
-        <div class="prompt-box"><code>/deckbuilder edit ${esc(deck.slug)} — describe the structural change</code></div>
-        <p class="note">Discard here, then make the change via the CLI, or undo it and save just the text/spacing edits.</p>
+        <p>The edit changed the slide's structure — an element was added, removed, or restyled beyond a nudge.
+        Editing here covers text, spacing and image swaps; the shape of a slide belongs to the slide,
+        and changing it would change every deck that uses it.</p>
+        <p class="note">Undo the structural part and save just the text and spacing.
+        If the slide itself needs to change, an owner does that in the library.</p>
       </div>
     </div></div>`);
     const close = () => m.remove();

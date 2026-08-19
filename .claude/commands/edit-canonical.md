@@ -8,7 +8,7 @@ This is **Edit mode**: reworking the system itself, not personalizing a deck.
 Scope you may change here: `library/slides/`, `library/design-system/`,
 `types/*/recipe.md`, `decks/*/deck.yaml`, and the shared stylesheets
 `templates/deck.css` / `templates/showcase.css`. (Personalizing a single deck for
-a situation is `/new-deck`; frozen variants are never touched here.)
+a situation is a normal deck build; frozen variants are never touched here.)
 
 > **v3 (edit-master).** A master now lives in the backend as a tagged deck. To
 > change one structurally: `python tools/fetch-deck.py <master-slug>`, make the

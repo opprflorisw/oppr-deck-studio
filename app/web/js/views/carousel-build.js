@@ -1,6 +1,6 @@
 // Build carousel page HTML from a page spec, mirroring the documented
 // templates/linkedin.css blocks. Used for the live preview and as the shape the
-// social draft stores; /deckbuilder generates the same HTML server-side.
+// social draft stores; the server generates the same HTML when it builds.
 
 import { esc } from "../util.js";
 

@@ -165,6 +165,30 @@ export async function list(prefix, limit = 1000) {
   return rows.map((e) => ({ name: e.name, isFolder: e.id === null }));
 }
 
+/**
+ * A time-limited URL for one object in the private bucket.
+ *
+ * The bucket is private and stays private -- a deck's PDF is the whole deck. A
+ * signed URL is how a caller who has already been authenticated and authorised
+ * gets the bytes without the agent proxying them, which is what makes a download
+ * possible from a phone through the connector.
+ *
+ * It is NOT a share link. The expiry is short and the caller is the person who
+ * asked; nothing here makes an artifact public, and Deck Studio 5 keeps sharing
+ * out of scope on purpose.
+ */
+export async function signedUrl(objectPath, expiresIn = 600) {
+  const { url } = cfg();
+  const r = await fetch(`${url}/storage/v1/object/sign/${BUCKET}/${objectPath}`, {
+    method: "POST",
+    headers: headers({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ expiresIn }),
+  });
+  if (!r.ok) throw new Error(`sign ${objectPath}: ${r.status} ${await r.text()}`);
+  const { signedURL } = await r.json();
+  return `${url}/storage/v1${signedURL}`;
+}
+
 export async function copyObject(src, dst) {
   const { url } = cfg();
   const r = await fetch(`${url}/storage/v1/object/copy`, {

@@ -189,13 +189,7 @@ test("no recipe proposes a slide that is retired or does not exist", () => {
 
 // --- the app must not send an editor to a terminal -------------------------
 
-test("no user-facing app string names a deck-building slash command", {
-  // Deck Studio 5, phase 3: /deckbuilder and /new-deck become MCP tools and the
-  // app stops telling editors to open a terminal. Five views still carry the old
-  // prompt. Marked todo rather than deleted so the suite keeps reporting the
-  // debt, and flipped to a hard assertion the moment those prompts are replaced.
-  todo: "phase 3 replaces these prompts with the builder + MCP",
-}, () => {
+test("no user-facing app string names a deck-building slash command", () => {
   // /deckbuilder and /new-deck were removed: building a deck is the app's job
   // and the MCP's job. A colleague who has never installed Claude Code must
   // never be shown a command to run.

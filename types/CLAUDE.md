@@ -1,7 +1,7 @@
 # types/ — deck-type recipes (the living brain)
 
 One folder per presentation type; `recipe.md` is its reusable brief. This is the
-intent layer the `/new-deck` intake reads to know what to ask and what skeleton to
+intent layer a deck build reads to know what to ask and what skeleton to
 propose.
 
 ## recipe.md shape
@@ -25,7 +25,7 @@ this client, this language. Recipe = template; brief = one deck's contract.
 - **Per-type** lessons append to that recipe's `## Learnings`.
 - **Cross-cutting** style lessons (register, type sizes, "no em dashes") go to
   Claude's `memory/` (e.g. `deck-management-level-style.md`), not here.
-- After every finished deck, `/new-deck` asks "anything to feed back into the
+- After every finished deck, ask "anything to feed back into the
   brain?" — that closing question is what keeps this living rather than a folder.
 
 ## Adding a new type

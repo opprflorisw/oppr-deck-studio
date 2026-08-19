@@ -1,7 +1,7 @@
 # knowledge/ — the design brain, in the open
 
 Human-readable documents the studio reasons from and the app surfaces
-(Knowledge + Config pages). These are **living**: every `/deckbuilder` run ends
+(Knowledge + Config pages). These are **living**: every build run ends
 by asking "anything to feed back into the brain?", and format-level lessons land
 here (type-level lessons go to `types/<type>/recipe.md`).
 

@@ -1,7 +1,7 @@
 # social/ — outward channel output (carousels, posts, images, thumbnails)
 
 Everything Oppr publishes on a social channel lives here, made through
-`/deckbuilder` ("I want a LinkedIn carousel/post", etc.). One folder per channel:
+an owner, from this repo. One folder per channel:
 
 - `social/linkedin/<date>_<slug>/` — carousels (4:5 PDF + `post.txt`), posts,
   articles.
@@ -153,7 +153,7 @@ research/last30days/posts/              draft.json + hero/         build + verif
 **Promote** is the gate (the button on the app's Last 30 days → Ideas tab). It
 copies the body into a social draft, keeps the lineage (`source_idea` + the
 `themes` ids the idea came from), and for an article writes the hero page. It
-deliberately does **not** build: `/deckbuilder` still owns that, with its verify
+deliberately does **not** build: the build step still owns that, with its verify
 gate and human approval.
 
 After posting, record the link and the engagement readings on the app's

@@ -255,11 +255,15 @@ function familyRow(f) {
   return row;
 }
 
+// What to do when the last build failed the gate. It used to print a CLI command,
+// which is no help at all to a colleague who has never installed Claude Code --
+// and the fix is nearly always in the builder anyway.
 function needsCliBanner(deck) {
-  const prompt = `/deckbuilder edit ${deck.slug} — ${deck.needs_cli_reason}`;
   return `<div class="needs-cli">
-    <div><b>This deck needs the CLI.</b> The last regenerate failed verification: <span class="note">${esc(deck.needs_cli_reason)}</span></div>
-    <div class="prompt-box"><code>${esc(prompt)}</code></div>
+    <div><b>This deck did not pass verification.</b>
+      <span class="note">${esc(deck.needs_cli_reason)}</span></div>
+    <div class="note">Open <b>Edit slides</b> and use <b>Check</b> to see the findings in full,
+      or ask an owner if it is the slide itself that is wrong.</div>
   </div>`;
 }
 

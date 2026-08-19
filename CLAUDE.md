@@ -41,11 +41,20 @@ should be able to build a deck from these docs alone.
    the CLI assembles there, publishes, confirms, and the folder is disposable.
    A master is a **tag** (`is_master`, one per type), not a folder. A new version
    is a new row, never a `<slug>-v2/` folder. See `decks/CLAUDE.md`.
-5. **Workflows** — `.claude/commands/deckbuilder.md` is the **orchestrator front
-   door** (`/deckbuilder`) that routes a plain-language request to the right
-   workflow. Underneath: `new-deck.md` (Personalize), `edit-canonical.md` (Edit),
-   `ingest-dump.md`. The Personalize/Edit wall is real: Personalize writes only
-   in `decks/variants/`; Edit changes the system itself.
+5. **Two ways in, one permission model (2026-08-19, Deck Studio 5).** Building a
+   deck is no longer a Claude Code skill. An **editor** composes a deck in the
+   app's builder or through **Claude over MCP** — pick slides from the library,
+   fill the deck's variables, check, publish — and needs neither this repo nor a
+   terminal. What stays here is **owner** work, because it changes every deck
+   built afterwards: `.claude/commands/edit-canonical.md` (the library, the
+   masters, the CSS) and `ingest-dump.md` (the intake inbox), plus
+   `npm run studio` for the mirrors, accounts and one-off builds.
+
+   The old deckbuilder and new-deck commands are **deleted**. Their
+   approval gate is not: it moved to `deck_check`, which shows the plan and the
+   gate findings in the conversation, and `deck_publish`, which refuses without
+   `confirm: true`. The gate is now enforced by the server instead of by a
+   paragraph of markdown.
 6. **Intake inbox** — `dump/` : drop past decks / event material / images here;
    `/ingest-dump` files each piece into its home (library, images, brief,
    references) and leaves `dump/` empty. See `dump/CLAUDE.md`.
@@ -149,7 +158,7 @@ should be able to build a deck from these docs alone.
    `app/README.md`.
 8. **Social output** — `social/<channel>/<date>_<slug>/` : brand-styled
    carousels (4:5, `tools/build-carousel.ps1`), posts, articles, images,
-   thumbnails. Made via `/deckbuilder`. Public by definition — no named-customer
+   thumbnails. Built by an owner from this repo. Public by definition — no named-customer
    material. See `social/CLAUDE.md`.
 9. **Market listening** — `research/last30days/` : every `/last30days` run
    recorded as structured knowledge (`runs/<slug>/run.json`), folded by
@@ -158,7 +167,7 @@ should be able to build a deck from these docs alone.
    folder is `LAST30DAYS_MEMORY_DIR`; research lives in the repo, not in
    `~/Documents`. Ideas are cheap; **promoting** one turns it into a
    `social/drafts/` draft (with its 1200×627 hero for an article) that
-   `/deckbuilder` then builds. Engagement recorded after posting rolls back up
+   an owner then builds. Engagement recorded after posting rolls back up
    per theme, so every belief carries both `confidence` (did the evidence
    repeat) and `audience` (did anyone respond). Surfaced in the app's
    **Last 30 days** area, which reads the folder from disk locally and from
@@ -186,10 +195,17 @@ copy .env.example .env            # then fill in secrets; .env is gitignored
 #     deck depends on it.
 ```
 Rendering also needs **Google Chrome or Microsoft Edge** installed (HTML → PDF/PNG).
-The workflows are driven from the **Claude Code CLI**: `/deckbuilder` (the front
-door), `/new-deck`, `/edit-canonical`, `/ingest-dump`. `/new-deck` and every
-building route of `/deckbuilder` have a hard approval gate — an unattended run
-stops at the proposed plan and waits for a human to approve before building.
+Check the machine with `npm run studio -- doctor`, which reports Node, the
+browser, the backend and whether the library is on disk.
+
+**Python is optional and owner-only** since 2026-08-19. Nothing in the artifact
+pipeline uses it, and nothing an editor does needs it. What remains is a handful
+of utilities with no good Node equivalent: image generation, static font
+instancing, the two shareable kits, the cover scrim, the vector QR, and the
+research brain.
+
+Owner workflows are `npm run studio -- <command>` plus two Claude Code commands,
+`/edit-canonical` and `/ingest-dump`.
 
 The **Deck Studio App** (optional, for browsing/composing visually) needs
 **Node 18+**: `npm install && npm run dev` **from the repo root** →
@@ -287,7 +303,7 @@ manual regeneration.
 - **Personalization is variables, not editing.** Audience-specific content
   (prepared-for, footer, cover meta, client) is expressed as `{{variables}}` in
   deck.yaml, or as a variant-local slide override — never by editing the library
-  from `/new-deck`. Named customer material only in decks cleared for it: the
+  while composing a deck. Named customer material only in decks cleared for it: the
   `entitlement` field in `brand/img/library.json` and `allowed_entitlements` in
   deck.yaml enforce this mechanically. **Clearance is one slug per customer**
   (2026-08-01): `public` plus `mutares`, `holliday`, `venator`, `attero`,

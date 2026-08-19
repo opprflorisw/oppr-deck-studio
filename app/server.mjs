@@ -53,6 +53,7 @@ import { verifyJwt, audienceOk, protectedResourceMetadata, challenge,
          refusalReason } from "./lib/mcpauth.mjs";
 import { TOOLS, callTool, negotiate, serverInfo, INSTRUCTIONS, SUPPORTED_VERSIONS,
          isWriteTool } from "./lib/mcp.mjs";
+import { TOOL_SPECS } from "./lib/mcptools.mjs";
 
 /**
  * Which pages of a published version no longer match their library slide.
@@ -1244,6 +1245,19 @@ async function handleApi(req, res, url) {
   }
 
   // Knowledge whitelist (Phase 7).
+  // What the connector can do, from the table that defines it. The Settings page
+  // used to carry a hand-typed copy of this list, and it had already drifted --
+  // it promised a page count no tool returned. A page describing a connector is
+  // worth exactly as much as its agreement with the connector.
+  if (req.method === "GET" && p === "/api/mcp-tools") {
+    return sendJson(res, 200, {
+      tools: TOOL_SPECS.map((t) => ({
+        name: t.name, title: t.title, description: t.description,
+        read: t.access === "read",
+      })),
+    });
+  }
+
   if (req.method === "GET" && p === "/api/knowledge") {
     return sendJson(res, 200, { files: await knowledgeFiles() });
   }

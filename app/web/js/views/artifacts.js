@@ -183,8 +183,9 @@ function decksBody(box) {
   const all = (state.backend.decks || []).filter(isDeck);
   if (!all.length) {
     box.append(el(`<div class="empty"><p>No decks yet.</p>
-      <p class="note">Decks are created in the CLI. Build one, publish it, and it appears here ready to edit.</p>
-      <div class="prompt-box"><code>/deckbuilder</code></div></div>`));
+      <p class="note">Build one in the deck builder, or ask Claude to make one from your phone
+      (Settings &rarr; Connect Claude). It appears here ready to edit and send.</p>
+      <div class="empty-actions"><a class="primary" href="#/build/new">New deck</a></div></div>`));
     return;
   }
   const shown = all.filter(matches);
@@ -261,8 +262,7 @@ function socialBody(box, category) {
 
   if (!all.length) {
     box.append(el(`<div class="empty"><p>Nothing here yet.</p>
-      <p class="note">Carousels, images and articles are built in the CLI, then edited and shipped here.</p>
-      <div class="prompt-box"><code>/deckbuilder</code></div></div>`));
+      <p class="note">Carousels, images and articles are built by an owner, then edited and shipped here.</p></div>`));
     return;
   }
 

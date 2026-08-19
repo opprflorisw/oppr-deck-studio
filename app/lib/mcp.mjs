@@ -35,6 +35,14 @@ import { isOwner } from "./auth.mjs";
 // decks a refusal listed, and whether an owner was offered the force.
 import * as customers from "./handlers/customers.mjs";
 import * as sends from "./handlers/sends.mjs";
+import * as drafts from "./handlers/drafts.mjs";
+import * as build from "./mcpbuild.mjs";
+// The tool set as DATA: name, schema, access, audit action and annotations in
+// one table, so the dispatcher, the guard, the audit trail and the Settings
+// page all derive from it instead of four hand-maintained copies. The Settings
+// page was one of those copies, and already promised a page count no tool
+// returned.
+import { TOOL_SPECS, toolList, specFor, ACCESS } from "./mcptools.mjs";
 
 export const SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18", "2025-11-25"];
 const LATEST = "2025-11-25";
@@ -74,113 +82,7 @@ const decode = (s) => String(s || "")
 // `inputSchema` must be a JSON Schema object and must never be null. A
 // no-argument tool still declares `{type:"object"}`.
 
-export const TOOLS = [
-  {
-    name: "customers_list",
-    title: "List customers",
-    description: "Every registered customer, with the clearance slug a deck must hold to name them and how many decks they have.",
-    inputSchema: { type: "object", additionalProperties: false },
-  },
-  {
-    name: "customer_create",
-    title: "Register a customer",
-    description:
-      "Register a new customer so decks can be filed under them and cleared to name them. " +
-      "Refuses a name that would retroactively break published decks (for example a company " +
-      "called 'Data'), reporting which decks it would break.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        name: { type: "string", description: "Company name as it is written on a slide, e.g. 'Rhyze'" },
-        notes: { type: "string", description: "Optional free notes" },
-      },
-      required: ["name"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "customer_timeline",
-    title: "Customer timeline",
-    description:
-      "What has been sent to a customer and when, newest first, including which version they " +
-      "hold and whether the deck has changed since.",
-    inputSchema: {
-      type: "object",
-      properties: { customer: { type: "string", description: "Customer slug" } },
-      required: ["customer"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "decks_for_customer",
-    title: "Decks for a customer",
-    description: "Every deck filed under a customer, with its type, current version and page count.",
-    inputSchema: {
-      type: "object",
-      properties: { customer: { type: "string", description: "Customer slug" } },
-      required: ["customer"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "company_decks_list",
-    title: "List company decks",
-    description:
-      "The reusable company decks (masters), one per type: teaser, engagement, customer, " +
-      "investor, product-showcase, management-outlook. These are what a customer deck is copied from.",
-    inputSchema: { type: "object", additionalProperties: false },
-  },
-  {
-    name: "deck_read",
-    title: "Read a deck",
-    description:
-      "A deck's details and the visible text of its current version, slide by slide. Use this " +
-      "to see what a deck actually says before copying or sending it.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        slug: { type: "string", description: "Deck slug" },
-        version: { type: "integer", description: "Version number; defaults to current" },
-      },
-      required: ["slug"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "deck_record_sent",
-    title: "Record that a deck was sent",
-    description:
-      "Record that a deck went to a customer, pinned to the exact version they received, so " +
-      "'what are they holding' and 'has it changed since' stay answerable.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        slug: { type: "string", description: "Deck slug" },
-        recipient: { type: "string", description: "Who it went to, e.g. 'Jan de Vries, CFO'" },
-        note: { type: "string", description: "Optional context" },
-        version: { type: "integer", description: "Version sent; defaults to current" },
-        sent_at: { type: "string", description: "ISO date; defaults to now" },
-      },
-      required: ["slug"],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: "library_search",
-    title: "Search the slide library",
-    description:
-      "Find library slides by title, chapter, goal or id, so a deck can be described in terms " +
-      "of the slides that exist rather than invented ones.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "Words to look for; omit to list everything" },
-        chapter: { type: "string", description: "Restrict to one chapter" },
-      },
-      additionalProperties: false,
-    },
-  },
-];
+export const TOOLS = toolList();
 
 // --- tool implementations ----------------------------------------------------
 
@@ -382,23 +284,193 @@ async function librarySearch({ query, chapter }) {
  * A tool added to IMPL without being classified is treated as a write by
  * `isWriteTool`, so the failure mode of forgetting is refusal, not exposure.
  */
-export const WRITE_TOOLS = new Set(["customer_create", "deck_record_sent"]);
-const READ_TOOLS = new Set([
-  "customers_list", "customer_timeline", "decks_for_customer",
-  "company_decks_list", "deck_read", "library_search",
-]);
-export const isWriteTool = (name) => !READ_TOOLS.has(name);
+export { isWriteTool } from "./mcptools.mjs";
+
+// --- the tools added for the build loop --------------------------------------
+
+async function customerNote({ customer, note }) {
+  const r = await customers.appendNote(customer, note);
+  if (!r) return fail(`No customer with slug "${customer}". Use customers_list to see them.`);
+  if (!r.ok) return fail("A note needs some text.");
+  return text(`Noted against ${customer}.`);
+}
+
+async function decksSearch({ query, kind }) {
+  const q = String(query || "").toLowerCase().trim();
+  const rows = await db.selectAll("decks", {
+    select: "slug,title,type,kind,note,archived,is_master,current_version_n,customer_id",
+    order: "updated_at.desc",
+  });
+  const custs = new Map((await db.selectAll("customers", { select: "id,name" }))
+    .map((c) => [c.id, decode(c.name)]));
+  const live = rows.filter((d) => !d.archived && (!kind || d.kind === kind));
+  const hit = q
+    ? live.filter((d) => [d.slug, decode(d.title), d.type, d.note, custs.get(d.customer_id) || ""]
+        .join(" ").toLowerCase().includes(q))
+    : live;
+  if (!hit.length) return text(q ? `Nothing matches "${query}".` : "No artifacts yet.");
+  const shown = hit.slice(0, 40);
+  const lines = shown.map((d) =>
+    `- ${decode(d.title)}  (slug: ${d.slug}, ${d.kind}${d.type ? `/${d.type}` : ""}, ` +
+    `v${d.current_version_n}${d.is_master ? ", company deck" : ""}` +
+    `${custs.get(d.customer_id) ? `, ${custs.get(d.customer_id)}` : ""})`);
+  const more = hit.length > shown.length ? `\n[... ${hit.length - shown.length} more match]` : "";
+  return text(`${hit.length} match:\n${lines.join("\n")}${more}`);
+}
+
+async function deckStatus({ slug }) {
+  const deck = await deckBySlug(slug);
+  if (!deck) return fail(`No deck with slug "${slug}". Use decks_search to find it.`);
+  const [v] = await db.select("deck_versions", {
+    deck_id: `eq.${deck.id}`, n: `eq.${deck.current_version_n}`,
+    select: "n,page_count,pdf_object,verify_report,created_at",
+  });
+  if (!v) return fail(`"${slug}" has no published version.`);
+
+  const fails = v.verify_report?.fails || [];
+  const warns = v.verify_report?.warns || [];
+  const lines = [
+    `${decode(deck.title)}  (v${v.n}, ${v.page_count} pages)`,
+    `  brand gate: ${fails.length ? `${fails.length} FAILURE(S) — this is not safe to send` : "passes"}`,
+  ];
+  for (const f of fails) lines.push(`      ${f}`);
+  if (warns.length) lines.push(`  warnings: ${warns.length}`);
+  lines.push(`  PDF: ${v.pdf_object ? "printed" : "not printed yet (deck_pdf will print it)"}`);
+
+  // Has the library moved on under it?
+  const recipeRows = await db.select("deck_versions", {
+    deck_id: `eq.${deck.id}`, n: `eq.${deck.current_version_n}`, select: "recipe",
+  });
+  const recipe = recipeRows[0]?.recipe;
+  if (recipe?.chapters) {
+    const lib = new Map((await db.selectAll("library_slides", { select: "slide_id,content_hash" }))
+      .map((r) => [r.slide_id, r.content_hash]));
+    const behind = [];
+    for (const ch of recipe.chapters) {
+      for (const sl of ch.slides || []) {
+        const now = lib.get(sl.slide_id);
+        if (now === undefined) behind.push(`${sl.slide_id} (no longer in the library)`);
+        else if (now !== sl.content_hash) behind.push(`${sl.slide_id} (changed since)`);
+      }
+    }
+    lines.push(behind.length
+      ? `  library: ${behind.length} page(s) behind — ${behind.join(", ")}`
+      : `  library: up to date`);
+  } else {
+    lines.push(`  library: published before recipes, so drift cannot be answered`);
+  }
+
+  const sent = await sends.forDeck(deck.id);
+  if (sent.length) {
+    lines.push(`  sent ${sent.length} time(s); latest: v${sent[0].version_n}` +
+               `${sent[0].recipient ? ` to ${sent[0].recipient}` : ""}` +
+               `${sent[0].stale ? " — they are behind" : ""}`);
+  } else {
+    lines.push(`  not recorded as sent to anyone`);
+  }
+  return text(lines.join("\n"));
+}
+
+async function libraryChapters() {
+  const chs = await drafts.chapters();
+  const lines = [];
+  for (const ch of chs) {
+    const pick = ch.slides.filter((s) => s.pickable);
+    lines.push(`${ch.n} ${ch.title}  [${ch.id}]  — ${ch.purpose || ""}`);
+    for (const s of pick) {
+      lines.push(`     ${s.slide_id.padEnd(24)} ${s.goal || s.title}` +
+                 `${s.entitlements?.length ? `  (needs ${s.entitlements.join(", ")})` : ""}`);
+    }
+    if (!pick.length) lines.push(`     (nothing pickable)`);
+  }
+  return text(`The library, in reading order. Pick from each chapter; skipping a chapter ` +
+              `drops every slide under it.\n\n${lines.join("\n")}`);
+}
+
+async function slideRead({ slide_id }) {
+  const [row] = await db.select("library_slides", {
+    slide_id: `eq.${slide_id}`,
+    select: "slide_id,title,chapter,role,goal,entitlements,retired,archived",
+  });
+  if (!row) return fail(`No slide "${slide_id}". Use library_search or library_chapters.`);
+  const files = await import("./repofiles.mjs");
+  const rf = new files.RepoFiles();
+  let body = "";
+  try {
+    const html = await rf.text(`library/slides/${slide_id}/slide.html`);
+    body = String(html || "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<[^>]*>/g, " ");
+    body = decode(body).replace(/\s+/g, " ").trim().slice(0, 4000);
+  } catch { body = "(the slide's text is not readable from here)"; }
+
+  return text(
+    `${slide_id}  [${row.chapter || "no chapter"}]\n` +
+    `  ${decode(row.title || "")}\n` +
+    `  for: ${row.goal || "-"}\n` +
+    `  role: ${row.role || "-"}` +
+    `${row.entitlements?.length ? `\n  needs clearance: ${row.entitlements.join(", ")}` : ""}` +
+    `${row.retired ? "\n  RETIRED — cannot be picked" : ""}` +
+    `${row.archived ? "\n  ARCHIVED — cannot be picked" : ""}\n\n${body}`);
+}
 
 const IMPL = {
+  // reads
+  whoami: build.whoami,
   customers_list: customersList,
-  customer_create: customerCreate,
   customer_timeline: customerTimeline,
   decks_for_customer: decksForCustomer,
   company_decks_list: companyDecksList,
+  decks_search: decksSearch,
   deck_read: deckRead,
-  deck_record_sent: deckRecordSent,
+  deck_status: deckStatus,
   library_search: librarySearch,
+  library_chapters: libraryChapters,
+  slide_read: slideRead,
+  // writes, all leaf
+  customer_create: customerCreate,
+  customer_note: customerNote,
+  deck_start: build.deckStart,
+  deck_open: build.deckOpen,
+  deck_slides: build.deckSlides,
+  deck_vars: build.deckVars,
+  deck_check: build.deckCheck,
+  deck_publish: build.deckPublish,
+  deck_pdf: build.deckPdf,
+  deck_record_sent: deckRecordSent,
 };
+
+// Every tool a client can see must have a body, and every body must be declared.
+// Checked at load rather than at call time, so a mismatch is a startup failure
+// instead of a 500 the first time somebody uses the tool that was forgotten.
+for (const spec of TOOL_SPECS) {
+  if (!IMPL[spec.name]) throw new Error(`mcp: tool "${spec.name}" is declared with no implementation`);
+}
+for (const name of Object.keys(IMPL)) {
+  if (!specFor(name)) throw new Error(`mcp: "${name}" is implemented but not declared in mcptools.mjs`);
+}
+
+/**
+ * Which deck a call is aimed at, if any.
+ *
+ * This is what lets the dispatcher run requireLeaf without each tool
+ * remembering to. mcp.mjs has imported requireLeaf since August and never called
+ * it, while its own header, CLAUDE.md and app/README.md all described a second
+ * layer of defence underneath the tool list. There was no second layer. There is
+ * one now, and it is here rather than in twenty tool bodies, because a guarantee
+ * that depends on every future author remembering is not a guarantee.
+ */
+async function deckIdFor(args) {
+  if (args?.slug) {
+    const rows = await db.select("decks", { slug: `eq.${args.slug}`, select: "id" });
+    return rows[0]?.id || null;
+  }
+  if (args?.draft) {
+    const rows = await db.select("deck_drafts", { id: `eq.${args.draft}`, select: "deck_id" });
+    return rows[0]?.deck_id || null;
+  }
+  return null;
+}
 
 /** Run one tool. Business failures come back as isError results the model can
  *  read and correct; only auth failures are HTTP-level, and those never reach
@@ -406,7 +478,28 @@ const IMPL = {
 export async function callTool(name, args, member) {
   const fn = IMPL[name];
   if (!fn) return { unknown: true };
+  const spec = specFor(name);
   try {
+    // THE SECOND LAYER, finally wired.
+    //
+    // The tool list is the boundary: there is no tool that edits a master or the
+    // library, and that absence is the enforcement. Underneath it, guard.mjs was
+    // supposed to catch a write aimed at a master anyway -- this module has
+    // imported requireLeaf since August, CLAUDE.md and app/README.md both
+    // described the layer, and no tool ever called it.
+    //
+    // It is called HERE rather than in twenty tool bodies, because a guarantee
+    // that depends on every future author remembering is not a guarantee. Any
+    // write naming a deck (by slug, or through a draft bound to one) is checked
+    // against that deck's row: leaf work passes, a master is refused to anyone
+    // but an owner, and a database error fails closed.
+    if (spec && spec.access !== ACCESS.READ) {
+      const deckId = await deckIdFor(args);
+      if (deckId) {
+        const bar = await requireLeaf(deckId, member, `change`, null);
+        if (bar) return fail(bar.message || "That is a company deck; only an owner can change it.");
+      }
+    }
     return await fn(args || {}, member);
   } catch (e) {
     // A tool result is handed to a model and often quoted into a chat the user

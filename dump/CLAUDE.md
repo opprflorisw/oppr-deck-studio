@@ -11,7 +11,7 @@ are processed and each piece is filed into its correct permanent home, and then
 
 ## How it gets processed
 
-Run **`/ingest-dump`** (or start `/new-deck` — it checks here first and offers to
+Run **`/ingest-dump`** (it checks here first and offers to
 ingest). The processor inventories everything, proposes where each piece goes,
 asks you to approve, then files it:
 
