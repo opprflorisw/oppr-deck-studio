@@ -41,6 +41,7 @@ import * as jobs from "./lib/jobs.mjs";
 import { pdfNameFor, printElement } from "./lib/jobs.mjs";
 import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./lib/deckcache.mjs";
 import { clearanceForCustomer, patternForCustomer } from "./lib/namescope.mjs";
+import { slugify, isSlug, safeSlug } from "./lib/slug.mjs";
 import { collidingDecks } from "./lib/collide.mjs";
 import { requireLeaf, MASTER_STRUCTURAL_FIELDS, motherRouteFor } from "./lib/guard.mjs";
 import { verifyJwt, audienceOk, protectedResourceMetadata, challenge,
@@ -263,10 +264,6 @@ const HASH_RE = /^[0-9a-f]{7,40}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Slugify to match tools/deckstudio.slugify (kebab, ascii-ish).
-function slugify(s) {
-  return String(s || "").toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
 // Run git in the repo, resolve stdout (or reject). Args are passed as an array
 // (never string-interpolated) so a validated id/hash can't inject flags.
 function git(args) {

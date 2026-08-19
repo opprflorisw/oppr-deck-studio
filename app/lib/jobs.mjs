@@ -12,6 +12,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import * as db from "./supabase.mjs";
+import { slugify } from "./slug.mjs";
 import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./deckcache.mjs";
 import { print as renderPrint, rendererName, isServerless } from "./render.mjs";
 import { verifySnapshot } from "./verify.mjs";
@@ -375,10 +376,6 @@ export function startRecipeBuild(recipe, { dryRun = false } = {}) {
 }
 
 // --- PDF naming (mirrors tools/deckstudio.pdf_name) --------------------------
-
-function slugify(s) {
-  return String(s).toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
-}
 
 // The filename is part system-owned, part yours. `pdf_core` (set by rename) is
 // the only segment you choose; the date prefix, the mandatory `oppr` token and

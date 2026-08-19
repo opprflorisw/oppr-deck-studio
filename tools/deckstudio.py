@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import os
 import re
+import unicodedata
 from pathlib import Path
 
 import yaml
@@ -166,7 +167,13 @@ _DATE_PREFIX_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})[_-](.+)$")
 
 
 def slugify(s: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", str(s).lower()).strip()
+    """Mirror of app/lib/slug.mjs. Decompose accents and drop the combining
+    marks first, so "Cafe" with an acute becomes "cafe" rather than "caf" --
+    the JS side used to differ on exactly this and produced a second slug for
+    the same company depending on which door it came through."""
+    s = unicodedata.normalize("NFKD", str(s))
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    s = re.sub(r"[^\w\s-]", "", s.lower()).strip()
     return re.sub(r"[\s_-]+", "-", s).strip("-")
 
 

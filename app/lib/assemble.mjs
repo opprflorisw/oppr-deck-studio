@@ -90,10 +90,9 @@ function unfilled(text) {
   return [...found].sort();
 }
 
-export function slugify(s) {
-  return String(s ?? "").toLowerCase().replace(/[^\w\s-]/g, "").trim()
-    .replace(/[\s_-]+/g, "-").replace(/^-+|-+$/g, "");
-}
+// Re-exported so existing importers keep working; the definition lives in
+// slug.mjs, because five copies of this produced two different answers.
+export { slugify } from "./slug.mjs";
 
 const sha256 = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
 
