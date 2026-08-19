@@ -73,6 +73,44 @@ export function fingerprint(html) {
   return tokens.join("\n");
 }
 
+// A reference is local when it stays inside the snapshot: a bundled asset, an
+// inline data: payload, an in-page fragment, or a mailto:. Everything else --
+// http(s), protocol-relative //host, file:, javascript: -- reaches out.
+const LOCAL_REF = /^(assets\/|data:|#|mailto:|tel:)/i;
+
+function localRef(v) {
+  const s = String(v || "").trim();
+  if (!s) return true;
+  return LOCAL_REF.test(s);
+}
+
+// Returns the first outward-pointing reference, or null. Checked outside inert
+// blocks so a URL inside the brand CSS comment is not a finding.
+export function externalRef(html) {
+  const doc = stripInert(html);
+  let m;
+  const re = /\b(src|href)\s*=\s*"([^"]*)"/gi;
+  while ((m = re.exec(doc))) {
+    if (!localRef(m[2])) {
+      return { code: `external-${m[1].toLowerCase()}`, what: `a ${m[1]}`, value: m[2].slice(0, 120) };
+    }
+  }
+  // url(...) inside a style ATTRIBUTE. Style attributes are excluded from the
+  // fingerprint on purpose (nudging spacing is the editor's job), which is
+  // exactly why a background-image smuggled into one has to be caught here.
+  const st = /\bstyle\s*=\s*"([^"]*)"/gi;
+  while ((m = st.exec(doc))) {
+    let u;
+    const urlRe = /url\(\s*["']?([^"')]+)["']?\s*\)/gi;
+    while ((u = urlRe.exec(m[1]))) {
+      if (!localRef(u[1])) {
+        return { code: "style-url", what: "a style url()", value: u[1].slice(0, 120) };
+      }
+    }
+  }
+  return null;
+}
+
 // Validate a proposed save of `next` over the stored `prev`.
 // knownAssets: Set of "assets/<file>" the deck already has (image-swap must
 // register the new asset BEFORE the save lands). Returns {ok:true} or
@@ -104,6 +142,19 @@ export function validateSave(prev, next, knownAssets = null) {
   // Structure must be identical.
   if (fingerprint(prev) !== fingerprint(next)) {
     return { ok: false, error: "structural change — rebuild this slide via the CLI", code: "structural" };
+  }
+  // Where a reference POINTS is not structure, so the fingerprint above cannot
+  // see it: it records that an <img> has a src, not what the src says. A save
+  // could therefore repoint an image at a remote server (a tracking pixel in a
+  // customer's PDF) or swap a link for a lookalike, and nothing downstream
+  // would object -- an editor save does not go through the image-entitlement
+  // check that a build does. A published deck is a self-contained snapshot, so
+  // the honest rule is simply: it may not reach the network.
+  const ext = externalRef(next);
+  if (ext) {
+    return { ok: false, code: ext.code,
+             error: `${ext.what} points outside this deck (${ext.value}). A published deck ` +
+                    `carries its own assets and never loads from the network.` };
   }
   // Every assets/ reference must be a known asset of this deck.
   if (knownAssets) {

@@ -34,6 +34,15 @@ TEMPLATES = REPO_ROOT / "templates"
 # Private-use sentinels that bracket a slot value through assembly, then become
 # <span data-slot="..."> spans. Chosen so they never occur in real deck text.
 S1, S2, S3 = chr(0xE000), chr(0xE001), chr(0xE002)
+# One artifact model: `kind` says what a thing is, `page_format` says what
+# geometry the gate holds it to. Mirrors assemble.mjs PAGE_FORMAT_FOR_KIND.
+PAGE_FORMAT_FOR_KIND = {
+    "deck": "deck-16x9",
+    "carousel": "linkedin-4x5",
+    "image": "square-1x1",
+    "article": "none",
+}
+
 SLOT_VARS = {  # deck.yaml var name -> data-slot name
     "deck_footer": "footer-meta",
     "cover_meta": "cover-meta",
@@ -252,6 +261,11 @@ def build_snapshot(deckdir: Path) -> tuple[str, dict, dict]:
         "title": deck["title"],
         "type": deck.get("type", ""),
         "client": deck.get("client", ""),
+        # Which rule set the gate applies. Written explicitly since 2026-08-19:
+        # omitting it made verify fall back to deck-16x9, so anything that was
+        # not a 16:9 deck was checked against a canvas it never had.
+        "page_format": deck.get("page_format") or PAGE_FORMAT_FOR_KIND.get(
+            deck.get("kind", "deck"), "deck-16x9"),
         "allowed_entitlements": list(deck.get("allowed_entitlements", ["public"])),
         "slides": slide_meta,
         "assets": {fn: {"source": a["source"], "entitlement": a["entitlement"]}

@@ -49,6 +49,14 @@ def hero_html(kicker: str, claim: str, stat_n: str, stat_l: str, css_rel: str) -
 <meta charset="utf-8">
 <title>{e(claim)}</title>
 <link rel="stylesheet" href="{css_rel}">
+<style>
+/* `@page` is document level, so linkedin.css can only declare one size and it
+   declares the carousel's (1080x1350). A hero is a different canvas, and until
+   it became a publishable artifact nobody printed one: build-social-image.ps1
+   screenshots it. Now that Download PDF prints it, the document has to state
+   its own size or it comes out 4:5 and fails the geometry gate. */
+@page {{ size: 1200px 627px; margin: 0; }}
+</style>
 </head>
 <body>
 <div class="carousel carousel--hero">

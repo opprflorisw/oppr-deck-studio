@@ -174,6 +174,20 @@ function sendJson(res, status, obj) {
 }
 
 // Resolve a request path under a base dir, refusing anything that escapes it.
+// The one allowlist for /repo. Directories a signed-in member may read, and
+// nothing else. Kept next to safeResolve because the two are the same defence:
+// safeResolve stops you leaving the root, this stops you reading the wrong
+// thing inside it.
+const REPO_PUBLIC_DIRS = /^(library|brand|templates|knowledge|types|social|research)\//;
+
+export function repoPathAllowed(rel) {
+  if (!rel || rel.includes("\0")) return false;
+  // Any dot-segment, anywhere: .env, .git/config, library/.secret, and every
+  // traversal spelling that survived decoding.
+  if (rel.split("/").some((seg) => seg.startsWith("."))) return false;
+  return REPO_PUBLIC_DIRS.test(rel);
+}
+
 function safeResolve(baseDir, requestPath) {
   const decoded = decodeURIComponent(requestPath).replace(/\\/g, "/");
   const resolved = path.resolve(baseDir, "." + (decoded.startsWith("/") ? decoded : "/" + decoded));
@@ -1335,6 +1349,45 @@ function requireBackend(res) {
 
 // Handlers for the v3 deck backend. Returns a value (the send*) when it owns the
 // route, or undefined to let the caller fall through to 404.
+// What an artifact is allowed to CARRY, decided by the server from what the
+// artifact IS -- never by the request. Three sources, in order:
+//
+//   version_of  -> inherit the deck row's clearance. Immutable by design: a
+//                  version can never widen what a deck may say.
+//   customer    -> public + that customer's scope, via the same one function
+//                  the picker chips and the verify gate use.
+//   neither     -> public.
+//
+// An OWNER may still state it explicitly (a multi-customer internal deck is
+// real, and it is mother-adjacent work). That path is audited with the values.
+export async function deriveClearance(recipe, member, select = db.select) {
+  const asked = Array.isArray(recipe.allowed_entitlements) ? recipe.allowed_entitlements : null;
+
+  if (recipe.version_of) {
+    const rows = await select("decks", {
+      slug: `eq.${recipe.version_of}`, select: "allowed_entitlements",
+    });
+    if (!rows.length) return { error: "no_such_deck", message: `no deck "${recipe.version_of}"` };
+    return { allowed: rows[0].allowed_entitlements?.length ? rows[0].allowed_entitlements : ["public"] };
+  }
+
+  if (asked && isOwner(member)) return { allowed: asked.length ? asked : ["public"], explicit: true };
+
+  const allowed = ["public"];
+  if (recipe.customer) {
+    const rows = await select("customers", {
+      slug: `eq.${String(recipe.customer)}`, select: "slug,name",
+    });
+    if (!rows.length) {
+      return { error: "no_such_customer",
+               message: `no customer "${recipe.customer}". Register them first.` };
+    }
+    const scope = clearanceForCustomer(rows[0]);
+    if (scope && !allowed.includes(scope)) allowed.push(scope);
+  }
+  return { allowed };
+}
+
 async function handleDeckApi(req, res, url) {
   const p = url.pathname;
   const isDeckRoute = p.startsWith("/api/decks") || p.startsWith("/api/customers2")
@@ -1625,12 +1678,24 @@ async function handleDeckApi(req, res, url) {
           });
         }
       }
+      // Clearance is DERIVED, never accepted. Until 2026-08-19 this route took
+      // `allowed_entitlements` straight from the body, and it flowed unchecked
+      // into the deck-meta that verify then trusts -- so an editor could clear
+      // their own deck for another customer, name them throughout, bundle their
+      // imagery, and pass the gate. The entitlement model was bypassable by
+      // exactly the people it exists to constrain.
+      const clearance = await deriveClearance(recipe, req.member);
+      if (clearance.error) return sendJson(res, 403, clearance);
+      recipe.allowed_entitlements = clearance.allowed;
+
       const job = jobs.startRecipeBuild(recipe, { dryRun: Boolean(recipe.dry_run) });
       // deck_id is a uuid column and a slug is not one, so the slug belongs in
       // the detail. Passing it as the id made every build's audit row 400 and
       // vanish into the server log.
       await audit(req.member, recipe.dry_run ? "deck.build.dryrun" : "deck.build", null,
-                  { slug: recipe.slug, job_id: job.id, version_of: recipe.version_of || null });
+                  { slug: recipe.slug, job_id: job.id, version_of: recipe.version_of || null,
+                    allowed_entitlements: clearance.allowed,
+                    clearance_explicit: Boolean(clearance.explicit) });
       // Hosted, a job outliving its request is a bet, not a design: the instance
       // can be frozen the moment the response is sent, and the poll that follows
       // may land on a different one, where an in-memory job id means nothing. So
@@ -1969,10 +2034,24 @@ async function handleDeckApi(req, res, url) {
       const known = new Set(assets.map((a) => `assets/${a.filename}`));
       const v = validateSave(prev, html, known);
       if (!v.ok) return sendJson(res, 400, { error: v.error, code: v.code });
+      // The brand gate, on a save. htmlcheck answers "is this the same document"
+      // -- it says nothing about whether the words are allowed. Until now only a
+      // BUILD ran verify, so text typed in the editor could introduce an em
+      // dash, an unfilled placeholder or another customer's name and the first
+      // thing to notice would be a PDF download, days later. Same rules, same
+      // findings, same language as the build.
+      const report = await jobs.verifyHtmlOnly(html);
+      if (report.fails.length) {
+        return sendJson(res, 400, {
+          error: "verify failed", code: "verify",
+          message: "This save breaks a brand rule, so it was not stored.",
+          verify_report: report,
+        });
+      }
       const n = cur + 1;
       const note = String(d.change_note || "").slice(0, 400);
       await db.insert("deck_versions", {
-        deck_id: id, n, html, change_note: note,
+        deck_id: id, n, html, change_note: note, verify_report: report,
         author: req.member.email, author_id: req.member.id,
       });
       await db.update("decks", { id }, { current_version_n: n, updated_by_id: req.member.id });
@@ -2012,6 +2091,16 @@ async function handleDeckApi(req, res, url) {
       const decks = await db.select("decks", { id: `eq.${id}`, select: "id,type" });
       if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
       if (d.is_master) {
+        // "One master per type" is meaningless without a type, and the clear
+        // below matches ON the type: with an empty one it would sweep every
+        // typeless deck in the table. Refuse instead of doing damage.
+        if (!decks[0].type) {
+          return sendJson(res, 400, {
+            error: "no_type",
+            message: "Give this deck a type before making it the master — " +
+                     "a master is the one deck of its type.",
+          });
+        }
         // one master per type: clear the current holder, then set this one
         await db.update("decks", { type: decks[0].type, is_master: "true" }, { is_master: false });
         await db.update("decks", { id }, { is_master: true });
@@ -2321,16 +2410,23 @@ export async function handleRequest(req, res) {
       // Gated: /repo serves brand imagery and, via the Storage fallback, deck and
       // social content. Unauthenticated it would be the whole library.
       if (!(await memberFor(bearerFrom(req)))) return send(res, 401, "sign in first");
+      const rel = decodeURIComponent(p.slice("/repo/".length)).replace(/\\/g, "/");
+      // ONE allowlist, both branches. Until 2026-08-19 this test guarded only the
+      // Storage fallback, so the disk branch below served ANY file under the repo
+      // root to any signed-in member -- .env (the service-role key), .git/config,
+      // settings files. A path allowlist that covers one of two branches is not a
+      // path allowlist. Dotfiles are refused outright at every segment, because
+      // the next secret to land in the repo will also be a dotfile.
+      if (!repoPathAllowed(rel)) return send(res, 404, "Not found");
       const abs = safeResolve(REPO_ROOT, p.slice("/repo".length));
       if (!abs) return send(res, 403, "forbidden");
       if (fs.existsSync(abs)) return serveFile(res, abs);
-      const rel = decodeURIComponent(p.slice("/repo/".length));
       // Hosted, there is no repo on disk: the front-end still asks for brand
       // images, fonts, slide thumbnails and design-system specimens under
-      // /repo/. tools/publish-assets.py mirrors those into Storage at the same
+      // /repo/. `studio publish-library` mirrors those into Storage at the same
       // relative path, so the same URL works locally (from disk) and hosted
       // (from Storage) with no change in the browser.
-      if (supabaseConfigured() && /^(social|references|decks|research|library|brand|templates)\//.test(rel)) {
+      if (supabaseConfigured()) {
         try { return send(res, 200, await db.download(rel), { "Content-Type": mimeFor(rel) }); }
         catch { /* fall through to 404 */ }
       }

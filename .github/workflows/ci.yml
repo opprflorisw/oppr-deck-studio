@@ -1,0 +1,28 @@
+# The fast lane: every push, no secrets, no browser, no backend.
+#
+# The repo had no tests and no CI until 2026-08-19. The parity checks that held
+# the Python and JavaScript pipelines together ran only when someone remembered,
+# needed a live Supabase, and could not run on a fresh clone -- so the two guards
+# holding the system's most duplicated code together were its two least runnable
+# tools. Everything here runs offline in seconds.
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: syntax
+        run: node --check app/server.mjs
+      - name: unit + gates
+        run: npm test

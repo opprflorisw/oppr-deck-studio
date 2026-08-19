@@ -10,6 +10,32 @@ default_length: 14 to 18 slides
 presenter: Floris (Founder & CEO) unless specified
 entitlement_default: public
 derived_from: engagement
+picks:
+  ch-open:
+  - cover
+  ch-idea:
+  - eng2-idea
+  ch-problem:
+  - eng2-opportunity
+  ch-evidence:
+  - outcomes-reference
+  - running-projects-detail
+  ch-engagement:
+  - engagement-ladder
+  - eng2-step1
+  - eng2-step2
+  - step3
+  - eng-criteria
+  ch-commercials:
+  - kpi-payback
+  ch-close:
+  - eng-next-step
+  - back-cover
+skips:
+- ch-platform
+- ch-decision
+- ch-company
+- ch-annex
 ---
 
 # Customer deck (generic) — recipe
@@ -36,22 +62,19 @@ which is how a customer's name ends up in the next customer's deck.
 
 ## Skeleton
 
-Start from the `engagement` master ("How we work together") and keep the
-customer-shaped slots as variables rather than as text:
+**The `picks:` block in this file's front matter is the skeleton.** It names the
+chapters this type uses and the slides picked from each, in chapter order, and it
+is what the builder reads.
 
-| # | role | default slide | required | note |
-|---|---|---|---|---|
-| 1 | cover | cover | yes | `{{cover_meta}}` carries the customer and the date |
-| 2 | idea | eng2-idea | yes | |
-| 3 | why-now | eng2-opportunity | yes | the load-bearing problem slide |
-| 4 | evidence | outcomes-reference | yes | the verified numbers |
-| 5 | evidence | running-projects-detail | strong | the portfolio, with what we did and what they said |
-| 6 | engagement | engagement-ladder | yes | the three steps |
-| 7 | step-detail | eng2-step1 / eng2-step2 / step3 | yes | one per step |
-| 8 | acceptance | eng-criteria | strong | what both sides sign up to |
-| 9 | kpi | kpi-payback | yes | what one improvement is worth |
-| 10 | cta | eng-next-step | yes | how Step 1 starts; `{{start_target}}` |
-| 11 | closer | back-cover | yes | contact + the LinkedIn QR |
+This type had no `picks:` until 2026-08-19 — only a table, written before the
+chapters model, which had gone on naming slides retired on 2026-08-04. The picks
+above are that table brought to the live library. Depth is chosen per chapter,
+skipping a chapter drops every slide under it, and any live slide may be picked
+into any deck: `picks:` is a suggestion, never a constraint.
+
+Start from the `engagement` master ("How we work together") and keep the
+customer-shaped parts as variables rather than as text — see *What becomes
+specific* below. A customer deck is a **copy** of this one, never an edit of it.
 
 ## What becomes specific, and how
 

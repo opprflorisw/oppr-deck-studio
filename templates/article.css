@@ -1,0 +1,166 @@
+/* Oppr article — the reading document (LinkedIn article, long-form post body).
+   Self-contained (own tokens + fonts) so an article is one HTML + this file,
+   exactly like templates/linkedin.css.
+
+   Why this exists: an article was the one output type with no HTML document, so
+   it sat outside the edit -> verify -> PDF loop (root CLAUDE.md, Roadmap). A
+   carousel page is a poster and is sized in pixels; an article is a column of
+   prose and is sized against a measure. Those are different jobs, so this is a
+   third format beside deck.css and linkedin.css rather than a mode of either.
+   The tokens are the same tokens: the brand does not fork. */
+
+@font-face { font-family: "Archivo"; font-weight: 400; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-400.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 500; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-500.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 600; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-600.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 650; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-650.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 700; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-700.woff2") format("woff2"); }
+@font-face { font-family: "Archivo"; font-weight: 800; font-display: swap;
+  src: url("../brand/fonts-static/Archivo-800.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-display: swap;
+  src: url("../brand/fonts-static/JetBrainsMono-400.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500; font-display: swap;
+  src: url("../brand/fonts-static/JetBrainsMono-500.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 600; font-display: swap;
+  src: url("../brand/fonts-static/JetBrainsMono-600.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-display: swap;
+  src: url("../brand/fonts-static/JetBrainsMono-700.woff2") format("woff2"); }
+
+:root {
+  --bg: #f2f2ed; --surface: #fcfbf7; --ink: #15201e; --muted: #5f6965;
+  --line: #c8ceca; --accent: #a65032; --machine: #3e6874; --verified: #55745e;
+  --sans: "Archivo", Arial, sans-serif; --mono: "JetBrains Mono", Consolas, monospace;
+}
+
+/* An article is prose, not a fixed canvas, so it declares no pixel page size.
+   `page_format: none` in the manifest is what tells verify to skip the geometry
+   check rather than assert a deck 13.333x7.5 on a column of text. */
+@page { size: A4; margin: 18mm 16mm 20mm; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #e6e4dc; }
+body { font-family: var(--sans); color: var(--ink); }
+
+.apage {
+  display: block; background: var(--bg); color: var(--ink);
+  max-width: 860px; margin: 0 auto; padding: 72px 76px 96px; position: relative;
+}
+@media print { .apage { max-width: none; margin: 0; padding: 0; } }
+
+/* ---------- masthead ---------- */
+.awm { font-family: var(--sans); font-weight: 700; font-size: 26px;
+  letter-spacing: -.04em; color: var(--ink); display: inline-block; }
+.awm b { color: var(--accent); font-weight: 700; }
+
+.akicker { font-family: var(--mono); font-size: 13px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .12em; color: var(--machine);
+  margin: 34px 0 18px; }
+
+.apage h1 { font-size: 46px; font-weight: 650; line-height: 1.06;
+  letter-spacing: -.035em; margin: 0 0 22px; }
+
+.astandfirst { font-size: 21px; line-height: 1.45; color: var(--muted);
+  margin: 0 0 26px; font-weight: 500; }
+
+.ameta { font-family: var(--mono); font-size: 13px; color: var(--muted);
+  letter-spacing: .04em; border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line); padding: 12px 0; margin: 0 0 40px;
+  display: flex; gap: 22px; flex-wrap: wrap; }
+
+/* ---------- prose ---------- */
+.apage h2 { font-size: 27px; font-weight: 650; line-height: 1.15;
+  letter-spacing: -.025em; margin: 44px 0 14px; }
+.apage p { font-size: 17.5px; line-height: 1.62; margin: 0 0 18px; }
+.apage p strong { font-weight: 700; }
+.apage a { color: var(--accent); text-decoration: underline;
+  text-underline-offset: 2px; }
+
+/* Superscript reference marker. Every claim that came from outside this company
+   carries one, and it resolves in the Sources list at the bottom. A number with
+   no marker is a number we are asking the reader to take on trust. */
+.aref { font-family: var(--mono); font-size: 11px; font-weight: 700;
+  color: var(--accent); text-decoration: none; padding-left: 2px;
+  vertical-align: super; line-height: 0; }
+
+/* ---------- blocks ---------- */
+/* the single number the piece turns on */
+.astat { border-left: 4px solid var(--accent); padding: 6px 0 6px 24px;
+  margin: 32px 0; }
+.astat .n { display: block; font-size: 56px; font-weight: 800;
+  letter-spacing: -.035em; line-height: 1; color: var(--accent); }
+.astat .l { display: block; font-size: 16px; line-height: 1.45;
+  color: var(--muted); margin-top: 10px; max-width: 46em; }
+.astat.machine .n { color: var(--machine); }
+.astat.verified .n { color: var(--verified); }
+
+.aquote { margin: 34px 0; padding: 26px 30px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 16px; }
+.aquote p { font-size: 20px; line-height: 1.42; font-weight: 500; margin: 0; }
+.aquote .cite { font-family: var(--mono); font-size: 13px; color: var(--muted);
+  margin-top: 14px; display: block; letter-spacing: .03em; }
+
+.alist { margin: 22px 0 26px; padding: 0; list-style: none; }
+.alist li { font-size: 17.5px; line-height: 1.55; position: relative;
+  padding-left: 28px; margin-bottom: 12px; }
+.alist li::before { content: ""; position: absolute; left: 2px; top: .62em;
+  width: 9px; height: 9px; border-radius: 3px; background: var(--accent); }
+
+/* two-column contrast: what the screen holds / what the operator holds */
+.acontrast { display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin: 30px 0; }
+.acontrast .col { border-radius: 16px; padding: 24px 22px; }
+.acontrast .col.see { background: rgba(166, 80, 50, .1); }
+.acontrast .col.blind { background: rgba(95, 105, 101, .09); }
+.acontrast .lbl { font-family: var(--mono); font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .09em; margin-bottom: 12px; }
+.acontrast .col.see .lbl { color: var(--accent); }
+.acontrast .col.blind .lbl { color: var(--muted); }
+.acontrast .mk { font-size: 19px; line-height: 1.32; font-weight: 700; }
+.acontrast .col.blind .mk { color: var(--muted); }
+
+/* Capture / Connect / Execute ladder — the same three moves as the decks, so a
+   reader who meets us here and then sees a deck meets one story twice. */
+.acce { margin: 30px 0; display: flex; flex-direction: column; gap: 14px; }
+.acce .step { border-left: 4px solid var(--accent); padding: 4px 0 4px 22px; }
+.acce .step .n { font-family: var(--mono); font-size: 12px; font-weight: 700;
+  letter-spacing: .09em; color: var(--machine); text-transform: uppercase; }
+.acce .step .t { font-size: 20px; font-weight: 800; line-height: 1.16;
+  margin-top: 2px; }
+.acce .step .d { font-size: 16px; color: var(--muted); line-height: 1.5;
+  margin-top: 3px; }
+
+/* the honesty note: what this piece does NOT know */
+.acaveat { margin: 34px 0; padding: 20px 24px; border: 1px dashed var(--line);
+  border-radius: 14px; background: transparent; }
+.acaveat .lbl { font-family: var(--mono); font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .09em; color: var(--machine);
+  margin-bottom: 8px; }
+.acaveat p { font-size: 15.5px; line-height: 1.55; color: var(--muted);
+  margin: 0; }
+
+/* ---------- sources ---------- */
+/* A source list is not furniture. It is the difference between a claim and an
+   assertion, and this category is full of vendors asserting. It prints. */
+.asources { margin-top: 56px; padding-top: 26px; border-top: 2px solid var(--ink); }
+.asources h2 { font-size: 20px; margin: 0 0 16px; }
+.asources ol { margin: 0; padding-left: 22px; }
+.asources li { font-size: 14.5px; line-height: 1.5; margin-bottom: 11px;
+  color: var(--muted); }
+.asources li .t { color: var(--ink); font-weight: 600; }
+.asources li a { word-break: break-word; font-family: var(--mono);
+  font-size: 12.5px; }
+
+.afoot { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--line);
+  font-family: var(--mono); font-size: 12.5px; color: var(--muted);
+  line-height: 1.6; letter-spacing: .03em; }
+.afoot .who { color: var(--ink); font-weight: 700; }
+
+@media (max-width: 700px) {
+  .apage { padding: 44px 26px 64px; }
+  .apage h1 { font-size: 34px; }
+  .acontrast { grid-template-columns: 1fr; }
+}

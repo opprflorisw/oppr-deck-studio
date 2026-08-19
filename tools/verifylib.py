@@ -38,12 +38,19 @@ NO_FOOTER_ROLES = {"cover", "closer", "cta"}
 # footer discipline by role, and the data-total page counter. A carousel has
 # neither, and asserting them on one produced a FAIL for every carousel, which is
 # exactly the "passes here, fails there" split this replaces.
+#
+# `paged` says whether one page <section> prints as exactly one PDF page. Every
+# fixed-canvas format is paged, and for those the count is a real gate: a deck
+# slide spilling onto a second sheet is a bug. A FLOWING document is not paged.
+# An article is one <section> of prose that legitimately prints across five
+# sheets, and asserting 1 == 5 there produced a FAIL on every article, which is
+# the same class of mistake `structural` was added to fix.
 PAGE_FORMATS = {
-    "deck-16x9":     {"size": (13.333, 7.5),      "structural": True},
-    "linkedin-4x5":  {"size": (1080 / 96, 1350 / 96), "structural": False},
-    "square-1x1":    {"size": (1080 / 96, 1080 / 96), "structural": False},
-    "hero-1200x627": {"size": (1200 / 96, 627 / 96),  "structural": False},
-    "none":          {"size": None,               "structural": False},
+    "deck-16x9":     {"size": (13.333, 7.5),      "structural": True,  "paged": True},
+    "linkedin-4x5":  {"size": (1080 / 96, 1350 / 96), "structural": False, "paged": True},
+    "square-1x1":    {"size": (1080 / 96, 1080 / 96), "structural": False, "paged": True},
+    "hero-1200x627": {"size": (1200 / 96, 627 / 96),  "structural": False, "paged": True},
+    "none":          {"size": None,               "structural": False, "paged": False},
 }
 
 
@@ -256,9 +263,10 @@ def _check_pdf(pdf_path: Path, n: int, client: str, r: Report,
             r.fail(f"client deck PDF '{pdf_path.name}' is missing the client slug '{cslug}'", "pdf-name")
     import fitz
     pdf = fitz.open(pdf_path)
-    if pdf.page_count != n:
+    rules = page_rules(page_format)
+    if rules["paged"] and pdf.page_count != n:
         r.fail(f"PDF {pdf_path.name} has {pdf.page_count} pages, expected {n}", "pdf-pages")
-    expected = page_rules(page_format)["size"]
+    expected = rules["size"]
     if expected:
         w, h = pdf[0].rect.width / 72, pdf[0].rect.height / 72
         ew, eh = expected

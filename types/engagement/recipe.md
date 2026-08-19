@@ -159,31 +159,20 @@ Floris usually pairs it with an email carrying the customer-specific detail.
 That is the right split: the deck stays generic and safe, the email carries the
 specifics and is not a document.
 
-## Skeleton (v4, current)
+## Skeleton
 
-| #  | role          | slide             | required | note |
-|----|---------------|-------------------|----------|------|
-| 1  | cover         | eng2-cover        | yes      | `.cover--open` scrim; no prepared-for; no footer |
-| 2  | why-now       | eng2-opportunity  | yes      | the blind spot is what sensors do not capture |
-| 3  | idea          | eng2-idea         | yes      | the whole platform, framed as broader than the two steps |
-| 4  | engagement    | eng2-path         | yes      | the stepwise path; the full ladder of fees |
-| 5  | step-detail   | eng2-step1        | yes      | sb1 band; what we do / what you get, side by side |
-| 6  | step-detail   | eng2-step2        | yes      | sb2 band; same shape; carries the joint-effort line |
-| 7  | plan          | eng2-plan         | yes      | gated timeline, ~13 weeks end to end |
-| 8  | outcomes      | eng2-outcomes     | yes      | three potential outcomes |
-| 9  | scale         | eng2-scale-path   | yes      | chevron flow: one line, one site, several sites |
-| 10 | evidence      | eng-proof         | yes      | verified case left, running projects right |
-| 11 | cta           | eng2-next-step    | yes      | the Analyze in two parts, ending in a scope; no footer |
-| 12 | closer        | back-cover        | yes      | contact; no footer |
+**The `picks:` block in this file's front matter is the skeleton.** It names the
+chapters this type uses and the slides picked from each, in chapter order, and it
+is what the builder reads.
 
-**One slide per step, split down the middle.** What we do on the left, what you
-get on the right. v1's four step slides said the same things across twice the
-space; merging them is most of why the slim cut is shorter without losing content.
+There used to be a table here as well. Two statements of the same thing drift,
+and this one did: it went on naming slides that were retired on 2026-08-04, so a
+deck proposed from it started with pages that can no longer be built. The rule is
+the repo's own — state a thing once, and point at it from everywhere else.
 
-**Cut from v1 and why:** success criteria (too complex, and the numbers were
-commitments), what we need from you (repeated the step slides), the fee equation
-(fees already on slide 4), both annexes (far more legal detail than this stage
-needs).
+Depth is chosen per chapter. Skipping a chapter drops every slide under it, and
+any live slide may be picked into any deck: `picks:` is a suggestion, never a
+constraint.
 
 ## Project-pattern presets
 

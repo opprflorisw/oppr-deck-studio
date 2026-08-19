@@ -36,29 +36,41 @@ early with its mitigation, and make asks specific.
   and the deck's cover meta says "Draft for review". Never let an invented figure
   read as an actual in an investor's hands.
 
-## Skeleton
+## Skeleton — PROPOSED, NOT YET BUILDABLE
 
-| #  | role          | default slide      | required | note |
-|----|---------------|--------------------|----------|------|
-| 1  | cover         | cover              | yes      | no footer; cover_meta says Investor Update · Post-Seed · Confidential |
-| 2  | summary       | exec-summary       | yes      | TL;DR: what closed, where we are, what's next |
-| 3  | highlights    | highlights         | yes      | wins since the raise, in numbers (all verifiable) |
-| 4  | why-now       | why-now            | strong   | the market reminder; keep it brief |
-| 5  | platform      | platform-cce       | strong   | one-slide product reminder |
-| 6  | outcomes      | outcomes-reference | yes      | the verified reference case (proof the method works) |
-| 7  | evidence      | evidence-quotes    | strong   | customer voice |
-| 8  | metrics       | the-numbers        | yes      | the quarterly scorecard; consistent metrics; placeholders flagged |
-| 9  | use-of-funds  | use-of-funds       | yes      | where the capital goes, tied to milestones |
-| 10 | roadmap       | roadmap            | yes      | plan to the next raise, quarter by quarter |
-| 11 | team          | team-hiring        | yes      | team today + the hiring plan the round funds |
-| 12 | asks          | risks-asks         | yes      | candid risks with mitigations + specific asks |
-| 13 | cta           | whats-next         | yes      | no footer; next update date + contact |
-| 14 | closer        | back-cover         | yes      | no footer |
+**This type cannot be built today.** Seven of the slides below have no folder in
+`library/slides/`: `exec-summary`, `highlights`, `the-numbers`, `use-of-funds`,
+`roadmap`, `team-hiring`, `whats-next`. They were designed here and never made.
 
-`summary`, `highlights`, `metrics`, `use-of-funds`, `roadmap`, `team`, `asks` are
-new role slots this type introduces. They carry footers (only cover / cta / closer
-are exempt). The new slides compose only from documented blocks: `.grid2`,
-`.stat-grid` / `.statcards`, `.levers` + `.multiply`, `.flowdown`, `.need-strip`.
+It is written down rather than deleted because the thinking is sound and the type
+is wanted — but it is labelled, because a recipe that proposes slides which do
+not exist is worse than no recipe: it sends whoever follows it into a build that
+cannot complete. There is deliberately no `picks:` block for the same reason.
+
+**To make this type real**, build the seven slides through `/edit-canonical`
+(each needs a `meta.yaml` with a `chapter`, and any new visual pattern needs its
+design-system specimen and CSS first), add them to `library/chapters.yaml`, then
+replace this section with a `picks:` block. Until then, an investor update is
+assembled by hand from the live library.
+
+The intended shape, for whoever builds it:
+
+| #  | intent        | proposed slide     | note |
+|----|---------------|--------------------|------|
+| 1  | cover         | cover *(exists)*   | cover_meta says Investor Update · Post-Seed · Confidential |
+| 2  | summary       | exec-summary       | TL;DR: what closed, where we are, what's next |
+| 3  | highlights    | highlights         | wins since the raise, in numbers (all verifiable) |
+| 4  | why-now       | *(use `when-time-matters`)* | the market reminder; keep it brief |
+| 5  | platform      | platform-cce *(exists)* | one-slide product reminder |
+| 6  | outcomes      | outcomes-reference *(exists)* | the verified reference case |
+| 7  | evidence      | evidence-quotes *(exists)* | customer voice |
+| 8  | metrics       | the-numbers        | the quarterly scorecard; placeholders flagged |
+| 9  | use-of-funds  | use-of-funds       | where the capital goes, tied to milestones |
+| 10 | roadmap       | roadmap            | plan to the next raise, quarter by quarter |
+| 11 | team          | team-hiring        | team today + the hiring plan the round funds |
+| 12 | asks          | risks-asks         | candid risks with mitigations + specific asks |
+| 13 | cta           | whats-next         | no footer; next update date + contact |
+| 14 | closer        | back-cover *(exists)* | no footer |
 
 ## Intake questions
 

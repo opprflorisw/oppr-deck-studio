@@ -9,6 +9,26 @@ default_length: 6 slides
 presenter: Floris (Founder & CEO) unless specified
 entitlement_default: public
 derived_from: management-outlook
+picks:
+  ch-open:
+  - cover
+  ch-problem:
+  - when-time-matters
+  ch-evidence:
+  - outcomes-reference
+  - evidence-quotes
+  ch-commercials:
+  - kpi-payback
+  ch-close:
+  - eng-next-step
+  - back-cover
+skips:
+- ch-idea
+- ch-platform
+- ch-engagement
+- ch-decision
+- ch-company
+- ch-annex
 ---
 
 # Teaser — recipe
@@ -19,14 +39,15 @@ management-outlook / product-showcase, every slide is a shared library slide.
 
 ## Skeleton
 
-| # | role              | default slide       | required | note |
-|---|-------------------|---------------------|----------|------|
-| 1 | cover             | cover               | yes      | usually a variant-local cover with a teaser lede; no footer |
-| 2 | when-time-matters | when-time-matters   | yes      | the pressure / EBITDA hook |
-| 3 | outcomes          | outcomes-reference  | yes      | outcome + reference stats — the payoff |
-| 4 | evidence          | evidence-quotes     | strong   | one or more operations-leader quotes |
-| 5 | kpi               | kpi-payback         | yes      | what one improvement is worth |
-| 6 | cta               | cta-next-step       | yes      | the ask: a 30-minute call; no footer |
+**The `picks:` block in this file's front matter is the skeleton.** It names the
+chapters this type uses and the slides picked from each, in chapter order, and it
+is what the builder reads.
+
+This type had no `picks:` until 2026-08-19 — only a table, written before the
+chapters model, which had gone on naming slides retired on 2026-08-04. The picks
+above are that table brought to the live library. Depth is chosen per chapter,
+skipping a chapter drops every slide under it, and any live slide may be picked
+into any deck: `picks:` is a suggestion, never a constraint.
 
 ## Intake questions
 

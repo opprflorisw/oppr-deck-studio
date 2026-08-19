@@ -99,7 +99,27 @@ illustrative and conservative, Capture → Connect → Execute framing.
 
 ## LinkedIn article + its hero (1200×627)
 
-An **article** is a markdown body plus one wide banner. The banner is composed
+An **article is written once in `article.yaml`** and built into the artifact, the
+plain-text read and the post that carries it:
+
+```powershell
+python tools\build-article.py --article social\linkedin\<date>_<slug>   # or --all
+python tools\publish-article.py --article social\linkedin\<date>_<slug> # or --all
+```
+
+`build-article.py` writes `index.html` (styled by `templates/article.css`),
+`article.md`, `post.txt`, and calls `build-article-hero.py` for `hero/`.
+`publish-article.py` publishes **two artifacts**: the document as `kind=article`
+(`page_format: none`) and the banner as `kind=image` (`hero-1200x627`), each
+straight into `decks` + `deck_versions` with the real verify gate in front of it.
+A slug already present gets a new immutable version, never an overwrite.
+
+Two rules the builder enforces because they are invisible on the page: every
+outside claim carries a `[n]` marker that resolves in Sources, and every source
+is cited at least once. It also refuses em dashes and unfilled placeholders, the
+same as a deck. See `knowledge/best-practices/linkedin-article.md`.
+
+The banner is composed
 from `templates/linkedin.css` with `.carousel carousel--hero` + one `.lpage`
 (specimen: `library/design-system/blocks/linkedin-article-hero.html`). Ink
 ground, because the banner sits directly under a headline LinkedIn renders in

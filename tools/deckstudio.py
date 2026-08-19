@@ -198,7 +198,13 @@ def pdf_name(deckdir: Path) -> str:
     parts.append("oppr")
     if core and core != "oppr":
         parts.append(core)
-    if client and client not in "-".join(parts):
+    # Test against the name the GATE will read, not a differently-joined one.
+    # This used to ask whether "-".join(parts) contained the slug while
+    # verify asks whether the finished "a_b_c.pdf" does -- so a client slug
+    # spanning a part boundary ("oppr-teaser") looked present here and
+    # absent there, and the deck FAILed for a slug this function had just
+    # decided to omit.
+    if client and client not in "_".join(parts).lower():
         parts.append(client)
     return "_".join(parts) + ".pdf"
 

@@ -32,6 +32,20 @@ async function nameScopeCustomers() {
   catch { return []; }
 }
 
+// The gate, on a document alone: every universal brand rule, no PDF part. This
+// is what an editor's save is checked against -- there is no PDF at save time,
+// and printing one to find out whether the words are allowed would turn every
+// keystroke-sized save into a browser launch.
+export async function verifyHtmlOnly(html) {
+  try {
+    return await verifySnapshot({ html, customers: await nameScopeCustomers() });
+  } catch (e) {
+    // Fail closed, exactly as the build path does: a gate that could not run is
+    // not a gate that passed.
+    return { fails: [`verify did not run: ${e.message || e}`], warns: [], entries: [] };
+  }
+}
+
 const jobs = new Map();       // jobId -> {id, deckId, versionN, state, verify_report, pdf, error}
 const runningByDeck = new Map(); // deckId -> jobId
 

@@ -1,0 +1,10 @@
+#!/bin/sh
+# The same fast lane CI runs, before it leaves the machine.
+# Enable once per clone:  git config core.hooksPath .githooks
+echo "pre-push: npm test"
+npm test || {
+  echo ""
+  echo "pre-push: tests failed -- push blocked."
+  echo "Run 'npm test' to see it, or 'git push --no-verify' if you truly mean to."
+  exit 1
+}

@@ -61,28 +61,18 @@ formats, no em dashes.
 
 ## Skeleton
 
-| #  | role                | default slide          | required | note |
-|----|---------------------|------------------------|----------|------|
-| 1  | cover               | cover                  | yes      | hero + unified timeline; no footer |
-| 2  | idea                | idea-one-sentence      | strong   | the Attero-style one-sentence lede |
-| 3  | why-now             | why-now                | yes      | dashboards say what, not why |
-| 4  | problem-recognition | recognize-problems     | optional | five familiar problems |
-| 5  | when-time-matters   | when-time-matters      | yes      | EBITDA / speed / capex, management hook |
-| 6  | platform            | platform-cce           | yes      | Capture / Connect / Execute |
-| 7  | product-flow        | product-flow-setup     | optional | floorplan -> builder -> round |
-| 8  | product-flow        | product-flow-insight   | optional | capture -> analyze -> SOP |
-| 9  | outcomes            | outcomes-reference     | yes      | outcomes + verified reference stats |
-| 10 | evidence            | evidence-quotes        | strong   | three anonymised operations-leader quotes |
-| 11 | kpi                 | kpi-payback            | yes      | one improvement x multiply |
-| 12 | engagement          | engagement-ladder      | yes      | Analyze / Prove / Scale + needs strip |
-| 13 | step-detail         | step1-analyze          | optional | only in a full/commercial cut |
-| 14 | step-detail         | step2-prove            | optional | " |
-| 15 | step-detail         | step3-scale            | optional | " |
-| 16 | acceptance          | operator-acceptance    | strong   | adoption is the whole game |
-| 17 | running-projects    | running-projects       | optional | three engagements by process type, no names |
-| 18 | who-is-oppr         | who-is-oppr            | yes      | company + principles + founder |
-| 19 | cta                 | cta-next-step          | yes      | next-step timeline; no footer |
-| 20 | closer              | back-cover             | yes      | contact; no footer |
+**The `picks:` block in this file's front matter is the skeleton.** It names the
+chapters this type uses and the slides picked from each, in chapter order, and it
+is what the builder reads.
+
+There used to be a table here as well. Two statements of the same thing drift,
+and this one did: it went on naming slides that were retired on 2026-08-04, so a
+deck proposed from it started with pages that can no longer be built. The rule is
+the repo's own — state a thing once, and point at it from everywhere else.
+
+Depth is chosen per chapter. Skipping a chapter drops every slide under it, and
+any live slide may be picked into any deck: `picks:` is a suggestion, never a
+constraint.
 
 ## Intake questions
 

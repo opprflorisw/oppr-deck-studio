@@ -85,13 +85,18 @@ export async function verifyJwt(token) {
   if (!ok) return null;
 
   const now = Math.floor(Date.now() / 1000);
-  if (typeof claims.exp === "number" && claims.exp <= now) return null;
+  // Both claims are REQUIRED, not merely honoured when present. Checking them
+  // only `if (typeof … === "number")` meant a token that simply omitted `exp`
+  // never expired, and one that omitted `iss` skipped the issuer test -- the two
+  // checks whose whole purpose is to bound a token in time and origin, disabled
+  // by leaving them out. This file's premise is fail-closed; absent is not pass.
+  if (typeof claims.exp !== "number" || claims.exp <= now) return null;
   if (typeof claims.nbf === "number" && claims.nbf > now + 60) return null;
 
   // The issuer must be THIS project. Without it, a validly-signed token from any
   // other Supabase project whose JWKS we happened to fetch would pass.
   const wantIss = `${supabaseUrl()}/auth/v1`;
-  if (claims.iss && claims.iss !== wantIss) return null;
+  if (claims.iss !== wantIss) return null;
 
   return claims;
 }

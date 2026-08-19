@@ -14,12 +14,15 @@ import { PDFDocument } from "pdf-lib";
 export const NO_FOOTER_ROLES = new Set(["cover", "closer", "cta"]);
 
 // Must match verifylib.PAGE_FORMATS exactly.
+// `paged` says whether one page <section> prints as exactly one PDF page. Every
+// fixed-canvas format is paged. A FLOWING document is not: an article is one
+// <section> of prose that legitimately prints across five sheets.
 export const PAGE_FORMATS = {
-  "deck-16x9": { size: [13.333, 7.5], structural: true },
-  "linkedin-4x5": { size: [1080 / 96, 1350 / 96], structural: false },
-  "square-1x1": { size: [1080 / 96, 1080 / 96], structural: false },
-  "hero-1200x627": { size: [1200 / 96, 627 / 96], structural: false },
-  none: { size: null, structural: false },
+  "deck-16x9": { size: [13.333, 7.5], structural: true, paged: true },
+  "linkedin-4x5": { size: [1080 / 96, 1350 / 96], structural: false, paged: true },
+  "square-1x1": { size: [1080 / 96, 1080 / 96], structural: false, paged: true },
+  "hero-1200x627": { size: [1200 / 96, 627 / 96], structural: false, paged: true },
+  none: { size: null, structural: false, paged: false },
 };
 
 const pageRules = (f) => PAGE_FORMATS[f || "deck-16x9"] || PAGE_FORMATS["deck-16x9"];
@@ -192,10 +195,11 @@ async function checkPdf(pdfBytes, pdfName, n, client, r, pageFormat) {
     return;
   }
   const pages = pdf.getPages();
-  if (pages.length !== n) {
+  const rules = pageRules(pageFormat);
+  if (rules.paged && pages.length !== n) {
     r.fail(`PDF ${pdfName} has ${pages.length} pages, expected ${n}`, "pdf-pages");
   }
-  const expected = pageRules(pageFormat).size;
+  const expected = rules.size;
   if (expected && pages.length) {
     // pdf-lib reports points; 72 points to the inch, same as PyMuPDF's rect.
     const w = pages[0].getWidth() / 72;
@@ -206,11 +210,12 @@ async function checkPdf(pdfBytes, pdfName, n, client, r, pageFormat) {
       r.fail(`PDF page size ${w.toFixed(3)}x${h.toFixed(3)} in, expected ${ew.toFixed(3)}x${eh.toFixed(3)} (${pageFormat})`, "pdf-size");
     }
   }
-  // The blank-page WARN needs raster access, which the Python gate gets from
-  // PyMuPDF. Not ported: it is a WARN, and rasterising in a serverless function
-  // to produce a hint is not worth the cold start. Said out loud rather than
-  // silently dropped.
-  r.warn("blank-page check not run (raster scan is CLI-only)", "blank-page-skipped");
+  // No blank-page WARN. The raster scan needs PyMuPDF, and rasterising in a
+  // serverless function to produce a hint is not worth the cold start -- but
+  // emitting "this check did not run" on EVERY report was worse than not
+  // mentioning it: a warning that is always present is a warning nobody reads,
+  // which is the cost the tuned name-scope patterns exist to avoid paying. The
+  // gap is stated once, in CLAUDE.md, where a reader can act on it.
 }
 
 const META_RE = /<script type="application\/json" id="deck-meta">\s*(\{[\s\S]*?\})\s*<\/script>/;
@@ -268,7 +273,22 @@ export async function verifySnapshot({ html, pdfBytes = null, pdfName = "", cust
   const n = slides.length;
   const allowed = new Set([...(meta.allowed_entitlements || ["public"]), "public"]);
   const client = meta.client || "";
+  // The format decides which rules apply, so guessing it is guessing the gate.
+  // The JS assembler did not write this key until 2026-08-19, which meant every
+  // artifact it built was checked as a 16:9 deck -- footer discipline and a
+  // 13.333x7.5in page asserted against, say, a 1080x1350 carousel. New builds
+  // always carry it. A version published before that legitimately does not, and
+  // for those the old default is right (only decks came through that path), so
+  // this is a WARN telling you to rebuild rather than a FAIL that would withhold
+  // the PDF of every deck already published.
+  if (!meta.page_format) {
+    r.warn("no page_format in deck-meta; checked as deck-16x9. Rebuild to record it.",
+           "no-page-format");
+  }
   const pageFormat = meta.page_format || "deck-16x9";
+  if (meta.page_format && !PAGE_FORMATS[meta.page_format]) {
+    r.fail(`unknown page_format "${meta.page_format}"`, "bad-page-format");
+  }
 
   checkHtml(html, n, slides, allowed, r, pageFormat, buildNameScope(customers));
 

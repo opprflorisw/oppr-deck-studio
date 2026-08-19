@@ -58,20 +58,18 @@ cut (they compose from the same fragments, so most edits flow through on rebuild
 
 ## Skeleton
 
-| #  | role              | default slide       | required | note |
-|----|-------------------|---------------------|----------|------|
-| 1  | cover             | cover               | yes      | no footer |
-| 2  | when-time-matters | when-time-matters   | yes      | lead with the EBITDA / speed hook |
-| 3  | why-now           | why-now             | yes      | |
-| 4  | platform          | platform-cce        | yes      | |
-| 5  | outcomes          | outcomes-reference  | yes      | outcomes + reference stats |
-| 6  | evidence          | evidence-quotes     | strong   | |
-| 7  | kpi               | kpi-payback         | yes      | |
-| 8  | engagement        | engagement-ladder   | yes      | commercials live here |
-| 9  | acceptance        | operator-acceptance | strong   | de-risks adoption for the buyer |
-| 10 | who-is-oppr       | who-is-oppr         | yes      | |
-| 11 | cta               | cta-next-step       | yes      | no footer |
-| 12 | closer            | back-cover          | yes      | no footer |
+**The `picks:` block in this file's front matter is the skeleton.** It names the
+chapters this type uses and the slides picked from each, in chapter order, and it
+is what the builder reads.
+
+There used to be a table here as well. Two statements of the same thing drift,
+and this one did: it went on naming slides that were retired on 2026-08-04, so a
+deck proposed from it started with pages that can no longer be built. The rule is
+the repo's own — state a thing once, and point at it from everywhere else.
+
+Depth is chosen per chapter. Skipping a chapter drops every slide under it, and
+any live slide may be picked into any deck: `picks:` is a suggestion, never a
+constraint.
 
 ## Intake questions
 

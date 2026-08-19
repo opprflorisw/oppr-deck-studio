@@ -13,12 +13,13 @@ says what superseded it.
 
 | Effort | What it decides |
 |---|---|
-| [`deck-studio-4/MAP.md`](deck-studio-4/MAP.md) | **The current map.** The commercial team and Deck Studio over MCP. Mother work (masters, the library) needs an owner; leaf work (a customer's decks and sends) is any editor's, from the app or from Claude on a phone. Adds `deck_sends` pinned to a version, a mechanical guard on customer names that would gate an ordinary word, and the MCP server. Also records the `allow_authenticated` RLS hole found and fixed on 2026-08-07. Ten decisions closed; two phases, the library migration still to come. |
+| [`deck-studio-5/GUIDE.md`](deck-studio-5/GUIDE.md) | **The current map.** Deck Manager 2.0: **one runtime** (JavaScript; the Python/PowerShell pipeline retires), **deck building moves into MCP** so a colleague builds and sends a deck from Claude on a phone with no Claude Code and no CLI, the deck-building skills are deleted, and the whole system gets a test suite and CI. Two ways to connect, one permission model: the owner works in the repo on mother work, editors connect the MCP connector and the app for leaf work. Share links are deliberately out of scope -- the deliverable is the PDF. Phased 0-5, each phase shippable. |
 
 ## Delivered
 
 | Effort | What shipped, and what it parked |
 |---|---|
+| [`deck-studio-4/`](deck-studio-4/MAP.md) | **Delivered 2026-08-07**, superseded as the live map by `deck-studio-5/`. Its decisions still stand and carry forward: mother work needs an owner and leaf work is any editor's, `deck_sends` pinned to a version, the mechanical guard on customer names, and the MCP server itself. Deck Studio 5 re-scopes its two parked Phase 2 items -- the Python assembler retires there for real, and the library migration is deferred again in favour of a mirror that carries `why` and `with`. Also records the `allow_authenticated` RLS hole found and fixed on 2026-08-07. |
 | [`deck-studio-3/`](deck-studio-3/SPEC.md) | **Delivered 2026-08-04**, superseded as the live map by `deck-studio-4/`. Its decisions still stand: chapters over slides, mother-slide propagation by flag-and-accept, the PDF fix, the advisory story check. Deck Studio 4 sits above it and generalises its mother/leaf idea from slides to permissions. |
 | [`deck-studio-cloud/`](deck-studio-cloud/MAP.md) | **Destination reached 2026-08-03.** Deck Studio deployed on Vercel, colleagues sign in with email and password, rendering and verification run in the cloud, and access is proved by `tools/check-access.py` (17 adversarial checks, all passing). Deliberately parked as fog rather than decided: custom domain, concurrent editing, whether the CLI keeps direct backend access, and cost at rest. Not superseded by Deck Studio 3, which sits above it. |
 

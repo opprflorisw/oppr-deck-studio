@@ -22,6 +22,16 @@ import { RepoFiles } from "./repofiles.mjs";
 
 // --- the document wrapper (deckstudio._WRAPPER, verbatim) --------------------
 
+// One artifact model: `kind` says what a thing is, `page_format` says what
+// geometry the gate should hold it to. This is the only place the two are
+// mapped, so a new kind gets its rules by adding one line here.
+export const PAGE_FORMAT_FOR_KIND = {
+  deck: "deck-16x9",
+  carousel: "linkedin-4x5",
+  image: "square-1x1",
+  article: "none",
+};
+
 const WRAPPER = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -136,7 +146,12 @@ export function pdfNameForSlug(slug, client = "") {
   if (date) parts.push(date);
   parts.push("oppr");
   if (core && core !== "oppr") parts.push(core);
-  if (cl && !parts.join("-").includes(cl)) parts.push(cl);
+  // Test against the name the GATE will read, not a differently-joined one.
+  // This used to ask whether parts.join("-") contained the slug while verify
+  // asks whether the finished "a_b_c.pdf" does -- so a client slug spanning a
+  // part boundary ("oppr-teaser") looked present here and absent there, and the
+  // deck FAILed for a slug this function had just decided to omit.
+  if (cl && !parts.join("_").toLowerCase().includes(cl)) parts.push(cl);
   return parts.join("_") + ".pdf";
 }
 
@@ -321,6 +336,10 @@ export async function buildSnapshot(deck, slug, { files = new RepoFiles(), tool 
     title: deck.title,
     type: deck.type || "",
     client: deck.client || "",
+    // Which rule set the gate applies. Written explicitly since 2026-08-19:
+    // omitting it made verify fall back to deck-16x9, so anything that was not
+    // a 16:9 deck was checked against a canvas it never had.
+    page_format: deck.page_format || PAGE_FORMAT_FOR_KIND[deck.kind || "deck"] || "deck-16x9",
     allowed_entitlements: [...(deck.allowed_entitlements || ["public"])],
     slides: slideMeta,
     assets: Object.fromEntries(Object.entries(assets)

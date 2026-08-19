@@ -3,12 +3,15 @@
   "version": "3.0.0",
   "private": true,
   "type": "module",
-  "description": "Oppr Deck Studio. The Node project lives at the repo root so a plain `git push` builds on Vercel; the app itself is app/ — server.mjs + lib/ are the back end, web/ is the front end.",
+  "description": "Oppr Deck Studio. The Node project lives at the repo root so a plain `git push` builds on Vercel; the app itself is app/ \u2014 server.mjs + lib/ are the back end, web/ is the front end.",
   "main": "app/server.mjs",
   "scripts": {
     "dev": "node app/server.mjs",
     "start": "node app/server.mjs",
-    "check": "node --check app/server.mjs && node --check app/lib/verify.mjs && node --check app/lib/htmlcheck.mjs"
+    "studio": "node tools/studio.mjs",
+    "test": "node --test \"app/test/unit/*.test.mjs\" \"app/test/gates/*.test.mjs\"",
+    "test:integration": "node --test \"app/test/integration/*.test.mjs\"",
+    "check": "node --check app/server.mjs && npm test"
   },
   "dependencies": {
     "@sparticuz/chromium": "^131.0.0",

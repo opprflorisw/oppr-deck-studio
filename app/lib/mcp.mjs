@@ -436,8 +436,29 @@ export async function callTool(name, args, member) {
   try {
     return await fn(args || {}, member);
   } catch (e) {
-    return fail(`${name} failed: ${e.message}`);
+    // A tool result is handed to a model and often quoted into a chat the user
+    // keeps. supabase.mjs throws with the raw PostgREST body attached, which
+    // names tables, columns, constraints and hints -- shipping the shape of the
+    // database into a transcript to explain a failure the reader cannot act on
+    // anyway. The detail goes to the server log; the caller gets a sentence.
+    const detail = String(e?.message || e);
+    process.stderr.write(`[mcp] ${name} failed: ${detail}\n`);
+    return fail(`${name} could not be completed: ${safeReason(detail)}`);
   }
+}
+
+// Known failure classes, in words a person can act on. Anything unrecognised is
+// reported as a failure without repeating the backend's text.
+function safeReason(detail) {
+  if (/\b(400|409)\b/.test(detail) && /duplicate|unique/i.test(detail)) {
+    return "something with that name already exists";
+  }
+  if (/value too long|too long for type/i.test(detail)) return "one of the values was too long";
+  if (/\b(401|403)\b/.test(detail)) return "the backend refused that request";
+  if (/\b5\d\d\b/.test(detail) || /fetch failed|ECONN|ETIMEDOUT/i.test(detail)) {
+    return "the backend is unavailable — try again in a moment";
+  }
+  return "the backend rejected it. The details are in the server log";
 }
 
 /** Negotiate the protocol version: echo the client's when we support it, else

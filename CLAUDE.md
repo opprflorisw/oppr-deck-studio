@@ -369,9 +369,13 @@ manual regeneration.
 - **One verify gate, several rule sets.** `tools/verifylib.py` is the single
   source. The brand rules (no em dashes, no unfilled placeholders, no
   customer-name leak, image entitlement ≤ clearance, European numbers, `oppr` in
-  the filename) are **universal**. Only page geometry and the deck-specific
-  structural rules (footer discipline, `data-total`) vary, by `page_format`, from
-  `verifylib.PAGE_FORMATS`. `app/lib/htmlcheck.mjs` is a different gate with a
+  the filename) are **universal**. Three things vary by `page_format`, from
+  `verifylib.PAGE_FORMATS`: page geometry (`size`), the deck-specific structural
+  rules (`structural`: footer discipline, `data-total`), and whether one page
+  `<section>` prints as exactly one PDF page (`paged`). A **flowing** document is
+  not paged: an article is one `<section>` of prose that legitimately prints
+  across five sheets, and asserting 1 == 5 there FAILed every article
+  (2026-08-19). `app/lib/htmlcheck.mjs` is a different gate with a
   different job: it checks a save is structure-preserving.
 - **PDF naming, and the freshness rule.** Every built PDF carries `oppr`, and a
   named-client deck carries the client slug:
@@ -438,7 +442,8 @@ manual regeneration.
   in the app's Library → Brand tab. This is the one thing in the repo built to
   be sent *outside* Oppr, so its assets carry no font dependency.
 - `templates/` — `deck.css` (system), `showcase.css` (shared deck-local styles),
-  `linkedin.css` (4:5 carousel format), `deck-starter.html` (legacy skeleton)
+  `linkedin.css` (4:5 carousel format), `article.css` (the article reading
+  document), `deck-starter.html` (legacy skeleton)
 - `library/` — `slides/<id>/` (fragments + meta + thumb) and generated `catalog.html`;
   `design-system/` (block specimens); `icons/` (reusable icon set + `icons.json`);
   `kit/` — the generated **design kit**, the whole visual system as one shareable
@@ -471,7 +476,10 @@ manual regeneration.
   - **compose + publish**: `deckstudio.py`, `assemble-deck.py`, `snapshot.py`
     (deck folder → self-contained snapshot), `snapshot_html.py` (an already-built
     HTML document → self-contained snapshot), `publish-deck.py`, `fetch-deck.py`,
-    `publish-social.py`, `import-social.py` (social output → the one artifact model)
+    `publish-social.py`, `import-social.py` (social output → the one artifact model),
+    `build-article.py` + `publish-article.py` (an article: `article.yaml` → the
+    HTML document, the post text and the hero, then both into `decks` +
+    `deck_versions` behind the verify gate)
   - **gates**: `verifylib.py` (the single rule source), `verify-deck.py`,
     `verify-carousel.py` (the LinkedIn playbook), `check-docs.py` (doc drift, and
     that every live slide is in exactly one chapter)
@@ -549,9 +557,13 @@ PDFs are **not** committed; the PDF of record is the `pdf_object` on its version
   **a deck can now be built from the hosted app as well as from this laptop.**
 - Team access & sharing (deliberately deferred — the app is single-user/local).
 - Translation-alignment tooling for language variants.
-- An **article** (`kind=article`) has no HTML document yet, so it is the one
-  output type still outside the edit → verify → PDF loop. Give its builder an
-  HTML body and `import-social.py` will bring it in.
+- ~~An **article** has no HTML document.~~ **Done 2026-08-19.** `article.yaml` →
+  `tools/build-article.py` → an `index.html` styled by `templates/article.css`,
+  published by `tools/publish-article.py` as `kind=article` with
+  `page_format: none`, so verify skips geometry (an article is a column, not a
+  canvas) and still runs every brand rule. Its hero publishes beside it as
+  `kind=image`. Articles are now editable, versioned and printable like any
+  other artifact.
 
 **Built in Deck Studio 2.0 (2026-08-01):** the one artifact model (decks and
 social output merged behind `kind` + `page_format`), the format-aware verify
