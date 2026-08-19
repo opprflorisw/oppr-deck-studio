@@ -48,13 +48,27 @@ function spawnPrint(indexHtml, outFile, { screenshot = false, width, height } = 
     args.push(screenshot ? `--screenshot=${outFile}` : `--print-to-pdf=${outFile}`);
     args.push(fileUri(indexHtml));
     const child = spawn(browser, args);
-    child.on("error", reject);
+    // A browser that never exits used to hang the job forever: nothing here had
+    // a timeout, so a wedged Chrome held a build "running" until the process was
+    // restarted, with no message and no way to tell it from a slow print.
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`the browser did not finish within ${PRINT_TIMEOUT_MS / 1000}s`));
+    }, PRINT_TIMEOUT_MS);
+    child.on("error", (e) => { clearTimeout(timer); reject(e); });
     child.on("close", async () => {
+      clearTimeout(timer);
       await fsp.rm(userDir, { recursive: true, force: true }).catch(() => {});
       fs.existsSync(outFile) ? resolve(outFile) : reject(new Error("nothing was produced"));
     });
   });
 }
+
+// Comfortably longer than the slowest real print (an 18-page deck with the
+// scrim baked in takes ~1.6s) and comfortably shorter than Vercel's 60s
+// function ceiling, so a hung browser fails as a browser problem rather than as
+// a mysterious platform timeout.
+const PRINT_TIMEOUT_MS = 45_000;
 
 // --- serverless: puppeteer-core + a packaged Chromium ----------------------
 
