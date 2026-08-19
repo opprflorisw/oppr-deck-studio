@@ -285,8 +285,12 @@ async function buildFromRecipeJs(recipe, { dryRun = false, onStep = null } = {})
   try {
     const common = {
       html: snap.html, assets: snap.assets, recipe: snap.recipe,
-      pdfBytes, pdfName, note: recipe.note || "", author: "app",
-      verifyReport: report, pageCount: slides.length,
+      pdfBytes, pdfName, note: recipe.note || "",
+      author: recipe.author || "app", authorId: recipe.author_id || null,
+      verifyReport: report,
+      // page_count is not passed: a trigger on deck_versions computes it from
+      // the document itself, so the app and the CLI cannot disagree about how
+      // long a deck is.
     };
     const landed = recipe.version_of
       ? await publishVersion({ versionOf: recipe.version_of, ...common })

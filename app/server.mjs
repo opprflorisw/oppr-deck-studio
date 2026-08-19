@@ -1687,6 +1687,11 @@ async function handleDeckApi(req, res, url) {
       const clearance = await deriveClearance(recipe, req.member);
       if (clearance.error) return sendJson(res, 403, clearance);
       recipe.allowed_entitlements = clearance.allowed;
+      // Who built it, from the session -- not from the body. `author` used to be
+      // the literal string "app" for everything the builder produced, so the
+      // deck list had to reverse-map it and printed "app" where a name belongs.
+      recipe.author = req.member.email;
+      recipe.author_id = req.member.id;
 
       const job = jobs.startRecipeBuild(recipe, { dryRun: Boolean(recipe.dry_run) });
       // deck_id is a uuid column and a slug is not one, so the slug belongs in
@@ -2048,13 +2053,15 @@ async function handleDeckApi(req, res, url) {
           verify_report: report,
         });
       }
-      const n = cur + 1;
       const note = String(d.change_note || "").slice(0, 400);
-      await db.insert("deck_versions", {
-        deck_id: id, n, html, change_note: note, verify_report: report,
-        author: req.member.email, author_id: req.member.id,
+      // One statement: the version and the pointer that names it move together,
+      // and n is allocated inside the transaction rather than read from a row
+      // another save may already have moved.
+      const n = await db.rpc("publish_version", {
+        p_deck_id: id, p_html: html, p_change_note: note,
+        p_author: req.member.email, p_author_id: req.member.id,
+        p_verify_report: report,
       });
-      await db.update("decks", { id }, { current_version_n: n, updated_by_id: req.member.id });
       await audit(req.member, "version.save", id, { n, change_note: note });
       return sendJson(res, 200, { ok: true, n });
     }
@@ -2072,12 +2079,13 @@ async function handleDeckApi(req, res, url) {
       if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
       const src = await db.select("deck_versions", { deck_id: `eq.${id}`, n: `eq.${srcN}`, select: "html" });
       if (!src.length) return sendJson(res, 404, { error: "no such version" });
-      const n = decks[0].current_version_n + 1;
-      await db.insert("deck_versions", {
-        deck_id: id, n, html: src[0].html, change_note: `restored from v${srcN}`,
-        author: req.member.email, author_id: req.member.id,
+      // Restoring copies the old document FORWARD as a new version; it never
+      // rewinds the pointer, because a published version is immutable and
+      // something may already have been sent from it.
+      const n = await db.rpc("publish_version", {
+        p_deck_id: id, p_html: src[0].html, p_change_note: `restored from v${srcN}`,
+        p_author: req.member.email, p_author_id: req.member.id,
       });
-      await db.update("decks", { id }, { current_version_n: n, updated_by_id: req.member.id });
       await audit(req.member, "version.restore", id, { from: srcN, n });
       return sendJson(res, 200, { ok: true, n });
     }
@@ -2102,7 +2110,7 @@ async function handleDeckApi(req, res, url) {
           });
         }
         // one master per type: clear the current holder, then set this one
-        await db.update("decks", { type: decks[0].type, is_master: "true" }, { is_master: false });
+        await db.update("decks", { type: decks[0].type, is_master: true }, { is_master: false });
         await db.update("decks", { id }, { is_master: true });
       } else {
         await db.update("decks", { id }, { is_master: false });
@@ -2200,10 +2208,11 @@ async function personalize(req, res, masterId) {
 
   const title = String(d.title || `${master.title} — ${d.audience?.label || "customer"}`).replace(/—/g, "-").slice(0, 200);
   const date = new Date().toISOString().slice(0, 10);
-  let slug = `${date}_${slugify(title)}`.slice(0, 80);
-  // ensure unique slug
-  let n = 1, base = slug;
-  while ((await db.select("decks", { slug: `eq.${slug}`, select: "id" })).length) slug = `${base}-${++n}`;
+  // The slug is ASKED for, not resolved here. create_deck_with_v1 takes the
+  // first free one inside the transaction that writes the row; the loop this
+  // replaces read, then wrote, and two people personalising the same master on
+  // the same day both found "-2" free and one got a unique-violation.
+  const wantSlug = `${date}_${slugify(title)}`.slice(0, 80);
 
   let customerId = null, audienceKind = "person", audienceLabel = String(d.audience?.label || "");
   let clientSlug = "";
@@ -2215,30 +2224,49 @@ async function personalize(req, res, masterId) {
     audienceKind = d.audience.kind === "event" ? "event" : "person";
   }
 
-  const row = await db.insert("decks", {
-    slug, title, type: master.type, is_master: false,
-    audience_kind: audienceKind, customer_id: customerId, audience_label: audienceLabel,
-    client_slug: clientSlug, allowed_entitlements: master.allowed_entitlements,
-    current_version_n: 1, derived_from_deck_id: masterId, derived_from_version_n: cur,
-    created_by: member.email,
-    created_by_id: member.id,
+  const [made] = await db.rpc("create_deck_with_v1", {
+    p_slug: wantSlug, p_title: title, p_type: master.type, p_html: html,
+    p_fields: {
+      kind: master.kind || "deck",
+      page_format: master.page_format || "deck-16x9",
+      audience_kind: audienceKind, customer_id: customerId,
+      audience_label: audienceLabel, client_slug: clientSlug,
+      // A personalized deck inherits the master's clearance. It cannot widen it,
+      // and it is not asked for -- see deriveClearance().
+      allowed_entitlements: master.allowed_entitlements,
+      derived_from_deck_id: masterId, derived_from_version_n: cur,
+    },
+    p_change_note: `personalized from ${master.slug} v${cur}`,
+    p_author: member.email, p_author_id: member.id,
   });
-  const newId = row[0].id;
+  const newId = made.deck_id;
+  const slug = made.slug;
 
-  // copy the master's assets into the new deck (server-side storage copy)
+  // Copy the master's assets into the new deck (server-side storage copy).
+  // A copy that fails must not leave a deck_assets row pointing at an object
+  // that was never written: the deck would render with a missing image and
+  // verify would blame the document. Record only what actually landed, and say
+  // so if any did not.
+  const missed = [];
   for (const a of masterAssets) {
     const dst = `decks/${newId}/assets/${a.filename}`;
-    try { await db.copyObject(a.storage_object, dst); }
-    catch { /* fall back: re-upload from cache if present */ }
-    await db.upsert("deck_assets", [{ deck_id: newId, filename: a.filename, storage_object: dst, entitlement: a.entitlement, sha256: a.sha256 }], "deck_id,filename");
+    try {
+      await db.copyObject(a.storage_object, dst);
+      await db.upsert("deck_assets", [{ deck_id: newId, filename: a.filename,
+        storage_object: dst, entitlement: a.entitlement, sha256: a.sha256 }], "deck_id,filename");
+    } catch (e) {
+      missed.push(a.filename);
+      process.stderr.write(`[personalize] asset copy failed ${a.storage_object} -> ${dst}: ${e.message}\n`);
+    }
   }
-  await db.insert("deck_versions", {
-    deck_id: newId, n: 1, html, change_note: `personalized from ${master.slug} v${cur}`,
-    author: member.email, author_id: member.id,
+  await audit(member, "deck.personalize", newId, {
+    from: master.slug, from_version: cur, assets_missing: missed,
   });
-  await audit(member, "deck.personalize", newId, { from: master.slug, from_version: cur });
 
-  return sendJson(res, 200, { ok: true, deck: { id: newId, slug, title } });
+  return sendJson(res, 200, {
+    ok: true, deck: { id: newId, slug, title },
+    ...(missed.length ? { warning: `${missed.length} image(s) could not be copied: ${missed.join(", ")}` } : {}),
+  });
 }
 
 // The whole router, as one request handler.

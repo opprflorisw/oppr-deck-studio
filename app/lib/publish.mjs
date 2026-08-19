@@ -47,25 +47,34 @@ async function uploadPdf(deckId, n, pdfBytes, pdfName) {
  * here can widen what the deck is allowed to carry.
  */
 export async function publishVersion({ versionOf, html, assets, recipe, pdfBytes = null,
-                                       pdfName = "", note = "", author = "app",
-                                       verifyReport = null, pageCount = 0 }) {
+                                       pdfName = "", note = "", author = "app", authorId = null,
+                                       verifyReport = null }) {
   const rows = await db.select("decks", { slug: `eq.${versionOf}`, select: "id,current_version_n" });
   if (!rows.length) throw new Error(`no deck with slug '${versionOf}' to add a version to`);
   const deckId = rows[0].id;
-  const n = rows[0].current_version_n + 1;
 
   const seen = {};
   for (const a of await db.select("deck_assets", { deck_id: `eq.${deckId}`, select: "filename,sha256" })) {
     seen[a.sha256] = a.filename;
   }
   await uploadAssets(deckId, assets, seen);
-  const pdfObject = await uploadPdf(deckId, n, pdfBytes, pdfName);
 
-  await db.insert("deck_versions", {
-    deck_id: deckId, n, html, change_note: note || "republished", author,
-    pdf_object: pdfObject, recipe, verify_report: verifyReport, page_count: pageCount,
+  // The PDF is named for a version number we do not have yet, because the
+  // number is allocated inside the transaction below. Upload it after, then
+  // attach it -- the version exists either way, and a version with no PDF is
+  // printed on demand, which is already how every un-printed version behaves.
+  const n = await db.rpc("publish_version", {
+    p_deck_id: deckId, p_html: html, p_change_note: note || "republished",
+    p_author: author, p_author_id: authorId,
+    p_recipe: recipe ?? null, p_verify_report: verifyReport ?? null,
   });
-  await db.update("decks", { id: deckId }, { current_version_n: n, status: "ok", needs_cli_reason: "" });
+
+  const pdfObject = await uploadPdf(deckId, n, pdfBytes, pdfName);
+  if (pdfObject) {
+    // Raw values: update() adds the `eq.` itself. Passing "eq.3" here would ask
+    // PostgREST for `n=eq.eq.3`, which matches nothing and reports success.
+    await db.update("deck_versions", { deck_id: deckId, n }, { pdf_object: pdfObject });
+  }
   return { deck_id: deckId, slug: versionOf, version: n, pdf_object: pdfObject };
 }
 
@@ -76,11 +85,11 @@ export async function publishVersion({ versionOf, html, assets, recipe, pdfBytes
  * was created and every version inherits it.
  */
 export async function publishNewDeck({ slug, deck, html, assets, recipe, pdfBytes = null,
-                                       pdfName = "", note = "", author = "app",
+                                       pdfName = "", note = "", author = "app", authorId = null,
                                        type = "", client = "", customer = "",
                                        audienceKind = "", audienceLabel = "",
                                        derivedFrom = "", derivedFromVersion = null,
-                                       master = false, verifyReport = null, pageCount = 0 }) {
+                                       master = false, verifyReport = null }) {
   if ((await db.select("decks", { slug: `eq.${slug}`, select: "id" })).length) {
     throw new Error(`a deck with slug '${slug}' already exists. Open it and publish a new version instead.`);
   }
@@ -107,32 +116,47 @@ export async function publishNewDeck({ slug, deck, html, assets, recipe, pdfByte
     }
   }
 
-  // One master per type: the tag moves, it is never held by two decks.
-  if (master && deckType) {
-    await db.update("decks", { type: deckType, is_master: "true" }, { is_master: false });
-  }
-
-  const row = await db.insert("decks", {
-    slug, title: deck.title, type: deckType,
-    is_master: Boolean(master),
-    audience_kind: audienceKind || (customerId ? "customer" : "general"),
-    customer_id: customerId,
-    audience_label: audienceLabel,
-    client_slug: clientSlug ? slugify(clientSlug) : "",
-    allowed_entitlements: [...(deck.allowed_entitlements || ["public"])],
-    current_version_n: 1,
-    derived_from_deck_id: derivedId, derived_from_version_n: derivedN,
-    created_by: author,
+  // The deck row and its v1 are one act, so they are one transaction. Three
+  // separate calls could leave a deck at current_version_n: 1 with no version
+  // row -- a deck that lists fine and cannot be opened. The slug is allocated
+  // in there too: the read-then-write loop this replaces let two people
+  // personalising the same master on the same day both resolve to "-2", and one
+  // of them got a raw unique-violation.
+  const [made] = await db.rpc("create_deck_with_v1", {
+    p_slug: slug,
+    p_title: deck.title,
+    p_type: deckType,
+    p_html: html,
+    p_fields: {
+      kind: deck.kind || "deck",
+      page_format: deck.page_format || "deck-16x9",
+      audience_kind: audienceKind || (customerId ? "customer" : "general"),
+      customer_id: customerId,
+      audience_label: audienceLabel,
+      client_slug: clientSlug ? slugify(clientSlug) : "",
+      allowed_entitlements: [...(deck.allowed_entitlements || ["public"])],
+      derived_from_deck_id: derivedId,
+      derived_from_version_n: derivedN,
+    },
+    p_change_note: note || "published from the deck builder",
+    p_author: author,
+    p_author_id: authorId,
+    p_recipe: recipe ?? null,
+    p_verify_report: verifyReport ?? null,
   });
-  const deckId = row[0].id;
+  const deckId = made.deck_id;
+  const finalSlug = made.slug;
 
   await uploadAssets(deckId, assets);
   const pdfObject = await uploadPdf(deckId, 1, pdfBytes, pdfName);
+  if (pdfObject) {
+    await db.update("deck_versions", { deck_id: deckId, n: 1 }, { pdf_object: pdfObject });
+  }
+  // The master tag moves only once the deck it moves TO exists.
+  if (master && deckType) {
+    await db.update("decks", { type: deckType, is_master: true }, { is_master: false });
+    await db.update("decks", { id: deckId }, { is_master: true });
+  }
 
-  await db.insert("deck_versions", {
-    deck_id: deckId, n: 1, html, change_note: note || "published from the deck builder",
-    author, pdf_object: pdfObject, recipe, verify_report: verifyReport, page_count: pageCount,
-  });
-
-  return { deck_id: deckId, slug, version: 1, pdf_object: pdfObject };
+  return { deck_id: deckId, slug: finalSlug, version: 1, pdf_object: pdfObject };
 }

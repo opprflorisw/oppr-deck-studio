@@ -609,3 +609,11 @@ $$;
 
 revoke all on function public.policy_audit()        from anon;
 revoke all on function public.rls_disabled_tables() from anon;
+
+-- ---------------------------------------------------------------------------
+-- 12. Atomic publish
+--
+-- See 0002_atomic_publish.sql. Kept as a separate file so the baseline stays a
+-- description of what existed on 2026-08-19 and the change is reviewable on its
+-- own.
+-- ---------------------------------------------------------------------------

@@ -29,6 +29,21 @@ export async function select(table, params = {}) {
   return r.json();
 }
 
+// Call a Postgres function. Used for the things that must happen as one unit --
+// publishing a version, creating a deck with its v1 -- because two HTTP calls
+// have nothing holding them together, and a failure between them leaves a deck
+// pointing at a version that does not exist.
+export async function rpc(fn, args = {}) {
+  const { url } = cfg();
+  const r = await fetch(`${url}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: headers({ "Content-Type": "application/json" }),
+    body: JSON.stringify(args),
+  });
+  if (!r.ok) throw new Error(`rpc ${fn}: ${r.status} ${await r.text()}`);
+  return r.json();
+}
+
 export async function insert(table, rows) {
   const { url } = cfg();
   const r = await fetch(`${url}/rest/v1/${table}`, {
@@ -40,8 +55,21 @@ export async function insert(table, rows) {
   return r.json();
 }
 
+// `match` takes RAW values; the `eq.` is added here. Passing an already-prefixed
+// value ("eq.3", "in.(a,b)") yields `eq.eq.3`, which matches no rows and returns
+// 200 -- a silent no-op that reads exactly like success. The Python client grew
+// an operator passthrough after being bitten by that; this one refuses instead,
+// because a filter that means two different things depending on how you spell it
+// is worse than one that only accepts one spelling.
 export async function update(table, match, values) {
   const { url } = cfg();
+  for (const [k, v] of Object.entries(match)) {
+    if (typeof v === "string" && /^(eq|neq|gt|gte|lt|lte|like|ilike|is|in|cs|cd|not)\./.test(v)) {
+      throw new Error(
+        `update ${table}: match.${k} is "${v}", but match values are raw -- ` +
+        `the eq. is added for you. As written this asks for ${k}=eq.${v}, which matches nothing.`);
+    }
+  }
   const qs = new URLSearchParams(
     Object.fromEntries(Object.entries(match).map(([k, v]) => [k, `eq.${v}`]))
   ).toString();
