@@ -534,9 +534,18 @@ export const negotiate = (asked) => (SUPPORTED_VERSIONS.includes(asked) ? asked 
 export const serverInfo = { name: "oppr-deck-studio", title: "Oppr Deck Studio", version: "1.0.0" };
 
 export const INSTRUCTIONS =
-  "Deck Studio holds Oppr's sales decks. A customer's decks are copies of company " +
-  "decks (masters), personalised and published as immutable versions. Typical flow: " +
-  "customers_list to find the customer, decks_for_customer to see what they already have, " +
-  "deck_read to see what a deck says, and deck_record_sent once it has gone out. " +
-  "Editing a company deck or the slide library is deliberately not possible here: that " +
-  "changes every future deck and is done by an owner in the app.";
+  "Deck Studio holds Oppr's sales decks. A deck is composed from a library of slides, " +
+  "grouped into chapters that read in order, and published as immutable versions. " +
+  "A customer's deck starts as a copy of the company deck (master) for its type.\n\n" +
+  "To build one: customers_list (or customer_create if they are new), then deck_start, " +
+  "which copies the right master's slides. Adjust with deck_slides — library_chapters " +
+  "and slide_read show what is available and what each slide is for. Fill in the deck's " +
+  "details with deck_vars. Then deck_check.\n\n" +
+  "ALWAYS run deck_check and show the person the result — the slide list and any brand-gate " +
+  "findings — and get their approval before publishing. deck_publish requires confirm: true " +
+  "and will refuse without it. Afterwards, deck_pdf gives a download link and " +
+  "deck_record_sent records that it went out, pinned to the version they received.\n\n" +
+  "Editing a company deck, changing the slide library, archiving a slide or moving which " +
+  "deck is the master are deliberately not possible here. Those change every deck built " +
+  "afterwards, and are done by an owner in the app. Composing a deck never changes the " +
+  "library — it only picks from it.";
