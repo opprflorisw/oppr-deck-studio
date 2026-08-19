@@ -1,6 +1,8 @@
 # Deck Studio 5 — Deck Manager 2.0 Implementation Guide
 
-Status: **proposed** (becomes the live map when adopted — see step 0.1).
+Status: **live** (adopted 2026-08-19; see `.scratch/README.md`).
+Execution status is section 0 — phases 0 through 3 are delivered and verified,
+4 and 5 are not.
 Date: 2026-08-19. Supersedes `deck-studio-4/MAP.md` as the live map on adoption;
 its decisions carry forward except where a locked decision below overrides one.
 Basis: the full-system audit of 2026-08-19 (six subsystem audits + live backend
@@ -10,6 +12,61 @@ session scratchpad.
 This is an **instruction document**: every phase is a numbered list of concrete
 steps with the files they touch, the tests that prove them, and an acceptance
 checklist. Work top to bottom. Each phase leaves the system shippable.
+
+---
+
+## 0. Status — what is delivered, and what is not
+
+Updated 2026-08-19, after the first execution pass. Written here rather than in
+a separate file, because a plan whose status lives somewhere else is a plan
+nobody trusts.
+
+### Delivered and verified
+
+| Phase | What landed | How it was proved |
+|---|---|---|
+| **0** | `/repo` allowlist on both branches; clearance derived server-side; capability gating; htmlcheck refuses external URLs; verify-on-save; `page_format` written and never silently defaulted; six small bugs; JWT `exp`/`iss` required; MCP errors sanitised | 104 tests; a real signed-in **viewer** gets 404 on `.env`, `.git/config`, `package.json` and `tools/supa.py`, and 403 on every write |
+| **1.1** | The whole schema into `supabase/migrations/`, applied and diffed against the live project | Applying it changed exactly 6 policies, all tightening `public` → `authenticated`; 23/23 access checks |
+| **1.1b** | **A live hole closed**: `storage.objects` carried `ALL TO authenticated USING (bucket_id='deck-files')`, granting read/write/DELETE over every PDF and asset to any account including a viewer and a disabled one. `policy_audit()` could not see it — it was scoped to `public` | Both RPCs now cover `public`, `storage`, `auth`; a viewer's upload, overwrite, insert, master-update and version-delete all refused, measured |
+| **1.2** | `publish_version()` and `create_deck_with_v1()` — allocation and the pointer in one transaction | 6 integration tests, including 5 concurrent publishes producing 2,3,4,5,6; a corpus-wide assertion that no deck points at a missing version |
+| **1.4** | `lib/handlers/` shared by both doors; one `slugify`; `selectAll` promoted out of `collide.mjs` | The five drifts named in the audit are gone by construction; JS and Python agree on 15 slug cases |
+| **2a** | `tools/studio.mjs`; `library.mjs` and `accounts.mjs` ported; print timeout | The ported sync finds **zero** differences from the mirror Python wrote, across 48 slides, 11 chapters and all 48 entitlement sets |
+| **2b** | JS is the pipeline everywhere; `DECK_PY_BUILD=1` is the way back | Two real decks built and published through it (v1 at 4 pages, v2 at 5), assets deduped 11 not 22, then removed |
+| **3** | 21 MCP tools, the build loop, `deck_drafts`, tools-as-data, the leaf guard finally wired | The whole loop walked live: start → adjust → vars → check → publish v1 → PDF → record sent → timeline. `deck_open` on a master, as an editor, refused by name |
+| **3b** | CLAUDE.md rewritten; 22 old-pipeline files carry a FROZEN banner | The docs gate passes, and it now reads `.claude/commands/` too |
+| — | Pushed to GitHub; Vercel deploy **READY** | Hosted: `/repo/.env` 404s for a signed-in editor, MCP `initialize` answers, `tools/list` 401s with `WWW-Authenticate` |
+
+### Not delivered
+
+Named honestly rather than quietly dropped:
+
+- **The Python pipeline is frozen, not deleted.** The files still exist and
+  carry a banner. Eight things still shell to Python: `build_app_index.py`,
+  `build-article-hero.py`, `export-element.py`, `pdf-thumbs.py`,
+  `publish-assets.py`, `check-drift.py`, plus `research-brain.py` and the
+  owner utilities that are staying. Deleting the frozen set needs those ports
+  first.
+- **Phase 2.2 (one gate) is not done.** `verify-carousel.py` still holds the
+  LinkedIn rules and `build-article.py` its own; neither is folded into
+  `verify.mjs` yet. The carousel and article pipelines still run the old way.
+- **Phase 4 (the app) is not done.** The builder still uses `decks.draft_recipe`
+  and localStorage rather than `deck_drafts`; Personalize has not merged into
+  start-from-master; the coherence sweep, the search work and Record-sent-on-the-
+  deck-page have not been touched. The MCP loop has all of this; the browser
+  does not yet.
+- **Phase 5 (content) is partly done.** Recipes are de-staled and the docs gate
+  enforces it. BRAND.md's vocabulary, the back-cover contact variables, the
+  inline-SVG conversion and the `why`/`with` mirror are not.
+- **The four failing artifacts are not fixed** — three square carousels and the
+  Holliday image in a public one. Both need a decision, not a patch.
+
+### The next three things
+
+1. Fold the carousel and article rules into `verify.mjs`, then port the six
+   shelled-to tools, then delete the frozen set. That closes D1 properly.
+2. Point the app's builder at `deck_drafts` and merge Personalize into
+   start-from-master, so the browser and the connector are the same product.
+3. Decide on the four failing artifacts, and on O-1..O-4 below.
 
 ---
 
