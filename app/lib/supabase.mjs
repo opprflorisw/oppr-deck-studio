@@ -29,6 +29,26 @@ export async function select(table, params = {}) {
   return r.json();
 }
 
+// PostgREST caps a response at the project's "Max rows" (1000 by default) and
+// says NOTHING when it truncates: a short read is indistinguishable from a small
+// table. Every list that can grow past that has to page, and the lesson was
+// learned the expensive way -- collide.mjs, whose whole job is to not be wrong
+// about which decks a name would break, was the first to need it. It lived there
+// alone while /api/decks, /api/slide-usage, the customer counts and the MCP
+// listings all read unpaged. Same fix, one place.
+const PAGE = 500;
+
+export async function selectAll(table, params = {}) {
+  const out = [];
+  for (let from = 0; ; from += PAGE) {
+    const page = await select(table, { ...params, offset: String(from), limit: String(PAGE) });
+    out.push(...page);
+    // A short page is the end. Trusting a count would need a second round trip
+    // that could itself be stale.
+    if (page.length < PAGE) return out;
+  }
+}
+
 // Call a Postgres function. Used for the things that must happen as one unit --
 // publishing a version, creating a deck with its v1 -- because two HTTP calls
 // have nothing holding them together, and a failure between them leaves a deck

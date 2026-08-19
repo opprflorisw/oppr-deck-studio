@@ -14,23 +14,12 @@
 // bug this repo keeps relearning.
 
 import * as db from "./supabase.mjs";
+import { selectAll } from "./supabase.mjs";
 import { wouldNewlyFail } from "./verify.mjs";
 
-// PostgREST caps a response at the project's "Max rows" (1000 by default) and
-// says nothing when it truncates. For a guard whose whole job is to not be
-// wrong, a silent short read is the worst possible failure: it reports "clean"
-// because it never saw the deck it would have broken. So pages are explicit and
-// a short page is what ends the loop.
-const PAGE = 500;
-
-async function selectAll(table, params) {
-  const out = [];
-  for (let from = 0; ; from += PAGE) {
-    const page = await db.select(table, { ...params, offset: String(from), limit: String(PAGE) });
-    out.push(...page);
-    if (page.length < PAGE) return out;
-  }
-}
+// Paging lives in supabase.mjs now: a silent short read is the worst possible
+// failure for a guard -- it reports "clean" because it never saw the deck it
+// would have broken -- and every other list in the app had the same exposure.
 
 /**
  * Published decks that would START failing under `pattern`/`scope`.

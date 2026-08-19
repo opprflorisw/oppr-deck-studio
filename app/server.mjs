@@ -42,6 +42,11 @@ import { pdfNameFor, printElement } from "./lib/jobs.mjs";
 import { materialize, materializePdf, versionDir, CACHE_ROOT } from "./lib/deckcache.mjs";
 import { clearanceForCustomer, patternForCustomer } from "./lib/namescope.mjs";
 import { slugify, isSlug, safeSlug } from "./lib/slug.mjs";
+// The shared handler layer: one body per question, rendered as JSON here and
+// as prose by lib/mcp.mjs. Where the two doors used to each carry their own
+// copy, they had already drifted -- see lib/handlers/customers.mjs.
+import * as customers from "./lib/handlers/customers.mjs";
+import * as sends from "./lib/handlers/sends.mjs";
 import { collidingDecks } from "./lib/collide.mjs";
 import { requireLeaf, MASTER_STRUCTURAL_FIELDS, motherRouteFor } from "./lib/guard.mjs";
 import { verifyJwt, audienceOk, protectedResourceMetadata, challenge,
@@ -1410,74 +1415,44 @@ async function handleDeckApi(req, res, url) {
     // --- customers ---------------------------------------------------------
     if (p === "/api/customers2") {
       if (req.method === "GET") {
-        const rows = await db.select("customers", { select: "*", order: "name.asc" });
-        // `clearance` is the entitlement slug a deck must hold to name this
-        // customer. Computed here from the same rule the gate uses, so the chip
-        // the New deck dialog offers and the scope verify enforces are the same
-        // string rather than two hopefully-equal ones.
-        for (const c of rows) c.clearance = clearanceForCustomer(c);
-        return sendJson(res, 200, { customers: rows });
+        // `clearance` comes back derived, from the same one function the gate
+        // uses, so the chip the New deck dialog offers and the scope verify
+        // enforces are the same string rather than two hopefully-equal ones.
+        return sendJson(res, 200, { customers: await customers.list() });
       }
       if (req.method === "POST") {
         const d = JSON.parse(await readBody(req, 200_000));
-        const name = String(d.name || "").trim();
-        if (!name) return sendJson(res, 400, { error: "name required" });
-        const slug = slugify(d.slug || name).slice(0, 60);
-        if (!SLUG_RE.test(slug)) return sendJson(res, 400, { error: "invalid slug" });
-        const existing = await db.select("customers", { slug: `eq.${slug}`, select: "*" });
-        if (existing.length) {
-          return sendJson(res, 200, { ok: true, id: existing[0].id, existed: true,
-                                      customer: { ...existing[0], clearance: clearanceForCustomer(existing[0]) } });
-        }
-        // THE COLLISION GUARD. Registering a customer does not just add a folder
-        // to file decks under: it creates a GATED TERM. buildNameScope derives
-        // `\b<name>\b` from this row, and from then on any deck containing those
-        // words fails verify unless it is cleared for this customer.
-        //
-        // That is exactly right for "Rhyze" and a disaster for "Core": every
-        // published deck using an ordinary word would start failing, decks that
-        // were correct when they were built and that nobody has touched since.
-        // The built-in ten are hand-tuned against this (`selo` is
-        // `\bselo\b(?!ct)`, `host` is `host\s*bioenergy`); a name typed in by a
-        // salesperson gets no such tuning, so the machine checks it instead.
-        //
-        // Dry-run first, refuse with the evidence. `force` is the OWNER's escape
-        // hatch for a name that genuinely is the company's name: an editor
-        // passing force:true would otherwise walk straight past the guard and
-        // retroactively fail every deck containing an ordinary word, which is
-        // the entire thing this check exists to stop.
-        const forced = Boolean(d.force) && isOwner(req.member);
-        if (Boolean(d.force) && !isOwner(req.member)) {
+        // `force` is the OWNER's escape hatch for a name that genuinely is the
+        // company's name. An editor passing force:true would otherwise walk
+        // straight past the guard and retroactively fail every deck containing
+        // an ordinary word, which is the entire thing the check exists to stop.
+        if (d.force && !isOwner(req.member)) {
           return sendJson(res, 403, {
             error: "owner_only",
             message: "Only an owner can force a customer name past the collision check.",
           });
         }
-        const probe = patternForCustomer({ slug, name });
-        if (probe && !forced) {
-          const clashes = await collidingDecks(probe, clearanceForCustomer({ slug, name }));
-          if (clashes.length) {
-            return sendJson(res, 409, {
-              error: "name_would_break_decks",
-              pattern: probe,
-              decks: clashes.slice(0, 12),
-              count: clashes.length,
-              message:
-                `Registering "${name}" would gate the word${/\s/.test(name) ? "s" : ""} ` +
-                `"${name.toLowerCase()}", and ${clashes.length} published ` +
-                `deck${clashes.length === 1 ? "" : "s"} already use ` +
-                `${clashes.length === 1 ? "it" : "them"} without being cleared for it. ` +
-                `Use the fuller company name, or an owner can force it.`,
-              can_force: isOwner(req.member),
-            });
-          }
+        const r = await customers.create({
+          name: d.name, notes: d.notes,
+          force: Boolean(d.force) && isOwner(req.member),
+          canForce: isOwner(req.member),
+        });
+        if (!r.ok) return sendJson(res, r.error === "bad_name" ? 400 : 409, r);
+        if (r.created) {
+          await audit(req.member, "customer.create", null,
+                      { slug: r.customer.slug, name: r.customer.name, forced: r.forced });
         }
-
-        const row = await db.insert("customers", { slug, name, notes: String(d.notes || "") });
-        await audit(req.member, "customer.create", null, { slug, name, forced });
-        return sendJson(res, 200, { ok: true, id: row[0].id,
-                                    customer: { ...row[0], clearance: clearanceForCustomer(row[0]) } });
+        return sendJson(res, 200, { ok: true, id: r.customer.id,
+                                    existed: !r.created, customer: r.customer });
       }
+    }
+
+    // --- what a customer is holding ---------------------------------------
+    let ctl = p.match(/^\/api\/customers2\/([^/]+)\/sends$/);
+    if (ctl && req.method === "GET") {
+      const t = await customers.timeline(ctl[1]);
+      if (!t) return sendJson(res, 404, { error: "no such customer" });
+      return sendJson(res, 200, { customer: t.customer, sends: t.sends });
     }
 
     // --- publish log (table-backed successor of social/_status.json) -------
@@ -1884,65 +1859,22 @@ async function handleDeckApi(req, res, url) {
       if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
 
       if (req.method === "GET") {
-        const rows = await db.select("deck_sends", { deck_id: `eq.${id}`, order: "sent_at.desc" });
-        return sendJson(res, 200, { sends: rows });
+        return sendJson(res, 200, { sends: await sends.forDeck(id) });
       }
 
       if (req.method === "POST") {
         const d = JSON.parse(await readBody(req, 100_000));
-        const decks = await db.select("decks", { id: `eq.${id}`, select: "id,title,current_version_n" });
-        if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
-        const n = Number(d.version_n) || decks[0].current_version_n;
-        if (!n) return sendJson(res, 400, { error: "that deck has no published version to send" });
-        // Unvalidated, `{"version_n": 99}` is stored verbatim: the timeline then
-        // shows v99 and computes stale = 99 < current = false, so a deck reads as
-        // current against a version that never existed.
-        if (!Number.isInteger(n) || n < 1 || n > decks[0].current_version_n) {
-          return sendJson(res, 400, {
-            error: `no such version: that deck is at v${decks[0].current_version_n}`,
-          });
+        const r = await sends.record(id, {
+          version: d.version_n, recipient: d.recipient, note: d.note, sentAt: d.sent_at,
+        }, req.member);
+        if (!r.ok) {
+          return sendJson(res, r.error === "no_such_deck" ? 404 : 400,
+                          { error: r.message || r.error });
         }
-        const row = await db.insert("deck_sends", {
-          deck_id: id,
-          version_n: n,
-          sent_at: d.sent_at ? new Date(d.sent_at).toISOString() : new Date().toISOString(),
-          sent_by: req.member.id,
-          sent_by_email: req.member.email,
-          recipient: String(d.recipient || "").slice(0, 200),
-          note: String(d.note || "").slice(0, 500),
-        });
-        await audit(req.member, "deck.sent", id, { version_n: n, recipient: d.recipient || "" });
-        return sendJson(res, 200, { ok: true, send: row[0] });
+        await audit(req.member, "deck.sent", id,
+                    { version_n: r.version_n, recipient: d.recipient || "" });
+        return sendJson(res, 200, { ok: true, ...r });
       }
-    }
-
-    // Every send for a customer, newest first: the sales timeline behind their
-    // page. Joined here rather than in the browser so the "is it stale" answer
-    // is computed once, in the place that already knows both numbers.
-    let cts = p.match(/^\/api\/customers2\/([^/]+)\/sends$/);
-    if (cts && req.method === "GET") {
-      const cust = cts[1];
-      const cs = await db.select("customers", { slug: `eq.${cust}`, select: "id,slug,name" });
-      if (!cs.length) return sendJson(res, 404, { error: "no such customer" });
-      const decks = await db.select("decks", {
-        customer_id: `eq.${cs[0].id}`, select: "id,slug,title,type,current_version_n",
-      });
-      if (!decks.length) return sendJson(res, 200, { sends: [] });
-      const byId = new Map(decks.map((d) => [d.id, d]));
-      const rows = await db.select("deck_sends", {
-        deck_id: `in.(${decks.map((d) => d.id).join(",")})`, order: "sent_at.desc",
-      });
-      return sendJson(res, 200, {
-        sends: rows.map((s) => {
-          const d = byId.get(s.deck_id);
-          return {
-            ...s,
-            deck_slug: d?.slug || "", deck_title: d?.title || "", deck_type: d?.type || "",
-            current_version_n: d?.current_version_n || null,
-            stale: Boolean(d && s.version_n < d.current_version_n),
-          };
-        }),
-      });
     }
 
     // --- version thumbnail (page 1 by default) -----------------------------

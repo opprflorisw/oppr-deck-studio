@@ -9,8 +9,8 @@
     "dev": "node app/server.mjs",
     "start": "node app/server.mjs",
     "studio": "node tools/studio.mjs",
-    "test": "node --test \"app/test/unit/*.test.mjs\" \"app/test/gates/*.test.mjs\"",
-    "test:integration": "node --test \"app/test/integration/*.test.mjs\"",
+    "test": "node --experimental-test-module-mocks --test \"app/test/unit/*.test.mjs\" \"app/test/gates/*.test.mjs\"",
+    "test:integration": "node --experimental-test-module-mocks --test \"app/test/integration/*.test.mjs\"",
     "check": "node --check app/server.mjs && npm test"
   },
   "dependencies": {

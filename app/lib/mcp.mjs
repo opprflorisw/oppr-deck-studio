@@ -27,8 +27,14 @@
 
 import * as db from "./supabase.mjs";
 import { requireLeaf } from "./guard.mjs";
-import { clearanceForCustomer, patternForCustomer } from "./namescope.mjs";
-import { collidingDecks } from "./collide.mjs";
+import { isOwner } from "./auth.mjs";
+// The SAME bodies the browser routes call. Until 2026-08-19 these tools carried
+// their own copies, and the header above claimed they "share the browser's
+// handlers" while no such layer existed -- so the two doors had already drifted
+// on the slug they derived, whether a note was truncated, how many colliding
+// decks a refusal listed, and whether an owner was offered the force.
+import * as customers from "./handlers/customers.mjs";
+import * as sends from "./handlers/sends.mjs";
 
 export const SUPPORTED_VERSIONS = ["2025-03-26", "2025-06-18", "2025-11-25"];
 const LATEST = "2025-11-25";
@@ -37,9 +43,6 @@ const LATEST = "2025-11-25";
 
 const text = (s) => ({ content: [{ type: "text", text: s }], isError: false });
 const fail = (s) => ({ content: [{ type: "text", text: s }], isError: true });
-
-const slugify = (s) => String(s || "").toLowerCase().normalize("NFKD")
-  .replace(/[^\w\s-]/g, "").trim().replace(/[\s_]+/g, "-").replace(/-+/g, "-").slice(0, 80);
 
 // Titles are stored HTML-encoded ("Wavin R&amp;D", "Oppr &middot; ..."), because
 // they are written into a document. The browser decodes them for display; a tool
@@ -182,50 +185,43 @@ export const TOOLS = [
 // --- tool implementations ----------------------------------------------------
 
 async function customersList() {
-  const [rows, decks] = await Promise.all([
-    db.select("customers", { select: "id,slug,name,notes", order: "name.asc" }),
-    db.select("decks", { select: "customer_id,archived" }),
-  ]);
-  const counts = new Map();
-  for (const d of decks) {
-    if (d.archived || !d.customer_id) continue;
-    counts.set(d.customer_id, (counts.get(d.customer_id) || 0) + 1);
-  }
+  const rows = await customers.list();
   if (!rows.length) return text("No customers registered yet.");
   const lines = rows.map((c) =>
-    `- ${decode(c.name)}  (slug: ${c.slug}, clearance: ${clearanceForCustomer(c) || c.slug}, ` +
-    `${counts.get(c.id) || 0} deck${(counts.get(c.id) || 0) === 1 ? "" : "s"})`);
+    `- ${c.name}  (slug: ${c.slug}, clearance: ${c.clearance}, ` +
+    `${c.deck_count} deck${c.deck_count === 1 ? "" : "s"})`);
   return text(`${rows.length} customers:\n${lines.join("\n")}`);
 }
 
 async function customerCreate({ name, notes }, member) {
-  const clean = String(name || "").trim();
-  if (!clean) return fail("A name is required.");
-  const slug = slugify(clean).slice(0, 60);
-  if (!slug) return fail(`"${clean}" does not reduce to a usable slug.`);
+  const r = await customers.create({
+    name, notes,
+    // An owner over MCP gets the same escape hatch they have in the app. It
+    // used to be browser-only, so an owner on a phone was told to "ask an
+    // owner" -- which they were.
+    force: false,
+    canForce: isOwner(member),
+  });
 
-  const existing = await db.select("customers", { slug: `eq.${slug}`, select: "*" });
-  if (existing.length) {
-    return text(`"${decode(existing[0].name)}" is already registered (slug: ${slug}).`);
+  if (r.ok && !r.created) {
+    return text(`"${r.customer.name}" is already registered ` +
+                `(slug: ${r.customer.slug}, clearance: ${r.customer.clearance}). Nothing changed.`);
   }
-
-  // The same collision check the browser route runs, from the same module --
-  // this was a copied body once, and the two had already drifted.
-  const scope = clearanceForCustomer({ slug, name: clean });
-  const hits = await collidingDecks(patternForCustomer({ slug, name: clean }), scope);
-  if (hits.length) {
-    const names = hits.slice(0, 8).map((h) => h.slug).join(", ");
+  if (r.ok) {
+    return text(`Registered "${r.customer.name}" (slug: ${r.customer.slug}, ` +
+                `clearance: ${r.customer.clearance}). Decks can now be filed under them ` +
+                `and cleared to name them.`);
+  }
+  if (r.error === "name_would_break_decks") {
+    const names = r.decks.map((d) => d.slug).join(", ");
     return fail(
-      `Refusing to register "${clean}". Its name would become a gated term, and ` +
-      `${hits.length} published deck${hits.length === 1 ? "" : "s"} already use those ` +
-      `words without clearance for it: ${names}${hits.length > 8 ? ", ..." : ""}. ` +
-      `Registering it would fail decks that are correct today. Use the fuller ` +
-      `company name, or ask an owner to force it in the app.`);
+      `Refusing to register "${String(name).trim()}". ${r.message} ` +
+      `Affected: ${names}${r.count > r.decks.length ? `, and ${r.count - r.decks.length} more` : ""}. ` +
+      (r.can_force
+        ? `You are an owner, so you can force this from the app if it really is the company's name.`
+        : `Use the fuller company name, or ask an owner to force it in the app.`));
   }
-
-  const row = await db.insert("customers", { slug, name: clean, notes: String(notes || "") });
-  return text(`Registered "${clean}" (slug: ${slug}, clearance: ${scope || slug}). ` +
-              `Decks can now be filed under them and cleared to name them.`);
+  return fail(r.message || "That name could not be used.");
 }
 
 async function deckBySlug(slug) {
@@ -337,47 +333,24 @@ async function deckRead({ slug, version }) {
 
 async function deckRecordSent({ slug, recipient, note, version, sent_at }, member) {
   const deck = await deckBySlug(slug);
-  if (!deck) return fail(`No deck with slug "${slug}".`);
-  const n = Number(version) || deck.current_version_n;
-  if (!n) return fail(`Deck "${slug}" has no published version to send.`);
-  // A version that does not exist would render as "v99" on the timeline and
-  // compute stale=false, so the deck would read as up to date against nothing.
-  if (!Number.isInteger(n) || n < 1 || n > deck.current_version_n) {
-    return fail(`Deck "${slug}" has no version ${version}. It is at v${deck.current_version_n}.`);
-  }
-  await db.insert("deck_sends", {
-    deck_id: deck.id,
-    version_n: n,
-    sent_at: sent_at ? new Date(sent_at).toISOString() : new Date().toISOString(),
-    sent_by: member?.id || null,
-    sent_by_email: member?.email || "",
-    recipient: String(recipient || ""),
-    note: String(note || ""),
-  });
-  const stale = n < deck.current_version_n
-    ? ` Note: they hold v${n} but the deck is now at v${deck.current_version_n}.` : "";
-  return text(`Recorded: "${decode(deck.title)}" v${n} sent${recipient ? ` to ${recipient}` : ""}.${stale}`);
+  if (!deck) return fail(`No deck with slug "${slug}". Use decks_for_customer to see them.`);
+  const r = await sends.record(deck.id, { version, recipient, note, sentAt: sent_at }, member);
+  if (!r.ok) return fail(r.message || `Could not record that against "${slug}".`);
+  const stale = r.stale
+    ? ` Note: they hold v${r.version_n} but the deck is now at v${r.current_version_n}.` : "";
+  return text(`Recorded: "${decode(deck.title)}" v${r.version_n} sent` +
+              `${recipient ? ` to ${recipient}` : ""}.${stale}`);
 }
 
 async function customerTimeline({ customer }) {
-  const cs = await db.select("customers", { slug: `eq.${customer}`, select: "id,slug,name" });
-  if (!cs.length) return fail(`No customer with slug "${customer}".`);
-  const decks = await db.select("decks", {
-    select: "id,slug,title,type,current_version_n", customer_id: `eq.${cs[0].id}`,
-  });
-  if (!decks.length) return text(`${decode(cs[0].name)} has no decks yet, so nothing has been sent.`);
-  const byId = new Map(decks.map((d) => [d.id, d]));
-  const sends = await db.select("deck_sends", {
-    deck_id: `in.(${decks.map((d) => d.id).join(",")})`, order: "sent_at.desc",
-  });
-  if (!sends.length) return text(`Nothing recorded as sent to ${decode(cs[0].name)} yet.`);
-  const lines = sends.map((s) => {
-    const d = byId.get(s.deck_id);
-    const stale = d && s.version_n < d.current_version_n ? `  (now at v${d.current_version_n})` : "";
-    return `- ${String(s.sent_at).slice(0, 10)}  ${decode(d?.title) || "?"}  v${s.version_n}` +
-           `${s.recipient ? ` -> ${s.recipient}` : ""}${stale}`;
-  });
-  return text(`Sent to ${decode(cs[0].name)}:\n${lines.join("\n")}`);
+  const t = await customers.timeline(customer);
+  if (!t) return fail(`No customer with slug "${customer}". Use customers_list to see them.`);
+  if (!t.sends.length) return text(`Nothing recorded as sent to ${t.customer.name} yet.`);
+  const lines = t.sends.map((s) =>
+    `- ${String(s.sent_at).slice(0, 10)}  ${s.deck_title || "?"}  v${s.version_n}` +
+    `${s.recipient ? ` -> ${s.recipient}` : ""}` +
+    `${s.stale ? `  (now at v${s.current_version_n})` : ""}`);
+  return text(`Sent to ${t.customer.name}:\n${lines.join("\n")}`);
 }
 
 async function librarySearch({ query, chapter }) {
