@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+# FROZEN 2026-08-19 (Deck Studio 5). This file is part of the OLD pipeline. The
+# pipeline is app/lib; tools/studio.mjs is the command line over it. Do not add a
+# rule, a fix or a feature here -- it will not run. `DECK_PY_BUILD=1` still routes
+# a build through this path as a way back, and the flag and these files go
+# together. See .scratch/deck-studio-5/GUIDE.md.
+
 """
 Fetch a published deck version from the backend into a local folder so CLI
 workflows can read an edited deck as content source (Deck Studio v3, §4.3,

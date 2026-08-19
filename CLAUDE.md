@@ -207,12 +207,13 @@ research brain.
 Owner workflows are `npm run studio -- <command>` plus two Claude Code commands,
 `/edit-canonical` and `/ingest-dump`.
 
-The **Deck Studio App** (optional, for browsing/composing visually) needs
+The **Deck Studio App** is not optional: it is where decks are built. Needs
 **Node 18+**: `npm install && npm run dev` **from the repo root** →
-http://127.0.0.1:4173. It calls Python for its library index, and has three npm
-dependencies, all of them for rendering when hosted: `pdf-lib`, `puppeteer-core`
-and `@sparticuz/chromium`. Locally it prints with the Chrome or Edge already on
-the machine.
+http://127.0.0.1:4173. Three npm dependencies, all for rendering when hosted:
+`pdf-lib`, `puppeteer-core` and `@sparticuz/chromium`. Locally it prints with the
+Chrome or Edge already on the machine. `npm test` runs the suite; CI runs it on
+every push, and `.githooks/pre-push` runs it before one leaves the machine
+(`git config core.hooksPath .githooks` once per clone).
 
 **The Node project is the repo root; the app is `app/`** (2026-08-05).
 `package.json` + `package-lock.json` + `vercel.json` live at the root, with
@@ -223,15 +224,20 @@ One manifest, one lockfile, one `node_modules`, and **`git push` is the deploy**
 
 ## How a deck is composed
 
-A deck is not hand-written HTML. `deck.yaml` lists an ordered set of library slide
-ids + deck-level variable values; `tools/assemble-deck.py` fills each fragment's
-`{{variables}}` and writes a self-contained `index.html`.
+A deck is not hand-written HTML. A **recipe** names an ordered set of library
+slide ids grouped by chapter, plus the deck's variable values;
+`app/lib/assemble.mjs` fills each fragment's `{{variables}}` and produces a
+self-contained snapshot.
 
-Variables filled at assembly: `deck_title`, `deck_footer`, `cover_meta` (from
-deck.yaml), `total` (computed slide count), `asset` (relative path to repo root,
-computed from the output location). **Any unfilled `{{placeholder}}` is a hard
-error** — none ever reaches a PDF. Variants may hold local slide overrides under
-`decks/variants/<slug>/slides/<id>/slide.html` that win over the library.
+Variables filled at assembly: `deck_title`, `deck_footer`, `cover_meta`, `total`
+(the computed slide count) and `asset`, plus whatever the picked slides declare.
+**Any unfilled `{{placeholder}}` is a hard error** — none ever reaches a PDF.
+
+The recipe comes from one of three places, all of which run the same five gates:
+the app's Deck builder, the MCP `deck_start` → `deck_publish` loop, or
+`npm run studio -- build <recipe.json>` for an owner. There is one assembler and
+one gate; the parity apparatus that used to hold two implementations together
+retired with the second implementation.
 
 ## Nothing is done until it is in the backend (MANDATORY, every artifact)
 
@@ -261,39 +267,59 @@ outputs first), and anything personal or named-recipient never becomes public
 social output at all. If a piece belongs in neither place, say so explicitly in
 the hand-off rather than leaving it on disk and calling it delivered.
 
-## Build & verify (MANDATORY before calling a deck done)
+## Build & verify (MANDATORY before calling anything done)
+
+Every route runs the same five gates — compose, assemble, print, verify, publish
+— through `app/lib`. There is no second pipeline.
+
+**An editor** builds in the app's Deck builder, or through Claude:
+`deck_start` → `deck_slides` → `deck_vars` → `deck_check` → `deck_publish`.
+`deck_check` is the approval step: it shows the plan and every gate finding in
+plain words, and `deck_publish` refuses without `confirm: true`.
+
+**An owner**, for a one-off or a reproduction:
 
 ```powershell
-python tools\assemble-deck.py decks\<slug>
-.\tools\build-pdf.ps1 -Deck decks\<slug>
-python tools\verify-deck.py decks\<slug>
-# publish the verified artifact: from here on, THIS is the artifact
-python tools\publish-deck.py decks\<slug> [--master --type <t>] [--customer <slug>] `
-    [--derived-from <deck-slug>]        # or --version-of <slug> to add a version
-python tools\check-docs.py --check      # if you moved, renamed or deleted anything
+npm run studio -- doctor                     # can this machine build?
+npm run studio -- fetch <slug>               # a published artifact back onto disk
+npm run studio -- build <recipe.json> --dry-run
+npm run studio -- build <recipe.json>        # runs the same five gates, then publishes
+npm run studio -- verify <slug>              # the gate over a published artifact
+npm run studio -- verify --all               # the gate over the whole corpus
+npm test                                     # the suite, including the docs gate
 ```
-Then **delete `decks/<slug>/`**: it is build scratch, and the artifact now lives
-in the backend. A social output publishes with `publish-social.py` and then
-`import-social.py`, which brings it into the same artifact model as a deck.
 
-To build a new deck **from an existing one** (reproduction), first
-`python tools\fetch-deck.py <slug>` and read the fetched HTML as content source,
-then compose + publish with `--derived-from <slug>`.
+Nothing is written to `decks/` any more: the pipeline assembles in a temp
+directory and removes it, pass or fail. The artifact lives in the backend from
+the moment it is published.
 
-`verify-deck.py` is the automated gate, and it is **format-aware**: the rules it
-applies come from the artifact's `page_format` (see `verifylib.PAGE_FORMATS`), so
-a carousel is checked as a carousel. For a deck: page count == slide count ==
-every `data-total`; page size 13.333×7.5 in; **zero em dashes**; zero unfilled
-`{{...}}`; footer discipline; images resolve and their entitlement ≤ the deck's
-clearance (no customer-name leaks); WARNs on Anglo euro formatting and blank pages.
-Then still do the **visual pass**: render each page and actually look (overflow,
-footers, images, page numbers). A WARN about the verbatim `€ 55,000` quote is fine.
+`app/lib/verify.mjs` is the gate, and it is **format-aware**: the rules come from
+the artifact's `page_format` (see `PAGE_FORMATS`), so a carousel is checked as a
+carousel and an article is not checked as a canvas. Universal for everything:
+**zero em dashes**; zero unfilled `{{...}}`; images resolve and their entitlement
+≤ the deck's clearance (no customer-name leaks); `oppr` in the PDF name; European
+number formatting (a WARN). Structural rules — footer discipline, `data-total`,
+one section per printed page — apply only to the formats that have them.
 
-Regenerate the browsable surfaces after changes:
-`.\tools\build-slide-catalog.ps1` (slide catalog) · `.\tools\build-asset-index.ps1`
-(image contact sheet + manifest drift check). The Deck Studio App reads
-`tools/build_app_index.py` live (its **Refresh library** button), so it needs no
-manual regeneration.
+**`page_format` is written into every snapshot** and a missing one is a WARN
+rather than a silent default: it was absent for a while, and everything the JS
+assembler built was quietly checked as a 16:9 deck.
+
+Then still do the **visual pass**: open the pages and actually look (overflow,
+footers, images, page numbers). A WARN about the verbatim `€ 55,000` quote is
+fine.
+
+Two things the gate cannot see, so they are said here rather than warned on every
+report: **blank pages** are not raster-scanned (the check needed PyMuPDF and was
+not worth a cold start), and a **reclassified image** does not re-check artifacts
+already carrying it — `studio verify --all` is how you find that, and it is how
+the Holliday screenshot inside a public carousel was found.
+
+After changing the library, mirror it: `npm run studio -- sync-library`
+(`--check` reports drift without writing, and belongs in CI). Forgetting it is
+invisible in the worst way — the hosted builder serves the old fragment while the
+drift flag reports everything current, because the flag compares against the very
+mirror that did not update.
 
 ## Rules
 
@@ -411,22 +437,20 @@ manual regeneration.
   compose → assemble → build-pdf → verify → publish. **One gate, not two.**
 
   **Revised 2026-08-05: the builder works hosted.** On Vercel there is no Python
-  to shell out to, so the same five steps run in JavaScript
-  (`app/lib/assemble.mjs` composes and snapshots, `render.mjs` prints,
-  `verify.mjs` blocks, `publish.mjs` writes the rows) over the library mirrored
-  into Storage. Still **one transform**, now with two runners:
-  `tools/check-assemble-parity.py` builds the same recipe both ways and diffs the
-  snapshot **byte for byte**, asset bundle included, so the second runner cannot
-  drift. Same guard, same shape as `check-verify-parity.py`. Change one
-  assembler, change both, run the check.
+  to shell out to, so the same five steps ran in JavaScript. **Revised
+  2026-08-19 (Deck Studio 5): that is now the only pipeline.** The Python
+  assembler, gate, publisher and renderers are gone, and the two parity checks
+  that held them to the JS side retired with them — a guard is only worth its
+  chance of being run, and those needed a live backend, could not run on a fresh
+  clone, and nothing fired them automatically.
 
-  | The CLI creates | The app changes and ships |
+  | Owner (this repo + `npm run studio`) | Everyone (the app, or Claude over MCP) |
   |---|---|
-  | A new **library slide** or design-system block | Compose a deck from chapters (Deck builder) |
-  | Image generation, ingest, research runs | Reorder, add and remove slides; publish a new version |
-  | Retiring a slide in the repo (`meta.yaml`) | **Archive** a slide so it cannot be picked |
-  | | Edit text, spacing, images in place |
-  | | Accept a master update; rename; regenerate the PDF |
+  | A new **library slide** or design-system block | **Compose a deck** from the library, from either door |
+  | Image generation, ingest, research runs | Reorder, add and remove slides; publish a version |
+  | Retiring a slide (`meta.yaml`), archiving one | Register a customer; record a send |
+  | Moving which deck is the **master** | Edit text, spacing, images in place |
+  | The mirrors: `sync-library`, accounts | Download the PDF; rename; regenerate |
 
   What has **not** moved: `verify-deck.py` still blocks, and entitlement is not a
   suggestion. Editing an existing version is still text/attribute level only,
@@ -488,63 +512,60 @@ manual regeneration.
   env) are the **back end**; `web/` (`index.html`, `app.css`, `js/`) is the
   **front end**, plain ES modules with no build step. Run it from the repo root
   with `npm run dev`.
-- `tools/` — the engine and the gates:
-  - **compose + publish**: `deckstudio.py`, `assemble-deck.py`, `snapshot.py`
-    (deck folder → self-contained snapshot), `snapshot_html.py` (an already-built
-    HTML document → self-contained snapshot), `publish-deck.py`, `fetch-deck.py`,
-    `publish-social.py`, `import-social.py` (social output → the one artifact model),
-    `build-article.py` + `publish-article.py` (an article: `article.yaml` → the
-    HTML document, the post text and the hero, then both into `decks` +
-    `deck_versions` behind the verify gate)
-  - **gates**: `verifylib.py` (the single rule source), `verify-deck.py`,
-    `verify-carousel.py` (the LinkedIn playbook), `check-docs.py` (doc drift, and
-    that every live slide is in exactly one chapter)
-  - **parity** (one transform, two runners — the guards that stop them drifting):
-    `check-verify-parity.py` (`verifylib.py` vs `app/lib/verify.mjs`) and
-    `check-assemble-parity.py` (`deckstudio.py` + `snapshot.py` vs
-    `app/lib/assemble.mjs`; `--via-storage` runs the JS side the way it runs
-    hosted, reading every input out of Storage). Both diff real artifacts, so a
-    rule changed on one side and not the other is caught rather than shipped.
-  - **propagation**: `check-drift.py` (which published decks are behind their
-    library slides; `--sync` mirrors the library into `library_slides` so the
-    hosted app can answer it without a repo on disk), `check-story.py` (the
-    **advisory** narrative pass; needs `ANTHROPIC_API_KEY`, and **never blocks,
-    always exits 0** — it is a judgement, not a gate)
-  - **render + export**: `build-pdf.ps1`, `build-carousel.ps1`,
-    `build-social-image.ps1`, `build-article-hero.py`, `pdf-thumbs.py`,
-    `export-element.py` (one library element as self-contained HTML/PNG/PDF),
-    `build-static-fonts.py` (static instances into `brand/fonts-static/`; Chrome
-    cannot serialize a variable font into a PDF and falls back to Type 3, which is
-    what made the PDFs heavy), `build-cover-hero.py` (bakes the cover scrim into
-    the hero, so the PDF carries no per-pixel shading functions),
-    `build-qr.py` (a URL as an inline-ready **vector** QR into `brand/qr/`; raster
-    QRs blur through the PDF and a blurred QR does not scan),
-    `build-library-kit.py` (`library/kit/`: the **design kit** — the icon set, every
-    design-system specimen and the brand kit in one self-contained zip with an
-    offline viewer, for anyone outside Oppr who has to design something),
-    `check-kit.py` (both shareable kits: every reference must resolve inside the
-    kit and nothing may reach the network, because a kit is opened from a
-    filesystem with no server and a wrong relative path is a broken download in
-    front of a customer),
-    `build-brand-kit.py` (`brand/kit/`: outlines the wordmark from the Archivo
-    woff2 so it needs no font installed, rasterizes the PNGs, and writes the
-    page, README and zip; `--check` fails when any output is stale)
-  - **indexes**: `build_app_index.py`, `build-asset-index.ps1`,
-    `build-slide-catalog.ps1`, `build-design-system.ps1`
+- `tools/` — the owner's command line, plus the utilities that are genuinely
+  command-line shaped. **The pipeline is not here any more**: since 2026-08-19 it
+  is `app/lib`, and `tools/studio.mjs` is a thin shell over it, so there is
+  nothing to keep in step.
+  - **`studio.mjs`** (`npm run studio -- <cmd>`): `doctor` (can this machine
+    build?), `verify` (one artifact, a folder, or `--all` over the whole corpus),
+    `fetch`, `build`, `sync-library` (`--check` for CI), `users` (accounts, the
+    break-glass path when nobody can sign in).
+  - **still Python, still owner-only** — no Node equivalent worth writing, and
+    none of it is in the artifact pipeline or needed by an editor:
+    `generate-image.py` (Gemini, with provenance into `brand/img/library.json`),
+    `build-static-fonts.py` (fontTools instancing; Chrome cannot serialize a
+    variable font into a PDF and falls back to Type 3, which is what made the
+    PDFs heavy), `build-brand-kit.py` and `build-library-kit.py` (both outline
+    the wordmark from the woff2 so a kit needs no font installed) with
+    `check-kit.py` (every reference must resolve inside the kit and nothing may
+    reach the network — a kit is opened from a filesystem with no server),
+    `build-cover-hero.py` (bakes the cover scrim into the hero so the PDF carries
+    no per-pixel shading), `build-qr.py` (vector, because a raster QR blurs
+    through print and a blurred QR does not scan), `research-brain.py`.
+  - **still Python, still shelled to by the app**, and scheduled to port:
+    `build_app_index.py` (the Library index; hosted reads a mirrored copy
+    instead), `build-article-hero.py`, `export-element.py`, `pdf-thumbs.py`,
+    `publish-assets.py` (the Storage mirror), `check-drift.py`.
+  - **frozen, pending deletion**: `deckstudio.py`, `snapshot.py`,
+    `snapshot_html.py`, `assemble-deck.py`, `verifylib.py`, `verify-deck.py`,
+    `verify-carousel.py`, `build-from-recipe.py`, `publish-deck.py`,
+    `fetch-deck.py`, `publish-social.py`, `import-social.py`,
+    `build-article.py`, `publish-article.py`, the three `.ps1` renderers,
+    `deck_pdf_name.py`, `supa.py`, `manage-users.py`, and both parity checks.
+    They are the old pipeline. `DECK_PY_BUILD=1` still routes a build through it
+    as a way back; the flag and the files go together.
+  - **gates that are now tests**: the doc-drift and chapter checks are
+    `app/test/gates/docs.test.mjs`, run by `npm test` and by CI. `check-docs.py`
+    never read `.claude/commands/`, which is where three dead paths lived;
+    the port does, and also refuses a recipe that proposes a retired slide and an
+    app string that tells an editor to open a terminal.
   - **access**: `check-access.py` — adversarial only, never a happy path. Since
     2026-08-07 it also checks the **insider** case via the `policy_audit()` RPC:
     no policy may grant unconditionally to a non-service role. That check exists
-    because a `allow_authenticated` policy (`ALL`, `USING(true)`) sat on eight
+    because an `allow_authenticated` policy (`ALL`, `USING(true)`) sat on eight
     tables while the suite reported 17/17 — it tested only as `anon`, and an
-    outsider test cannot see a grant made to `authenticated`.
-  - **other**: `supa.py` (backend client), `deck_pdf_name.py`,
-    `generate-image.py`, `research-brain.py` (`--check` for CI),
-    `manage-users.py` (accounts + passwords), `check-access.py` (adversarial
-    access checks)
+    outsider test cannot see a grant made to `authenticated`. On 2026-08-19 the
+    same shape was found on `storage.objects`, which the RPC could not see
+    because it was scoped to the `public` schema; both RPCs now look in `public`,
+    `storage` and `auth`.
 - `dump/` — the intake inbox (drop material to seed a deck; ends empty)
 - `.env.example` — names of secrets; copy to `.env` (gitignored) and fill in
-- `.claude/commands/` — `deckbuilder.md` (front door), `new-deck.md`,
-  `edit-canonical.md`, `ingest-dump.md`
+- `.claude/commands/` — `edit-canonical.md`, `ingest-dump.md`. Owner workflows
+  only: `deckbuilder.md` and `new-deck.md` were deleted on 2026-08-19, because
+  building a deck is the app's job and the connector's job, and a colleague with
+  neither a checkout nor Claude Code could not do it at all.
+- `supabase/migrations/` — the schema, in the repo. Every change is a file here;
+  hand-editing in the dashboard is how two policy holes got in.
 - `.scratch/` — the design history. `README.md` there says which map is **live**
   and what superseded each of the others. Exactly one map is live at a time.
 
