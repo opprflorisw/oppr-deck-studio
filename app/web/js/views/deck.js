@@ -11,23 +11,16 @@ import { icon, ibtn } from "../icons.js";
 import { deckVersionViewer } from "./viewer.js";
 import { openPersonalize } from "./personalize.js";
 import { explain, summarize } from "../verify.js";
-import { openPostEditor } from "../postedit.js";
 import { mountNote } from "../note.js";
-
-// Which kinds carry post copy. Same set artifacts.js uses; a carousel and an
-// image both go out with text above them, a deck does not.
-const SOCIAL_KINDS = new Set(["carousel", "image", "article", "post"]);
 
 // "Edit" is two jobs, and the server already knows they are two jobs:
 // `htmlcheck.mjs` allows text and attribute changes and rejects everything
 // structural. So the button says so out loud rather than sending you to one
 // editor that refuses half of what you came to do.
 //
-// Only a deck has a slide sorter — a carousel or a social image is not composed
-// from library slides, so it keeps the single door it always had.
-function editDoors(deck) {
-  const isDeck = !deck.kind || deck.kind === "deck";
-  if (!isDeck) return `<button class="primary" id="edit">${ibtn("compose", "Edit")}</button>`;
+// This page only ever shows DECKS now: a social artifact routes to post.js,
+// which is why there is no social branch left here.
+function editDoors() {
   return `
     <span class="split-btn">
       <button class="primary" id="edit-slides" title="Which slides, and in what order">
@@ -82,8 +75,7 @@ export async function renderDetail(id, mount) {
         </div>
         <div class="deck-actions">
           <button class="ghost" id="open">${ibtn("preview", "Open")}</button>
-          ${editDoors(deck)}
-          ${SOCIAL_KINDS.has(deck.kind) ? `<button class="ghost" id="posttext">${ibtn("text", "Post text")}</button>` : ""}
+          ${editDoors()}
           <button class="ghost" id="download">${ibtn("download", "Download PDF")}</button>
           <button class="ghost" id="rename">${ibtn("compose", "Rename")}</button>
           ${deck.is_master ? `<button class="ghost" id="personalize">${ibtn("clone", "Personalize")}</button>` : ""}
@@ -119,8 +111,6 @@ export async function renderDetail(id, mount) {
     try { await api.patchDeck(deck.id, { starred: next }); await loadBackend(api); }
     catch (err) { deck.starred = !next; btn.classList.toggle("on", !next); toast(err.message || "could not save the star"); }
   });
-  $("#posttext", wrap)?.addEventListener("click", () =>
-    openPostEditor(deck, deck.post_text || "", (text) => { deck.post_text = text; }));
   $("#back", wrap).addEventListener("click", () => history.length > 1 ? history.back() : go("/output/masters"));
   $("#open", wrap).addEventListener("click", () => deckVersionViewer(api, deck.id, cur, decodeEntities(deck.title), versions.find((v) => v.n === cur)?.has_pdf));
   $("#edit", wrap).addEventListener("click", () => go(`/deck/${deck.id}/edit`));

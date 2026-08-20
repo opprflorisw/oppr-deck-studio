@@ -57,8 +57,14 @@ Named honestly rather than quietly dropped:
 - **Phase 5 (content) is partly done.** Recipes are de-staled and the docs gate
   enforces it. BRAND.md's vocabulary, the back-cover contact variables, the
   inline-SVG conversion and the `why`/`with` mirror are not.
-- **The four failing artifacts are not fixed** — three square carousels and the
-  Holliday image in a public one. Both need a decision, not a patch.
+- **Three of the four failing artifacts are fixed (2026-08-20)** — the "square
+  PDF declared 4:5" carousels were genuinely square documents (`carousel--square`
+  in the HTML, PDFs faithful); the LABEL was the error. Each got a corrected
+  version (`page_format: square-1x1`) via `publish_version`, immutability
+  intact. **One remains, on purpose**: `2026-07-23_no-hardware-no-rip-and-replace`
+  still FAILs for the Holliday-entitled image inside a public carousel — that is
+  a content decision (was it ever posted; swap the image or archive it), not a
+  patch, and it stays red until Floris makes it.
 
 ### The next three things
 
@@ -66,7 +72,7 @@ Named honestly rather than quietly dropped:
    shelled-to tools, then delete the frozen set. That closes D1 properly.
 2. Point the app's builder at `deck_drafts` and merge Personalize into
    start-from-master, so the browser and the connector are the same product.
-3. Decide on the four failing artifacts, and on O-1..O-4 below.
+3. Decide on the Holliday carousel (the one remaining FAIL), and on O-1..O-4 below.
 
 ---
 
