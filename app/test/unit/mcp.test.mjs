@@ -1,4 +1,5 @@
 // The MCP door: protocol shape, the read/write split, and what a failure says.
+import "./_env.mjs"; // before the libs, so their env cache sees the fakes
 import test from "node:test";
 import assert from "node:assert/strict";
 import { TOOLS, isWriteTool, negotiate, SUPPORTED_VERSIONS, INSTRUCTIONS,

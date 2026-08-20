@@ -4,6 +4,7 @@
 // token returns null, and every null becomes the same 401. These tests hold it
 // to that, especially for claims that used to be checked only when present —
 // a token that simply omitted `exp` never expired.
+import "./_env.mjs"; // before the libs, so their env cache sees the fakes
 import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";

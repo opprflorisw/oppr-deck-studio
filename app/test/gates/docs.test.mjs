@@ -49,6 +49,11 @@ function claimedPaths(text) {
 // Build scratch and generated trees are legitimately absent in a clean clone.
 const ABSENT_OK = /^(decks|social|references|dump|node_modules|library\/kit|brand\/kit|brand\/fonts-static|research\/last30days\/(posts|runs))\//;
 
+// Generated FILES a clean clone lacks (the trees above cover the rest). Each
+// doc that names one says it is generated and gitignored; the gate exists to
+// catch paths that should exist and do not, not paths that exist on demand.
+const ABSENT_OK_FILES = new Set(["app/index.json"]);
+
 // A doc whose subject is a subfolder writes paths relative to THAT, not to
 // itself: research/CLAUDE.md documents research/last30days/ and says
 // `posts/_status.json`. Stated once here rather than bending the prose to suit
@@ -60,7 +65,7 @@ test("every repo path named in a doc exists", () => {
   for (const doc of ALL_DOCS) {
     const here = DOC_BASE[doc] || path.posix.dirname(doc.replace(/\\/g, "/"));
     for (const p of claimedPaths(read(doc))) {
-      if (ABSENT_OK.test(p)) continue;
+      if (ABSENT_OK.test(p) || ABSENT_OK_FILES.has(p)) continue;
       // A doc may name a path relative to itself (app/README.md writes
       // `lib/verify.mjs`) or from the repo root. Either resolves.
       const asRelative = here === "." ? p : path.posix.join(here, p);
