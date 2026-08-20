@@ -435,6 +435,20 @@ mirror that did not update.
   rule covers what an artifact carries *about* itself: the note, the star and the
   channel copy (`post_text`) are columns on the `decks` row, not a side table,
   and none of them makes a version.
+
+  **A LinkedIn publication is one page, and social shows no versions (2026-08-20).**
+  A social artifact opens `app/web/js/views/post.js` instead of the deck page:
+  the **visual** (carousel pages / the image / the article's paired
+  `<slug>-hero`, which renders inside its article and is hidden from the lists),
+  the **post** (short form, `post_text`), the **article** (long form, copied
+  with formatting into LinkedIn's article editor — an article never ships as a
+  PDF), and the **posted** state (`publish_log`: date + link) on top. The
+  storage did not change — every save is still an immutable `deck_versions`
+  row — but the page shows no version timeline, no master tag, no Personalize:
+  a post is viewed, updated, posted and removed, not version-managed. Downloads
+  are kind-appropriate: a carousel ships its PDF (what LinkedIn takes for a
+  document post), an image ships a full-resolution PNG
+  (`/api/decks/:id/versions/:n/png`), an article ships nothing.
 - **One verify gate, several rule sets.** `tools/verifylib.py` is the single
   source. The brand rules (no em dashes, no unfilled placeholders, no
   customer-name leak, image entitlement ≤ clearance, European numbers, `oppr` in

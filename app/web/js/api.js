@@ -113,6 +113,8 @@ export const getDeckVersionHtml = (id, n) =>
   authedFetch(`/api/decks/${id}/versions/${n}/html`).then((r) => { if (!r.ok) throw new Error("no version"); return r.text(); });
 export const deckViewUrl = (id, n) => `/api/decks/${id}/versions/${n}/view`;
 export const deckPdfUrl = (id, n) => `/api/decks/${id}/versions/${n}/pdf`;
+// Page 1 at full page-format resolution -- the download for a social image.
+export const deckPngUrl = (id, n) => `/api/decks/${id}/versions/${n}/png`;
 export const saveDeckVersion = (id, html, change_note) => jpost(`/api/decks/${id}/versions`, { html, change_note });
 export const restoreDeckVersion = (id, n) => jpost(`/api/decks/${id}/restore`, { n });
 export const setDeckMaster = (id, is_master) => jpost(`/api/decks/${id}/master`, { is_master });

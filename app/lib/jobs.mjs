@@ -408,26 +408,31 @@ export function pdfNameFor(deck) {
 // tell one carousel from another in a list. This fills the gap lazily: cache
 // first, then Storage, then render from the version's PDF and upload so the next
 // caller (and a fresh cache) gets it for free.
-export async function ensureThumbs(deckId, n) {
+// `page` asks for a specific page's thumbnail. Page 1 existing does NOT mean
+// the rest do — an earlier caller may have rendered or downloaded only p1 —
+// so the early exit checks the page actually asked for, and a miss falls
+// through to the PDF render, which produces every page at once.
+export async function ensureThumbs(deckId, n, page = 1) {
   const thumbDir = path.join(CACHE_ROOT, deckId, "thumbs", `v${n}`);
   const p1 = path.join(thumbDir, "p1.png");
-  if (fs.existsSync(p1)) return p1;
+  const want = page === 1 ? p1 : path.join(thumbDir, `p${page}.png`);
+  if (fs.existsSync(want)) return want;
 
   await fsp.mkdir(thumbDir, { recursive: true });
 
   // Already rendered on some earlier run, just not on this disk.
   try {
-    const data = await db.download(`decks/${deckId}/thumbs/v${n}/p1.png`);
+    const data = await db.download(`decks/${deckId}/thumbs/v${n}/p${page}.png`);
     if (data?.length) {
-      await fsp.writeFile(p1, data);
-      return p1;
+      await fsp.writeFile(want, data);
+      return want;
     }
   } catch { /* not in Storage yet — render it below */ }
 
   const pdfPath = isServerless ? null : await materializePdf(deckId, n);
   if (pdfPath) {
     const r = await runPython([path.join(TOOLS, "pdf-thumbs.py"), pdfPath, thumbDir]);
-    if (r.code !== 0 || !fs.existsSync(p1)) return null;
+    if (r.code !== 0 || !fs.existsSync(want)) return null;
   } else {
     // No PDF: a social image never had one, and a version saved in the editor
     // has none until it is printed. Screenshot page 1 from the HTML instead, so
@@ -448,7 +453,7 @@ export async function ensureThumbs(deckId, n) {
     }
   } catch { /* the local copy is enough to serve this request */ }
 
-  return p1;
+  return fs.existsSync(want) ? want : null;
 }
 
 // --- the job -----------------------------------------------------------------

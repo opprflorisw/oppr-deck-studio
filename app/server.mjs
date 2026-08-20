@@ -1899,14 +1899,33 @@ async function handleDeckApi(req, res, url) {
       const [, id, nStr] = tm;
       if (!UUID_RE.test(id)) return send(res, 400, "bad id");
       const page = Math.max(1, Number(url.searchParams.get("page") || 1));
-      const first = await jobs.ensureThumbs(id, Number(nStr));
-      if (!first) return send(res, 404, "no thumbnail");
-      const wanted = page === 1 ? first : path.join(path.dirname(first), `p${page}.png`);
-      if (!fs.existsSync(wanted)) return send(res, 404, "no such page");
+      const wanted = await jobs.ensureThumbs(id, Number(nStr), page);
+      if (!wanted) return send(res, 404, "no thumbnail for that page");
       return serveFile(res, wanted);
     }
 
     // --- version html / view / pdf ----------------------------------------
+    // --- version PNG --------------------------------------------------------
+    // The version's page 1 at FULL page-format resolution (1080x1080, 1200x627,
+    // ...), not the list thumbnail. This is the download for a social image or a
+    // post visual: LinkedIn takes an image, and handing over a one-page PDF of
+    // an image was an answer to the wrong question.
+    let pngm = p.match(/^\/api\/decks\/([^/]+)\/versions\/(\d+)\/png$/);
+    if (pngm && req.method === "GET") {
+      const [, id, nStr] = pngm;
+      if (!UUID_RE.test(id)) return sendJson(res, 400, { error: "bad id" });
+      const rows = await db.select("decks", { id: `eq.${id}`, select: "slug,pdf_core,client_slug,is_master,type,kind" });
+      if (!rows.length) return sendJson(res, 404, { error: "no such deck" });
+      const out = path.join(CACHE_ROOT, id, "png", `v${nStr}.png`);
+      if (!fs.existsSync(out)) {
+        await fsp.mkdir(path.dirname(out), { recursive: true });
+        const dir = await materialize(id, Number(nStr));
+        await jobs.printElement(path.join(dir, "index.html"), out, "png");
+        if (!fs.existsSync(out)) return sendJson(res, 500, { error: "the image could not be rendered" });
+      }
+      return serveFile(res, out, pdfNameFor(rows[0]).replace(/\.pdf$/, ".png"));
+    }
+
     let vm = p.match(/^\/api\/decks\/([^/]+)\/versions\/(\d+)\/(html|view|pdf)$/);
     if (vm && req.method === "GET") {
       const [, id, nStr, kind] = vm;

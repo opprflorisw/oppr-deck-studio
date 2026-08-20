@@ -171,6 +171,13 @@ export async function assembledViewer(indexPath, title, pdf = null, image = null
 export async function deckVersionViewer(api, deckId, n, title, hasPdf = false) {
   const html = await api.authedFetch(api.deckViewUrl(deckId, n)).then((r) => r.text());
   const { pages } = pagesFromHtml(html, `/deck-cache/${deckId}/v${n}/`);
+  // A FLOWING document (an article) has no .deck/.carousel container, so the
+  // page splitter finds nothing -- which used to make the eye button a silent
+  // no-op. A flowing document's viewer is the browser: open it in a tab.
+  if (!pages.length) {
+    window.open(api.deckViewUrl(deckId, n), "_blank", "noopener");
+    return;
+  }
   openDeckViewer(pages, {
     title,
     // Always offer the PDF: the endpoint prints on demand when this version has

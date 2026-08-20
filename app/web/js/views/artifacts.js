@@ -263,7 +263,12 @@ export function renderSocial(category) {
 }
 
 function socialBody(box, category) {
-  let all = (state.backend.decks || []).filter(isSocial);
+  // A `<slug>-hero` image is a FACET of its article — the visual that ships
+  // with the post — not a publication of its own. It renders inside the
+  // article's page; listing it here made one LinkedIn post read as two rows
+  // with the same copy.
+  let all = (state.backend.decks || []).filter(isSocial)
+    .filter((d) => d.page_format !== "hero-1200x627");
   if (category && category !== "all") {
     all = all.filter((d) => catOf(d) === category || (category === "post" && d.kind === "article"));
   }
@@ -439,6 +444,12 @@ export function artifactRow(d) {
     : "no pages counted";
   const when = (d.updated_at_version || d.updated_at || "").slice(0, 10);
   const who = d.updated_by || d.created_by || "";
+  // The download an artifact actually ships as: a deck and a carousel are PDFs
+  // (a carousel PDF is what LinkedIn takes for a document post), an image is a
+  // PNG, and an article is neither -- its long form is copied as text on its
+  // own page, and the seven-page print of a reading document is nobody's
+  // deliverable.
+  const dl = isDeck(d) || d.kind === "carousel" ? "pdf" : d.kind === "image" ? "png" : "";
 
   const row = el(`
     <div class="deck-row artifact-row ${d.starred ? "is-starred" : ""}">
@@ -476,7 +487,9 @@ export function artifactRow(d) {
           <div class="row-actions">
             <button class="ghost sm act-open">${ibtn("preview", "Open")}</button>
             ${social ? `<button class="ghost sm act-post">${ibtn("text", "Post text")}</button>` : ""}
-            <button class="ghost sm act-dl">${ibtn("download", "PDF")}</button>
+            ${dl === "pdf" ? `<button class="ghost sm act-dl">${ibtn("download", "PDF")}</button>` : ""}
+            ${dl === "png" ? `<a class="ghost sm" href="${esc(api.deckPngUrl(d.id, d.current_version_n))}"
+                                download onclick="event.stopPropagation()">${ibtn("download", "PNG")}</a>` : ""}
           </div>
         </div>
       </div>

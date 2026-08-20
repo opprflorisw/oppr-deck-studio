@@ -1,0 +1,357 @@
+// A LinkedIn publication, on one page (2026-08-20).
+//
+// One post on LinkedIn is up to three things: the SHORT form (the post copy),
+// the LONG form (the article body, pasted into LinkedIn's own article editor),
+// and the VISUAL that ships with either (a one-page image, or a carousel PDF
+// for a document post). The old UI scattered those over three surfaces — an
+// article row, a separate `-hero` image row, and a Post text button — and then
+// dressed the whole thing in a deck's clothes: a version timeline, Make master,
+// Personalize, and a Download PDF that handed over a seven-page print of a
+// reading document nobody will ever send.
+//
+// This page is the social artifact's home instead of deck.js. What changed:
+//
+// - **No version timeline.** A post is not a deck: once it is out, it is out.
+//   Every save underneath is still an immutable `deck_versions` row (the one
+//   artifact model is untouched; the storage did not change), but the page
+//   shows one current thing you view, update, post and remove — not a history
+//   to manage.
+// - **The right download per kind.** A carousel offers its PDF, because a PDF
+//   is what LinkedIn takes for a document post. An image and a post visual
+//   offer a full-resolution PNG. An article offers NO file at all: its long
+//   form is copied, with formatting, into LinkedIn's article editor.
+// - **The hero is a facet, not a sibling.** `publish-article.py` published each
+//   article's 1200x627 visual as its own row named `<slug>-hero`. That row now
+//   renders inside its article's page as "the visual", and the social lists
+//   hide it, so one publication reads as one thing.
+// - **Posted is on the page.** The same publish_log entry the list's checkbox
+//   writes, with the date and the post's link, where you finish the work.
+
+import { $, $$, el, esc, decodeEntities, toast, todayISO } from "../util.js";
+import { state, loadBackend } from "../state.js";
+import * as api from "../api.js";
+import { go } from "../router.js";
+import { icon, ibtn } from "../icons.js";
+import { deckVersionViewer } from "./viewer.js";
+import { openPostEditor } from "../postedit.js";
+import { mountNote } from "../note.js";
+import { offlinePanel } from "./deck.js";
+
+export const SOCIAL_KINDS = new Set(["carousel", "image", "article", "post"]);
+
+// What each kind is, in the words the page uses. `visual` says what the
+// shipping file is; article has none — its deliverable is text.
+const KIND_WORDS = {
+  carousel: { label: "Carousel", visual: "The pages, downloaded as the PDF LinkedIn takes for a document post." },
+  image: { label: "Image", visual: "One page, downloaded as a full-resolution PNG." },
+  article: { label: "Article", visual: "The one-page visual that goes out with the post or the article." },
+  post: { label: "Post", visual: "The one-page visual that goes out with the post." },
+};
+
+// The `-hero` image row an article was published beside. Pairing is by the slug
+// convention publish-article.py used; a publication without one simply has no
+// visual yet.
+const heroFor = (deck) =>
+  (state.backend.decks || []).find((d) => d.kind === "image" && d.slug === `${deck.slug}-hero`);
+
+export async function renderDetail(id, mount) {
+  mount(el(`<div class="loading">Loading…</div>`));
+  let data;
+  try { data = await api.getDeck(id); }
+  catch { return mount(offlinePanel("Post")); }
+  const { deck } = data;
+  const cur = deck.current_version_n;
+  // page_count is a fact about the current VERSION; the deck row does not carry
+  // it. Without this a ten-page carousel showed a one-page strip.
+  deck.page_count = data.versions?.find((v) => v.n === cur)?.page_count || deck.page_count || 1;
+  const words = KIND_WORDS[deck.kind] || KIND_WORDS.post;
+  const hero = deck.kind === "article" || deck.kind === "post" ? heroFor(deck) : null;
+  // The visual lives on its own row for a paired article, and on this row for
+  // a carousel or an image. One variable, so every control below agrees.
+  const vis = hero || deck;
+  const visCur = hero ? hero.current_version_n : cur;
+
+  let log = {};
+  try { log = await api.getSocialStatus(); } catch { /* posted bar says so */ }
+
+  const wrap = el(`
+    <div>
+      <div class="detail-head">
+        <button class="ghost" id="back">${ibtn("prev", "Back")}</button>
+      </div>
+      <div class="deck-detail-head">
+        <div class="deck-id">
+          <div class="row-title">
+            <button class="star-btn ${deck.starred ? "on" : ""}" id="star"
+                    aria-pressed="${deck.starred ? "true" : "false"}"
+                    title="${deck.starred ? "Starred — click to remove" : "Star this so it sorts first"}">${icon("star", 18)}</button>
+            <h1>${esc(decodeEntities(deck.title))}</h1>
+          </div>
+          <div class="cust-meta">
+            <span class="badge">${esc(words.label)}</span>
+            ${deck.archived ? `<span class="pill-status draft">removed</span>` : ""}
+            <span class="mono note">${esc(deck.slug)}</span>
+          </div>
+          <div class="row-note detail-note"></div>
+        </div>
+        <div class="deck-actions">
+          <button class="ghost" id="rename">${ibtn("compose", "Rename")}</button>
+          <button class="ghost ${deck.archived ? "" : "danger"}" id="remove"
+                  title="${deck.archived
+                    ? "Bring it back into the lists"
+                    : "Take it out of every list. Nothing is deleted; it can be brought back."}">
+            ${deck.archived ? ibtn("history", "Bring back") : ibtn("trash", "Remove")}</button>
+        </div>
+      </div>
+
+      <div id="posted-bar"></div>
+
+      <div class="section-head"><h2>The visual</h2></div>
+      <p class="note">${esc(words.visual)}</p>
+      <div id="visual"></div>
+
+      <div class="section-head"><h2>The post</h2><span class="section-count">short form</span></div>
+      <div id="short"></div>
+
+      ${deck.kind === "article" ? `
+        <div class="section-head"><h2>The article</h2><span class="section-count">long form</span></div>
+        <p class="note">Copied into LinkedIn's own article editor, headings and bold intact.
+          There is no PDF of an article: it is a text you publish, not a file you send.</p>
+        <div id="long"></div>` : ""}
+    </div>`);
+
+  mountNote(wrap, deck, { placeholder: "Add a note (shown in the overview)…" });
+  $("#back", wrap).addEventListener("click", () => history.length > 1 ? history.back() : go("/social/all"));
+  $("#star", wrap).addEventListener("click", async (e) => {
+    const next = !deck.starred;
+    deck.starred = next;
+    e.currentTarget.classList.toggle("on", next);
+    try { await api.patchDeck(deck.id, { starred: next }); await loadBackend(api); }
+    catch (err) { deck.starred = !next; e.currentTarget.classList.toggle("on", !next); toast(err.message); }
+  });
+  $("#rename", wrap).addEventListener("click", () => openRename(deck, () => renderDetail(id, mount)));
+  $("#remove", wrap).addEventListener("click", async () => {
+    const next = !deck.archived;
+    try {
+      await api.patchDeck(deck.id, { archived: next });
+      await loadBackend(api);
+      toast(next ? "Removed from the lists. Nothing is deleted — Bring back undoes it." : "Back in the lists.");
+      renderDetail(id, mount);
+    } catch (e) { toast(e.message || "could not change that"); }
+  });
+
+  $("#posted-bar", wrap).append(postedBar(deck, log[deck.slug]));
+  $("#visual", wrap).append(visualPanel(deck, vis, visCur, hero));
+  $("#short", wrap).append(shortPanel(deck, wrap));
+
+  if (deck.kind === "article") {
+    $("#long", wrap).append(longPanel(deck, cur));
+  }
+
+  mount(wrap);
+}
+
+// ------------------------------------------------------------------- posted
+
+// The same publish_log entry as the list's checkbox, with the two facts worth
+// keeping once it is out: when, and the link to the live post. Saved on change,
+// like every other small fact in the app.
+function postedBar(deck, entry) {
+  const posted = entry?.status === "posted";
+  const box = el(`
+    <div class="posted-bar ${posted ? "is-on" : ""}">
+      <label class="posted-check">
+        <input type="checkbox" ${posted ? "checked" : ""}>
+        <b>${posted ? "Posted" : "Not posted yet"}</b>
+      </label>
+      <label class="posted-field">on
+        <input type="date" value="${esc(entry?.posted_date || "")}" ${posted ? "" : "disabled"}></label>
+      <label class="posted-field posted-url">link
+        <input type="url" placeholder="https://www.linkedin.com/…" value="${esc(entry?.url || "")}" ${posted ? "" : "disabled"}></label>
+      ${posted && entry?.url ? `<a class="ghost sm" href="${esc(entry.url)}" target="_blank" rel="noopener">${ibtn("open", "Open the post")}</a>` : ""}
+    </div>`);
+
+  const check = $("input[type=checkbox]", box);
+  const date = $("input[type=date]", box);
+  const url = $("input[type=url]", box);
+  const save = async () => {
+    try {
+      const r = await api.putSocialStatus(deck.slug, {
+        status: check.checked ? "posted" : "draft",
+        posted_date: check.checked ? (date.value || todayISO()) : "",
+        url: check.checked ? url.value.trim() : "",
+      });
+      box.replaceWith(postedBar(deck, r.entry));
+    } catch (e) { toast(e.message || "could not save the posted state"); }
+  };
+  check.addEventListener("change", () => { if (check.checked && !date.value) date.value = todayISO(); save(); });
+  date.addEventListener("change", save);
+  url.addEventListener("change", save);
+  return box;
+}
+
+// ------------------------------------------------------------------- visual
+
+// `vis` is the row that HOLDS the visual: the artifact itself for a carousel or
+// an image, the paired hero row for an article. Preview from the same lazy
+// thumb endpoint the lists use; the download is the kind-appropriate file.
+function visualPanel(deck, vis, visN, hero) {
+  if (deck.kind === "article" && !hero) {
+    return el(`<div class="facet-panel"><p class="note">No visual yet. The hero is built by an
+      owner beside the article (a <span class="mono">&lt;slug&gt;-hero</span> image); once it is
+      published it appears here.</p></div>`);
+  }
+  const isCarousel = vis.kind === "carousel";
+  const pages = Number(vis.page_count) || 1;
+  const strip = isCarousel && pages > 1
+    ? Array.from({ length: pages }, (_, i) =>
+        `<img class="vis-page" loading="lazy" alt="page ${i + 1}"
+              src="/api/decks/${esc(vis.id)}/versions/${visN}/thumb?page=${i + 1}">`).join("")
+    : `<img class="vis-one" alt="the visual" src="/api/decks/${esc(vis.id)}/versions/${visN}/thumb">`;
+
+  const box = el(`
+    <div class="facet-panel">
+      <div class="vis-strip">${strip}</div>
+      <div class="row-actions">
+        <button class="ghost sm" id="v-view">${ibtn("preview", "View full size")}</button>
+        ${isCarousel
+          ? `<button class="ghost sm" id="v-pdf">${ibtn("download", "Download PDF")}</button>`
+          : `<a class="ghost sm" href="${esc(api.deckPngUrl(vis.id, visN))}" download>${ibtn("download", "Download PNG")}</a>`}
+        <button class="ghost sm" id="v-edit" title="Words, spacing and images, in place">${ibtn("text", "Edit the visual")}</button>
+      </div>
+    </div>`);
+
+  // A page that cannot be rendered here (hosted, never printed) hides rather
+  // than sitting in the strip as a broken image; View full size still works.
+  $$("img", box).forEach((img) => img.addEventListener("error", () => img.remove()));
+
+  $("#v-view", box).addEventListener("click", () =>
+    deckVersionViewer(api, vis.id, visN, decodeEntities(vis.title || deck.title)));
+  $("#v-edit", box).addEventListener("click", () => go(`/deck/${vis.id}/edit`));
+  $("#v-pdf", box)?.addEventListener("click", async (e) => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    try { toast(`Downloaded ${await api.downloadDeckPdf(vis.id, visN)}`); }
+    catch (err) { toast(err.message || "could not download"); }
+    finally { b.disabled = false; }
+  });
+  return box;
+}
+
+// --------------------------------------------------------------- short form
+
+function shortPanel(deck, wrap) {
+  const text = deck.post_text || "";
+  const count = Array.from(text).length;
+  const box = el(`
+    <div class="facet-panel">
+      ${text
+        ? `<div class="post-copy">${esc(text)}</div>
+           <p class="note">${count} / 3000 characters</p>`
+        : `<p class="note">No post copy yet. This is the text above the visual in the feed —
+           the hook, the point, the hashtags.</p>`}
+      <div class="row-actions">
+        <button class="ghost sm" id="s-edit">${ibtn("compose", text ? "Edit the post" : "Write the post")}</button>
+        ${text ? `<button class="ghost sm" id="s-copy">${ibtn("copy", "Copy")}</button>` : ""}
+      </div>
+    </div>`);
+  $("#s-edit", box).addEventListener("click", () =>
+    openPostEditor(deck, deck.post_text || "", (t) => {
+      deck.post_text = t;
+      box.replaceWith(shortPanel(deck, wrap));
+    }));
+  $("#s-copy", box)?.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(deck.post_text || "");
+    toast("Post copied. Paste it into LinkedIn.");
+  });
+  return box;
+}
+
+// ---------------------------------------------------------------- long form
+
+// The article, rendered as the reading document it is (the /view endpoint,
+// which the browser can scroll — a flowing text has no pages to flip). Copy
+// puts the body on the clipboard as text/html AND text/plain, so pasting into
+// LinkedIn's article editor keeps headings, bold and links.
+function longPanel(deck, n) {
+  const box = el(`
+    <div class="facet-panel">
+      <iframe class="article-frame" src="${esc(api.deckViewUrl(deck.id, n))}" title="The article"></iframe>
+      <div class="row-actions">
+        <button class="ghost sm" id="l-copy">${ibtn("copy", "Copy the article")}</button>
+        <button class="ghost sm" id="l-open">${ibtn("open", "Open in a tab")}</button>
+        <button class="ghost sm" id="l-edit" title="Words, spacing and images, in place">${ibtn("text", "Edit the article")}</button>
+      </div>
+    </div>`);
+  $("#l-open", box).addEventListener("click", () => window.open(api.deckViewUrl(deck.id, n), "_blank", "noopener"));
+  $("#l-edit", box).addEventListener("click", () => go(`/deck/${deck.id}/edit`));
+  $("#l-copy", box).addEventListener("click", async (e) => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    try {
+      const html = await api.getDeckVersionHtml(deck.id, n);
+      const { rich, plain } = articleBody(html);
+      // ClipboardItem carries both flavours; the paste target picks. Fall back
+      // to plain text where the API is not available (http, older browsers).
+      if (window.ClipboardItem) {
+        await navigator.clipboard.write([new ClipboardItem({
+          "text/html": new Blob([rich], { type: "text/html" }),
+          "text/plain": new Blob([plain], { type: "text/plain" }),
+        })]);
+      } else {
+        await navigator.clipboard.writeText(plain);
+      }
+      toast("Article copied. Paste it into LinkedIn's article editor.");
+    } catch (err) { toast(err.message || "could not copy"); }
+    finally { b.disabled = false; }
+  });
+  return box;
+}
+
+// The article body, stripped of what only makes sense on the rendered page: the
+// wordmark and the page footer. Everything else — headings, paragraphs, lists,
+// stats, sources — is the article and travels with the paste.
+function articleBody(html) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  for (const sel of [".awm", ".afoot"]) doc.querySelectorAll(sel).forEach((n) => n.remove());
+  const sections = [...doc.querySelectorAll("section")];
+  const root = sections.length ? sections : [doc.body];
+  const rich = root.map((s) => s.innerHTML).join("\n");
+  const plain = root.map((s) => s.innerText || s.textContent || "").join("\n\n")
+    .replace(/\n{3,}/g, "\n\n").trim();
+  return { rich, plain };
+}
+
+// ------------------------------------------------------------------- rename
+
+// The lean rename for a social artifact: the title, and the filename core for
+// the kinds that ship a file. No master naming rules here — social is never a
+// master and never carries a client slug.
+function openRename(deck, done) {
+  const m = el(`<div class="modal"><div class="modal-box">
+    <header><b>Rename</b><button class="ghost icon-only close" title="Close">${icon("close")}</button></header>
+    <div class="modal-body">
+      <div class="field"><label for="r-title">Title</label>
+        <input id="r-title" type="text" value="${esc(decodeEntities(deck.title))}" maxlength="200"></div>
+      <div class="field"><label for="r-core">Filename</label>
+        <input id="r-core" type="text" value="${esc(deck.pdf_core || "")}" placeholder="leave empty to derive from the slug">
+        <p class="note">The middle of the downloaded file's name. The date and
+          <span class="mono">oppr</span> stay automatic.</p></div>
+      <div class="modal-actions"><button class="primary" id="r-save">Save</button></div>
+    </div>
+  </div></div>`);
+  const close = () => m.remove();
+  $(".close", m).addEventListener("click", close);
+  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  $("#r-save", m).addEventListener("click", async () => {
+    try {
+      await api.renameDeck(deck.id, { title: $("#r-title", m).value, pdf_core: $("#r-core", m).value });
+      close();
+      await loadBackend(api);
+      toast("Renamed.");
+      done();
+    } catch (e) { toast(e.message || "rename failed"); }
+  });
+  document.body.append(m);
+  setTimeout(() => $("#r-title", m).focus(), 30);
+}

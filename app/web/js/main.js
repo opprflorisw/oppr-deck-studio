@@ -16,6 +16,7 @@ import * as artifacts from "./views/artifacts.js";
 import * as accounts from "./views/accounts.js";
 import * as customers from "./views/customers.js";
 import * as deck from "./views/deck.js";
+import * as post from "./views/post.js";
 import * as editor from "./views/editor.js";
 import * as knowledge from "./views/knowledge.js";
 import * as settings from "./views/settings.js";
@@ -143,8 +144,16 @@ async function boot() {
   route("/customers/new", () => mount(customers.renderNew()));
   route("/customers/:slug", (slug) => mount(customers.renderDetail(slug)));
 
-  // Deck detail + editor (backend decks; standalone pages, no tabbar).
-  route("/deck/:id", (id) => deck.renderDetail(id, mount));
+  // Artifact detail + editor (standalone pages, no tabbar). One URL, two homes:
+  // a social artifact (a LinkedIn publication) opens its combined post page —
+  // the visual, the short form, the long form, the posted state, no version
+  // timeline — and a deck opens the deck page. Kind decides, so a saved link
+  // keeps working whichever it points at.
+  route("/deck/:id", (id) => {
+    const d = (state.backend.decks || []).find((x) => x.id === id);
+    if (d && post.SOCIAL_KINDS.has(d.kind)) return post.renderDetail(id, mount);
+    return deck.renderDetail(id, mount);
+  });
   route("/deck/:id/edit", (id) => editor.render(id, mount));
 
   // Area pages (title + tabs + body).
