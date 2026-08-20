@@ -6,6 +6,12 @@
 // Decks and Social output used to share one "Output" area, which buried both a
 // tab deep and left no room to split social by what the piece actually is. They
 // are now siblings in the sidebar, and Social output's tabs are its categories.
+//
+// **Deck builder is not an area** (2026-08-20). It was one, and its page listed
+// the same decks as Decks with less on each row, so the app had two deck lists
+// that disagreed. The builder is a workspace bound to a deck: you reach it by
+// opening a deck (Edit slides) or with New deck on the Decks page. A sidebar
+// entry implied it was somewhere you go, which is the thing that was wrong.
 
 // The nav is grouped by what you are doing, not by what the code calls things.
 // A flat list of seven made Accounts sit next to Knowledge as if they were the
@@ -24,7 +30,6 @@ export const NAV_GROUPS = [
 export const AREAS = [
   { id: "customers", title: "Customers", icon: "building", home: true, group: "work" },
   { id: "decks", title: "Decks", icon: "monitor", group: "work" },
-  { id: "build", title: "Deck builder", icon: "compose", group: "work" },
   { id: "social", title: "Social output", icon: "share", group: "work", tabs: [
     { id: "all", label: "All", icon: "layers" },
     { id: "carousel", label: "Carousels", icon: "cards" },

@@ -3,9 +3,14 @@
 // It is not a place you go to make things. It is a deck, opened. That single
 // change is what fixes the flow:
 //
-//   #/build            the chooser: start a new deck, or open one of yours
 //   #/build/new        a deck that does not exist yet, and publishes as v1
 //   #/build/<deck-id>  an existing deck, publishing as its next version
+//
+// There is no `#/build` landing page any more (2026-08-20). It listed the same
+// decks as the Decks page in a poorer form — no note, no star, no verify state,
+// no page count — so the two disagreed about what a deck list looks like while
+// claiming to be one. The Decks page is the list; you reach this workspace by
+// opening a deck, or with New deck. `#/build` redirects there.
 //
 // **A version can only come from a deck.** There is no "new version of"
 // dropdown any more, because that let you conjure v4 of the Management Outlook
@@ -33,9 +38,9 @@ import { icon, ibtn } from "../icons.js";
 import { previewFrame, fetchFragment } from "../preview.js";
 import { openDeckViewer, recipePages } from "./viewer.js";
 import { openNewDeck } from "./builder-new.js";
+import { DECK_TYPES, knownType } from "../decktypes.js";
+import { localDrafts, writeLocalDrafts } from "../drafts.js";
 import { openPublish } from "./builder-publish.js";
-
-const LOCAL_KEY = "oppr.builder.drafts.v3";
 
 let model = null;   // { chapters, slidesById }
 let work = null;    // the working deck (see blankWork)
@@ -81,14 +86,9 @@ function pickableNow(s) {
 }
 
 // ---------------------------------------------------------------- persistence
-
-function localDrafts() {
-  try { return JSON.parse(localStorage.getItem(LOCAL_KEY) || "{}"); }
-  catch { return {}; }
-}
-function writeLocalDrafts(all) {
-  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(all)); } catch { /* private mode */ }
-}
+//
+// An unpublished deck's draft lives in `../drafts.js` because the Decks page
+// lists them too, and neither page should have to import the other to do it.
 
 let saveTimer = null;
 // A draft is saved where it belongs: an existing deck's working recipe goes to
@@ -449,96 +449,16 @@ function applyRecipe(recipe) {
   work.order = [...explicit, ...seeded.filter((s) => !explicit.includes(s))];
 }
 
-// ---------------------------------------------------------------- the chooser
+// ---------------------------------------------------------------- starting one
 
-export async function renderChooser(mount) {
-  mountRef = mount;
-  const decks = (state.backend.decks || []).filter((d) => !d.kind || d.kind === "deck");
-  const drafts = Object.entries(localDrafts())
-    .sort((a, b) => String(b[1].saved_at || "").localeCompare(String(a[1].saved_at || "")));
-
-  const wrap = el(`<div class="wrap">
-    <div class="head">
-      <h2>${icon("compose", 20)} Deck builder</h2>
-      <span class="tmuted">Start a deck, or open one to make its next version.</span>
-    </div>
-
-    <div class="bchoose-top">
-      <button class="btn" id="c-new">${ibtn("newfile", "New deck")}</button>
-      <span class="tmuted">A new deck publishes as v1. Every later version comes
-        from opening a deck and changing it.</span>
-    </div>
-
-    ${drafts.length ? `
-      <div class="section-head"><h3>Not published yet</h3>
-        <span class="section-count">${drafts.length}</span></div>
-      <div class="clist">${drafts.map(([id, d]) => `
-        <div class="crow">
-          <div class="crow-b">
-            <b>${esc(decodeEntities(d.title || "Untitled"))}</b>
-            <span class="mono tmuted">${esc(d.slug || "")}</span>
-            <span class="tags">${(d.order || []).length} slide${(d.order || []).length === 1 ? "" : "s"}</span>
-            <span class="tmuted">saved ${esc(String(d.saved_at || "").slice(0, 10))}</span>
-          </div>
-          <div class="crow-a">
-            <button class="btn sm" data-open-local="${esc(id)}">Continue</button>
-            <button class="ghost sm" data-drop-local="${esc(id)}" title="Discard this draft">${icon("trash", 15)}</button>
-          </div>
-        </div>`).join("")}</div>` : ""}
-
-    <div class="section-head"><h3>Your decks</h3>
-      <span class="section-count">${decks.length}</span></div>
-    <div class="clist" id="c-decks">
-      ${decks.length ? decks.map(deckRow).join("")
-        : `<p class="tmuted">No decks yet. Start one above.</p>`}
-    </div>
-  </div>`);
-
-  $("#c-new", wrap).addEventListener("click", () => go("/build/new"));
-
-  wrap.addEventListener("click", (e) => {
-    const o = e.target.closest("[data-open-local]");
-    if (o) return go(`/build/draft/${o.dataset.openLocal}`);
-    const d = e.target.closest("[data-drop-local]");
-    if (d) {
-      const all = localDrafts();
-      delete all[d.dataset.dropLocal];
-      writeLocalDrafts(all);
-      return renderChooser(mount);
-    }
-    const k = e.target.closest("[data-open-deck]");
-    if (k) return go(`/build/${k.dataset.openDeck}`);
-  });
-
-  mount(wrap);
-}
-
-function deckRow(d) {
-  const behind = (d.behind || []).length;
-  return `
-    <div class="crow">
-      <div class="crow-b">
-        <b>${esc(decodeEntities(d.title))}</b>
-        ${d.is_master ? `<span class="badge badge--master">MASTER</span>` : ""}
-        <span class="mono tmuted">${esc(d.slug)}</span>
-        <span class="tags">v${esc(d.current_version_n)} &middot; ${esc(d.page_count || "?")} pages</span>
-        ${d.has_draft ? `<span class="pill-status draft">unpublished changes</span>` : ""}
-        ${behind ? `<span class="pill-status draft">${behind} page${behind === 1 ? "" : "s"} behind</span>` : ""}
-      </div>
-      <div class="crow-a">
-        <button class="btn sm" data-open-deck="${esc(d.id)}">Open in builder</button>
-      </div>
-    </div>`;
-}
-
-// `#/build/new` — the chooser with the create dialog already open. A separate
-// route so the act of starting a deck is linkable and survives a reload, rather
-// than existing only as a button press.
-export async function renderNew(mount) {
-  await renderChooser(mount);
-  // `?for=<customer>` is how the Customers page starts a deck: the customer is
-  // bound before composing, so the deck it publishes is filed under them rather
-  // than needing to be re-homed afterwards.
+// `#/build/new` — the create dialog, opened over whatever the router already
+// mounted (the Decks page). A separate route so the act of starting a deck is
+// linkable and survives a reload, rather than existing only as a button press.
+//
+// `?for=<customer>` is how the Customers page starts a deck: the customer is
+// bound before composing, so the deck it publishes is filed under them rather
+// than needing to be re-homed afterwards.
+export function openCreateDialog() {
   const forSlug = query().get("for") || "";
   const forCustomer = forSlug
     ? (state.backend.customers || []).find((c) => c.slug === forSlug) || null
@@ -700,12 +620,12 @@ export async function renderWorkspace(mount, { deckId = "", localId = "" } = {})
     if (!work.vars.deck_footer) work.vars.deck_footer = publishedFooter || work.title;
   } else if (localId) {
     const stored = localDrafts()[localId];
-    if (!stored) { toast("That draft is gone."); return go("/build"); }
+    if (!stored) { toast("That draft is gone."); return go("/decks"); }
     work = { ...blankWork(), ...stored, openChapters: new Set() };
     work.localId = localId;
     work.deck = null;
   } else {
-    return go("/build");
+    return go("/decks");
   }
 
   // Open the chapters this deck already draws from; leave the rest collapsed so
@@ -724,7 +644,7 @@ function shell() {
   return `
     <div class="bhead">
       <div class="bhead-top">
-        <button class="ghost sm" id="b-back">${ibtn("prev", "Deck builder")}</button>
+        <button class="ghost sm" id="b-back">${ibtn("prev", "Decks")}</button>
         <h2 id="b-headtitle">${esc(work.title || work.slug || "Untitled")}</h2>
         <span class="bhead-act">
           <button class="ghost" id="b-preview">${ibtn("preview", "Preview")}</button>
@@ -751,9 +671,9 @@ function shell() {
         <label class="wide">Title <input id="b-title" value="${esc(work.title)}"></label>
         <label class="wide narrow-control">Type
           <select id="b-type">
-            <option value="">(none)</option>
-            ${[...new Set((state.backend.decks || []).filter((x) => x.type).map((x) => x.type))]
-              .sort().map((t) => `<option ${t === work.type ? "selected" : ""}>${esc(t)}</option>`).join("")}
+            ${DECK_TYPES.map((t) => `<option value="${esc(t.id)}" ${t.id === work.type ? "selected" : ""}>${esc(t.label)}</option>`).join("")}
+            ${knownType(work.type) || !work.type ? "" :
+              `<option value="${esc(work.type)}" selected>${esc(work.type)}</option>`}
           </select></label>
         <label class="wide">Footer <input id="b-footer" value="${esc(work.vars.deck_footer)}"></label>
         <label class="wide">Cover meta <input id="b-cover" value="${esc(work.vars.cover_meta)}"></label>
@@ -812,7 +732,7 @@ function newSlidePanel() {
 // ---------------------------------------------------------------- wiring
 
 function wireWorkspace(wrap) {
-  $("#b-back", wrap).addEventListener("click", () => { save({ now: true }); go("/build"); });
+  $("#b-back", wrap).addEventListener("click", () => { save({ now: true }); go("/decks"); });
   $("#b-preview", wrap).addEventListener("click", openDeckPreview);
   $("#b-check", wrap).addEventListener("click", () => {
     if (!guard()) return;
@@ -917,8 +837,8 @@ Please:
    the intent fields goal / why / with.
 3. Add the id to library/chapters.yaml under ${cid}, in the position that reads best.
 4. Run: .\\tools\\build-slide-catalog.ps1
-5. Run: python tools\\check-docs.py --check
-6. Run: python tools\\check-drift.py --sync   (so it shows up in the deck builder)`;
+5. Run: npm test                          (the docs and chapter gates)
+6. Run: npm run studio -- sync-library    (so the hosted builder sees it)`;
   };
   const repaint = () => { $("#b-newprompt", wrap).textContent = build(); };
   $("#b-newch", wrap).addEventListener("change", repaint);

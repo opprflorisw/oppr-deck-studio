@@ -152,11 +152,13 @@ async function boot() {
   // The builder is a workspace bound to a DECK, so the deck is in the route.
   // That is what makes "a version can only come from an existing deck" a
   // structural fact rather than a dropdown someone can misuse.
-  route("/build", () => builder.renderChooser(mount));
-  route("/build/new", () => builder.renderNew(mount));      // before /build/:id
+  // There is no builder landing page: the Decks page is the list of decks, and
+  // `#/build/new` is the create dialog opened over it.
+  route("/build", () => go("/decks"));
+  route("/build/new", () => { area("decks"); builder.openCreateDialog(); });  // before /build/:id
   route("/build/draft/:id", (id) => builder.renderWorkspace(mount, { localId: id }));
   route("/build/:id", (id) => builder.renderWorkspace(mount, { deckId: id }));
-  route("/builder", () => go("/build"));           // the old single-page builder
+  route("/builder", () => go("/decks"));           // the old single-page builder
   route("/accounts", () => area("accounts"));
   route("/settings/:tab", (tab) => area("settings", tab));
   route("/social/:tab", (tab) => area("social", tab));

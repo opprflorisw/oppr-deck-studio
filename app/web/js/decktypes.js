@@ -39,8 +39,13 @@ export const DECK_TYPES = [
   },
   {
     id: "customer",
-    label: "Customer deck (generic)",
-    blurb: "The starting point for a named customer. Copy it, then make it theirs.",
+    // "Customer deck", not "Customer deck (generic)". The label names the FAMILY,
+    // and it is worn by every copy made for a named customer as well as by the
+    // one they are copied from — so "(generic)" was printed on the row of a deck
+    // that is the opposite of generic. What tells the two apart is the MASTER
+    // badge, which only the reusable one carries.
+    label: "Customer deck",
+    blurb: "The reusable one is the starting point for a named customer: copy it, then make it theirs.",
   },
   {
     id: "investor",

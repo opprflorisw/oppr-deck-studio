@@ -1,63 +1,86 @@
-// The create dialog: the five things a deck needs before you can compose it,
-// asked once.
+// The create dialog: the facts a deck is STUCK with, asked once.
 //
-// Why a dialog and not a form above the picker: these are the facts a deck is
-// STUCK with. Slug, client and clearance are inherited by every version and are
-// not re-pickable later, because a "new version" that could widen the clearance
-// or change the client would be a way around the entitlement gate rather than a
-// version of the same deck. Asking for them once, up front, is honest about
-// that; a live form field implies they are still negotiable.
+// Slug and client are inherited by every version and are not re-pickable later,
+// because a "new version" that could change the client would be a way around the
+// entitlement gate rather than a version of the same deck. Asking for them once,
+// up front, is honest about that; a live form field implies they are still
+// negotiable. Everything you CAN change later (title, footer, cover meta) lives
+// behind Deck details in the workspace.
 //
-// Everything you CAN change later (title, footer, cover meta) is deliberately
-// not here. It lives behind Deck details in the workspace.
+// **Clearance is derived, not picked** (2026-08-20). The grid of customer chips
+// that used to sit at the bottom of this dialog was a control with no meaning
+// for the person using it: `deriveClearance()` on the server recomputes it from
+// the client for everyone except an owner, so the chips an editor ticked were
+// discarded on the way in. It also asked the wrong question — a deck is cleared
+// for the customer it is for, which this dialog already knows. No deck ever
+// built has needed anything but `public` plus its own client. So the dialog
+// states the clearance as a fact and the picker greys out the same slides the
+// gate would have failed on. An owner who genuinely needs a deck cleared for two
+// customers passes `allowed_entitlements` in a recipe to `npm run studio -- build`,
+// which is still honoured.
 
-import { $, el, esc, toast, slugify, todayISO, decodeEntities, ENTITLEMENTS } from "../util.js";
+import { $, el, esc, toast, slugify, todayISO } from "../util.js";
 import { state } from "../state.js";
 import { icon } from "../icons.js";
+import { DECK_TYPES, typeLabel, typeRank, isCustomerDeck } from "../decktypes.js";
 
-// `unclassified` is in the manifest but is not a customer: it marks an image
-// nobody has made a disclosability decision about yet. Offering it as a
-// clearance would let you grant a deck permission to carry exactly the material
-// that is still undecided, so it is never a choice here. A slide that needs it
-// stays blocked in the picker until someone classifies the image in
-// brand/img/library.json.
-const NOT_A_CLEARANCE = new Set(["unclassified"]);
+// The clearance slug a customer's material carries. The server computes the same
+// string with the same rule (namescope.mjs), so what the picker greys out and
+// what the gate enforces cannot drift.
+const clearanceFor = (c) => (c ? c.clearance || c.slug : "");
 
-// Clearance slugs a deck can be given: every entitlement present in the image
-// manifest, plus every REGISTERED CUSTOMER. The manifest alone was not enough —
-// a customer registered today owns no images yet, so their own deck could not be
-// cleared for them and the leak gate had no scope to enforce. The server computes
-// `clearance` per customer with the same rule verify uses (namescope.mjs), so the
-// chip you tick here and the scope the gate enforces are the same string.
-function clearanceOptions() {
-  const seen = new Set(["public"]);
-  for (const im of state.index?.images || []) {
-    if (im.entitlement && !NOT_A_CLEARANCE.has(im.entitlement)) seen.add(im.entitlement);
+// The name a person would use for a deck row, and what to say about it in the
+// "Start from" list. A company deck is best named by its TYPE — the titles are
+// near-identical ("Oppr · Operator Intelligence · …") and the type is the part
+// that differs. A customer deck is best named by its customer.
+function baseLabel(d) {
+  const pages = `${d.page_count || "?"} pages`;
+  const stop = d.has_recipe ? "" : " — no recipe, cannot be copied";
+  if (isCustomerDeck(d)) {
+    const c = (state.backend.customers || []).find((x) => x.slug === d.client_slug);
+    const who = c?.name || d.audience_label || d.client_slug;
+    return `${who} · ${typeLabel(d.type)} (${pages})${stop}`;
   }
-  for (const c of state.backend.customers || []) {
-    const cl = c.clearance || c.slug;
-    if (cl && !NOT_A_CLEARANCE.has(cl)) seen.add(cl);
-  }
-  const known = ENTITLEMENTS.filter((e) => seen.has(e));
-  return [...known, ...[...seen].filter((e) => !known.includes(e)).sort()];
+  return `${typeLabel(d.type)} (${pages})${stop}`;
 }
 
-// Which decks can be the basis of a new one. Copying a deck copies its RECIPE,
-// so a version published before recipes existed is offered but not selectable:
-// saying why is better than hiding it and leaving you to wonder where the
-// investor deck went.
+// Which decks can be the basis of a new one, grouped and ordered exactly as the
+// Decks page groups them: company decks in registry order, then customer decks
+// by customer. Two lists that claim to show the same decks should not disagree
+// about what those decks are called or which order they come in.
+//
+// Copying a deck copies its RECIPE, so a version published before recipes
+// existed is offered but not selectable: saying why is better than hiding it and
+// leaving you to wonder where the investor deck went.
 function baseOptions() {
-  const decks = (state.backend.decks || []).filter((d) => (!d.kind || d.kind === "deck") && !d.archived);
-  const label = (d) => `${decodeEntities(d.title)} (${d.page_count || "?"} pages)`
-    + (d.has_recipe ? "" : " — no recipe, cannot be copied");
-  const opt = (d) => `<option value="${esc(d.id)}" ${d.has_recipe ? "" : "disabled"}>${esc(label(d))}</option>`;
-  const masters = decks.filter((d) => d.is_master);
-  const rest = decks.filter((d) => !d.is_master);
+  const decks = (state.backend.decks || [])
+    .filter((d) => (!d.kind || d.kind === "deck") && !d.archived);
+  const opt = (d) =>
+    `<option value="${esc(d.id)}" ${d.has_recipe ? "" : "disabled"}>${esc(baseLabel(d))}</option>`;
+
+  const company = decks.filter((d) => !isCustomerDeck(d)).sort((a, b) =>
+    typeRank(a.type) - typeRank(b.type) ||
+    Number(b.is_master) - Number(a.is_master) ||
+    String(a.title).localeCompare(String(b.title)));
+  const customer = decks.filter(isCustomerDeck).sort((a, b) =>
+    String(a.client_slug || "").localeCompare(String(b.client_slug || "")) ||
+    typeRank(a.type) - typeRank(b.type));
+
   return [
-    masters.length ? `<optgroup label="Company decks">${masters.map(opt).join("")}</optgroup>` : "",
-    rest.length ? `<optgroup label="Other decks">${rest.map(opt).join("")}</optgroup>` : "",
+    company.length ? `<optgroup label="Company decks">${company.map(opt).join("")}</optgroup>` : "",
+    customer.length ? `<optgroup label="Customer decks">${customer.map(opt).join("")}</optgroup>` : "",
   ].join("");
 }
+
+// The type list is the REGISTRY, in the registry's order — not the distinct
+// values found on existing rows. Reading it off the rows meant the dropdown
+// offered `article`, `carousel` and `image` (types belonging to social output,
+// which is not a deck) and `proposal` (one archived deck), alphabetically, so
+// the first deck type in the list was whichever one sorted earliest. A deck's
+// type says which company deck family it belongs to; the six families are known.
+const typeOptions = (sel) => DECK_TYPES
+  .map((t) => `<option value="${esc(t.id)}" ${t.id === sel ? "selected" : ""}>${esc(t.label)}</option>`)
+  .join("");
 
 /**
  * @param onCreate  called with the deck's fixed facts, plus `base_deck_id` when
@@ -68,10 +91,9 @@ function baseOptions() {
  *                  that customer's page and one that lands nowhere.
  */
 export function openNewDeck(onCreate, { forCustomer = null } = {}) {
-  const types = [...new Set((state.backend.decks || [])
-    .filter((d) => d.type).map((d) => d.type))].sort();
-  const customers = (state.backend.customers || []).map((c) => c.slug).sort();
-  const forClear = forCustomer ? (forCustomer.clearance || forCustomer.slug) : "";
+  const customers = (state.backend.customers || [])
+    .slice().sort((a, b) => String(a.name || a.slug).localeCompare(String(b.name || b.slug)));
+
   // A customer deck is a copy of the generic customer deck by default: that is
   // what the generic one is FOR, and starting a customer from a blank picker is
   // a worse default than starting from the deck you would have copied anyway.
@@ -83,59 +105,42 @@ export function openNewDeck(onCreate, { forCustomer = null } = {}) {
     <header><b>${icon("compose", 18)} New deck${forCustomer ? ` for ${esc(forCustomer.name)}` : ""}</b>
       <button class="ghost icon-only close" title="Close">${icon("close")}</button></header>
     <div class="modal-body">
-      <p class="note">A new deck publishes as <b>v1</b>. Later versions come from
-        opening it again and changing it, never from this dialog.</p>
 
       <div class="field"><label for="n-base">Start from</label>
         <select id="n-base">
           <option value="">An empty deck — pick every slide yourself</option>
           ${baseOptions()}
         </select>
-        <p class="note">Starting from a deck copies its slides and order into the
-          builder as a starting point. It is a <b>copy</b>: changing it here never
-          touches the deck you copied, and this one still publishes as its own v1.</p></div>
+        <p class="note">Copies that deck's slides and order in as a starting point.
+          It is a <b>copy</b>: changing it here never touches the deck you copied,
+          and this one still publishes as its own <b>v1</b>.</p></div>
 
       <div class="field"><label for="n-title">Title</label>
         <input id="n-title" type="text" placeholder="Oppr &middot; Management outlook" maxlength="200"
                value="${esc(forCustomer ? `Oppr · Operator Intelligence · ${forCustomer.name}` : "")}"></div>
 
-      <div class="field"><label for="n-slug">Slug</label>
+      <div class="grid2">
+        <div class="field"><label for="n-type">Type</label>
+          <select id="n-type">${typeOptions(forCustomer ? "customer" : "teaser")}</select>
+          <p class="note">Which company deck family it belongs to.</p></div>
+
+        ${forCustomer ? "" : `
+        <div class="field"><label for="n-client">Who is it for?</label>
+          <select id="n-client">
+            <option value="">No named customer — a company deck</option>
+            ${customers.map((c) => `<option value="${esc(c.slug)}">${esc(c.name || c.slug)}</option>`).join("")}
+          </select>
+          <p class="note">A customer deck is filed under them and carries their
+            slug in the PDF filename.</p></div>`}
+      </div>
+
+      <div class="field"><label for="n-slug">Filename</label>
         <input id="n-slug" type="text" placeholder="${esc(todayISO())}_management-outlook"
                value="${esc(forCustomer ? `${todayISO()}_${forCustomer.slug}` : "")}">
         <p class="note">Its permanent name in the backend, and the middle of the PDF
           filename. It cannot be changed afterwards.</p></div>
 
-      <div class="grid2">
-        <div class="field"><label for="n-type">Type</label>
-          <select id="n-type">
-            <option value="">(none)</option>
-            ${types.map((t) => `<option ${forCustomer && t === "customer" ? "selected" : ""}>${esc(t)}</option>`).join("")}
-          </select>
-          <p class="note">Which master family it belongs to.</p></div>
-
-        <div class="field"><label for="n-client">Client</label>
-          <select id="n-client" ${forCustomer ? "disabled" : ""}>
-            <option value="">(not for a named client)</option>
-            ${customers.map((c) => `<option ${forCustomer && c === forCustomer.slug ? "selected" : ""}>${esc(c)}</option>`).join("")}
-          </select>
-          <p class="note">${forCustomer
-            ? `Fixed: this deck is filed under ${esc(forCustomer.name)}.`
-            : "Adds the client slug to the PDF filename."}</p></div>
-      </div>
-
-      <div class="field"><label>Cleared for</label>
-        <div class="chips" id="n-ent">
-          ${clearanceOptions().map((e) => `
-            <label class="chipbox ${e === "public" ? "is-fixed" : ""}">
-              <input type="checkbox" value="${esc(e)}"
-                ${e === "public" ? "checked disabled" : e === forClear ? "checked" : ""}>
-              <span>${esc(e)}</span>
-            </label>`).join("")}
-        </div>
-        <p class="note">Which customers' material this deck may carry. A deck that
-          names a customer it is not cleared for is a hard verify failure, so the
-          builder greys those slides out while you pick rather than failing the
-          build. <b>public</b> is always included.</p></div>
+      <p class="derived" id="n-derived"></p>
 
       <div class="modal-actions">
         <button class="primary" id="n-go">Start composing</button>
@@ -147,54 +152,73 @@ export function openNewDeck(onCreate, { forCustomer = null } = {}) {
   $(".close", m).addEventListener("click", close);
   m.addEventListener("click", (e) => { if (e.target === m) close(); });
 
-  // Derive the slug from the title until the slug is touched by hand: the
-  // common case is a title and a date, and typing it twice is not a decision.
-  // A customer deck arrives with `<date>_<customer>` already in the box, which
-  // is a better slug than anything derived from its title would be. Treat that
-  // as chosen, so editing the title does not overwrite it.
+  // Which customer this deck is for: fixed when the Customers page opened the
+  // dialog, chosen here otherwise.
+  const chosenCustomer = () => forCustomer
+    || customers.find((c) => c.slug === ($("#n-client", m)?.value || "")) || null;
+
+  // The clearance sentence, in place of the grid of chips. It states what the
+  // server is going to derive anyway, so there is nothing to get wrong and
+  // nothing to explain: a deck carries its own customer's material and public
+  // material, and the picker greys out the rest.
+  function paintDerived() {
+    const c = chosenCustomer();
+    const cl = clearanceFor(c);
+    $("#n-derived", m).innerHTML = c
+      ? `Filed under <b>${esc(c.name || c.slug)}</b>. It may carry <b>${esc(cl)}</b> and
+         <b>public</b> material; slides naming any other customer stay greyed out in the
+         picker, because a deck that names a customer it is not cleared for is a hard
+         verification failure.`
+      : `No named customer, so it may carry <b>public</b> material only. Slides naming a
+         customer stay greyed out in the picker.`;
+  }
+
+  // Derive the filename from the title until it is touched by hand: the common
+  // case is a title and a date, and typing it twice is not a decision. A
+  // customer deck arrives with `<date>_<customer>` already in the box, which is
+  // a better name than anything derived from its title would be. Treat that as
+  // chosen, so editing the title does not overwrite it.
   let slugTouched = Boolean(forCustomer);
   $("#n-slug", m).addEventListener("input", () => { slugTouched = true; });
-  $("#n-title", m).addEventListener("input", (e) => {
+  const syncSlug = () => {
     if (slugTouched) return;
-    const core = slugify(e.target.value.replace(/^oppr\s*[·.\-]\s*/i, ""));
-    $("#n-slug", m).value = core === "untitled" ? "" : `${todayISO()}_${core}`;
-  });
-  // Picking a client implies the deck is cleared for that client; anything else
-  // and the first customer slide you pick is greyed out for no visible reason.
-  const clearFor = (v) => {
-    if (!v) return;
-    const box = [...m.querySelectorAll("#n-ent input")].find((c) => c.value === v);
-    if (box && !box.disabled) box.checked = true;
+    const c = chosenCustomer();
+    const core = c ? c.slug
+      : slugify($("#n-title", m).value.replace(/^oppr\s*[·.\-]\s*/i, ""));
+    $("#n-slug", m).value = !core || core === "untitled" ? "" : `${todayISO()}_${core}`;
   };
-  $("#n-client", m).addEventListener("change", (e) => clearFor(e.target.value));
+  $("#n-title", m).addEventListener("input", syncSlug);
+  $("#n-client", m)?.addEventListener("change", () => { paintDerived(); syncSlug(); });
 
   // Copying a deck of a type is almost always making a deck of that type, and
   // the type drives which master the workspace offers to reload picks from.
   $("#n-base", m).addEventListener("change", (e) => {
     const d = (state.backend.decks || []).find((x) => x.id === e.target.value);
-    if (d?.type && !$("#n-type", m).value) $("#n-type", m).value = d.type;
+    if (d?.type && !forCustomer) $("#n-type", m).value = d.type;
   });
   if (suggested) $("#n-base", m).value = suggested.id;
+  paintDerived();
 
   $("#n-go", m).addEventListener("click", () => {
     const title = $("#n-title", m).value.trim();
     const slug = slugify($("#n-slug", m).value.trim());
     if (!title) { toast("Give it a title."); return; }
-    if (!slug || slug === "untitled") { toast("Give it a slug."); return; }
+    if (!slug || slug === "untitled") { toast("Give it a filename."); return; }
     if ((state.backend.decks || []).some((d) => d.slug === slug)) {
-      toast("A deck already has that slug. Open it instead, or choose another.");
+      toast("A deck already has that filename. Open it instead, or choose another.");
       return;
     }
-    const allowed = [...m.querySelectorAll("#n-ent input:checked")].map((c) => c.value);
-    // A disabled <select> submits nothing, so a customer-bound deck reads its
-    // client from the customer rather than from the greyed-out control.
-    const client = forCustomer ? forCustomer.slug : $("#n-client", m).value;
+    const c = chosenCustomer();
+    const cl = clearanceFor(c);
     close();
     onCreate({
       title, slug,
       type: $("#n-type", m).value,
-      client,
-      allowed_entitlements: [...new Set(["public", ...allowed, ...(forClear ? [forClear] : [])])],
+      client: c ? c.slug : "",
+      // Exactly what deriveClearance() will compute server-side. Sending it is
+      // what lets the picker grey out the right slides before the first build;
+      // the server does not take our word for it.
+      allowed_entitlements: [...new Set(["public", ...(cl ? [cl] : [])])],
       base_deck_id: $("#n-base", m).value || "",
     });
   });

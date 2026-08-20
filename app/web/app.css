@@ -1000,20 +1000,6 @@ button.primary.full { width: 100%; justify-content: center; }
    subject of the page, and the chapters are a rail beside it whose only job is
    adding. That inversion is the whole layout decision here. */
 
-/* The chooser: start a deck, or open one to make its next version. */
-.bchoose-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 14px 0 8px; }
-.bchoose-top .tmuted { font-size: 13px; max-width: 60ch; }
-.clist { display: flex; flex-direction: column; border: 1px solid var(--line);
-  border-radius: var(--radius); background: var(--surface); overflow: hidden; }
-.clist > p { margin: 0; padding: 16px; font-size: 13.5px; }
-.crow { display: flex; align-items: center; gap: 14px; padding: 11px 14px; border-top: 1px solid var(--line); }
-.crow:first-child { border-top: none; }
-.crow:hover { background: rgba(62,104,116,.05); }
-.crow-b { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
-.crow-b b { font-size: 14.5px; }
-.crow-b .mono { font-size: 11.5px; }
-.crow-a { display: flex; gap: 6px; flex: none; }
-
 /* The workspace header: one line. Everything that is not "which slides, in what
    order" is behind Deck details, because a seven-field form above the picker is
    what made the old builder feel like paperwork. */
@@ -1165,6 +1151,19 @@ button.primary.full { width: 100%; justify-content: center; }
 .modal-box--wide { max-width: 720px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+/* The one action above a list: New deck on Decks. Its sentence sits beside it
+   rather than under it, so the button is on the same line as the list it acts
+   on and the list still starts near the top of the page. */
+.listactions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 14px; }
+.listactions .tmuted { font-size: 13px; max-width: 62ch; }
+
+/* A derived fact in a dialog, in place of the control that used to ask for it.
+   Deliberately not a field: there is nothing here to change, and a boxed input
+   would imply otherwise. */
+.derived { margin: 4px 0 0; padding: 11px 13px; font-size: 13px; line-height: 1.5;
+  border-left: 2px solid var(--machine); background: rgba(62,104,116,.06);
+  border-radius: 0 var(--radius) var(--radius) 0; color: var(--ink); }
+
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chipbox { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
   border: 1px solid var(--line); border-radius: 999px; font-size: 12.5px; cursor: pointer; }

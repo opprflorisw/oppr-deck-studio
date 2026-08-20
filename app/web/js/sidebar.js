@@ -71,8 +71,9 @@ export function markActive() {
 // Short/legacy routes (e.g. /slides, /draft) still light up their area button.
 const ALIASES = {
   library: ["/slides", "/graphics", "/icons", "/design-system", "/brand"],
-  build: ["/builder"],
-  decks: ["/output/masters"],
+  // The builder has no sidebar entry of its own: it is a deck, opened. It lights
+  // up Decks, because that is where you were and where Back returns you.
+  decks: ["/output/masters", "/build", "/builder", "/deck"],
   social: ["/social-out", "/output/social"],
   knowledge: ["/knowledge"],
   settings: ["/config", "/knowledge/config"],

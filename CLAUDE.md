@@ -67,6 +67,15 @@ should be able to build a deck from these docs alone.
    (how to add the MCP connector) and **Studio files** (the old Knowledge →
    Config browser).
 
+   **Deck builder is not a sidebar area (2026-08-20).** It was, and its landing
+   page listed the same decks as **Decks** with less on each row — no note, no
+   star, no verify chip, no page count — so the app had two deck lists that
+   disagreed about what a deck list looks like. The builder is a workspace bound
+   to a deck; a sidebar entry implied it was somewhere you go. **New deck** now
+   sits at the head of the Decks list, and the drafts that were the builder
+   page's only unique content are a **Not published yet** section there.
+   `#/build` redirects to `#/decks`.
+
    **Two kinds of deck (2026-08-05), not three.** "Masters" and "company decks"
    described how a deck was tagged rather than what it is, and in practice the
    company decks *are* the masters. So the index has **Company decks** (one
@@ -86,8 +95,9 @@ should be able to build a deck from these docs alone.
    **Edit is two doors** (2026-08-04), because the server already treats them as
    two jobs: **Edit slides** opens the deck in the **Deck builder** (which
    slides, in what order), and **Edit text** opens the in-place editor (words,
-   spacing, images). The builder is a workspace *bound to a deck* — `#/build`
-   chooses one, `#/build/<id>` is that deck — which is what makes the version
+   spacing, images). The builder is a workspace *bound to a deck* — `#/build/new`
+   is one that does not exist yet, `#/build/<id>` is an existing deck — which is
+   what makes the version
    rule structural rather than advisory: **a new deck always publishes as v1, and
    a new version can only come from opening an existing deck.** Slug, client and
    clearance are inherited by every version and are not re-pickable, so a version
@@ -111,6 +121,23 @@ should be able to build a deck from these docs alone.
    but not selectable — it says so rather than starting you silently empty.
    Copying the published *document* instead of the recipe is a different act and
    still exists: that is **Personalize** on a master.
+
+   **Clearance is derived, never picked (2026-08-20).** The create dialog used to
+   end in a grid of customer chips, which was a control with no meaning for the
+   person using it: `deriveClearance()` recomputes clearance from the client for
+   everyone except an owner, so an editor's ticks were discarded on the way in.
+   It also asked a question the dialog already knew the answer to — a deck is
+   cleared for the customer it is for. The dialog now **states** the clearance
+   (`public` plus the client's slug, the same string `namescope.mjs` derives) and
+   the picker greys out exactly what the gate would fail on. No deck ever built
+   has carried more. An owner who genuinely needs two customers on one deck
+   passes `allowed_entitlements` in a recipe to `npm run studio -- build`, which
+   is still honoured. Two dropdowns were simplified with it: **Type** is the six
+   deck types from `app/web/js/decktypes.js` in that registry's order (it used to
+   read the distinct `type` values off existing rows, so it offered `article`,
+   `carousel` and `image`, alphabetically), and **Start from** groups decks the
+   way the Decks page groups them — **Company decks** by type, then **Customer
+   decks** by customer.
 
    Open any artifact and **Edit** it in place: click text and retype, nudge
    spacing, swap an entitlement-filtered image. Every save is a new immutable

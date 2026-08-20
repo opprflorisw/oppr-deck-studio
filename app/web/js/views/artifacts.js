@@ -26,6 +26,7 @@ import { summarize } from "../verify.js";
 import { openPostEditor } from "../postedit.js";
 import { mountNote } from "../note.js";
 import { typeLabel, typeBlurb, typeRank, isCustomerDeck } from "../decktypes.js";
+import { draftList, dropLocalDraft } from "../drafts.js";
 
 const SOCIAL_KINDS = new Set(["carousel", "image", "article", "post"]);
 
@@ -162,6 +163,13 @@ export function renderDecks() {
   const box = el(`<div></div>`);
   const paint = ({ keepFocus } = {}) => {
     box.innerHTML = "";
+    // New deck lives here, on the list of decks. It used to be the top of a
+    // second page whose only other content was a worse copy of this list.
+    box.append(el(`<div class="listactions">
+      <a class="btn" href="#/build/new">${ibtn("newfile", "New deck")}</a>
+      <span class="tmuted">A new deck publishes as <b>v1</b>. Every later version comes
+        from opening a deck and changing its slides.</span>
+    </div>`));
     const nArchived = (state.backend.decks || []).filter((d) => d.archived && isDeck(d)).length;
     filterBar(box, paint, nArchived
       ? `<button class="chipbtn ${prefs.archived ? "on" : ""}" data-act="archived"
@@ -182,14 +190,17 @@ export function renderDecks() {
 function decksBody(box) {
   const all = (state.backend.decks || []).filter(isDeck);
   if (!all.length) {
-    box.append(el(`<div class="empty"><p>No decks yet.</p>
-      <p class="note">Build one in the deck builder, or ask Claude to make one from your phone
-      (Settings &rarr; Connect Claude). It appears here ready to edit and send.</p>
+    draftSection(box);
+    box.append(el(`<div class="empty"><p>No decks published yet.</p>
+      <p class="note"><b>New deck</b> composes one from the slide library, or ask Claude to
+      make one from your phone (Settings &rarr; Connect Claude). It appears here ready to
+      edit and send.</p>
       <div class="empty-actions"><a class="primary" href="#/build/new">New deck</a></div></div>`));
     return;
   }
   const shown = all.filter(matches);
   $(".listbar-count", box).textContent = `${shown.length} of ${all.length}`;
+  draftSection(box);
   if (!shown.length) {
     box.append(emptyFilter(all.length));
     return;
@@ -292,6 +303,62 @@ function socialBody(box, category) {
   ensurePublishLog().then(() => {
     $$(".pub-slot", box).forEach((slot) => paintPosted(slot, publishLog[slot.dataset.slug]));
   });
+}
+
+// Decks that exist only in this browser: composed, never published, so they have
+// no row in the backend to be listed from. They sit at the top of the deck list
+// because that is where you look for a deck you were working on. They used to be
+// the one thing the deck builder's own page showed that this page did not, which
+// is why that page could go once they moved here.
+//
+// A local draft is never someone else's: it lives in this browser's storage. If
+// you started it somewhere else it is not here, and the deck list below is.
+function draftSection(box) {
+  const drafts = draftList();
+  if (!drafts.length) return;
+  box.append(el(`<div class="section-head"><h2>Not published yet</h2>
+    <span class="section-count">${drafts.length}</span></div>`));
+  box.append(el(`<p class="note">Started in this browser and never published. Nothing else
+    can see them until they have a v1.</p>`));
+
+  for (const [id, d] of drafts) {
+    const n = (d.order || []).length;
+    // The same row shell as a published deck, because it is the same thing at an
+    // earlier moment. A second visual language for "a deck you have not finished"
+    // is what made the builder's own list feel like a different app.
+    const row = el(`
+      <div class="deck-row artifact-row">
+        <div class="head">
+          <span class="star-btn" style="visibility:hidden">${icon("star", 16)}</span>
+          <span class="deck-thumb deck-thumb--none">${icon("compose", 16)}</span>
+          <div class="row-id">
+            <div class="row-title">
+              <h3>${esc(decodeEntities(d.title || "Untitled"))}</h3>
+              ${d.type ? `<span class="badge">${esc(typeLabel(d.type))}</span>` : ""}
+              ${d.client ? `<span class="tags tags--customer">${icon("building", 12)}${esc(d.client)}</span>` : ""}
+              <span class="pill-status draft">not published</span>
+            </div>
+            <div class="row-meta note">
+              <span>${n} slide${n === 1 ? "" : "s"} picked</span>
+              <span class="dot">&middot;</span>
+              <span class="mono">${esc(d.slug || "no filename")}</span>
+              <span class="dot">&middot;</span>
+              <span>saved ${esc(String(d.saved_at || "").slice(0, 10))}</span>
+            </div>
+          </div>
+          <div class="row-right"><div class="row-actions">
+            <a class="ghost sm" href="#/build/draft/${esc(id)}">${ibtn("compose", "Continue")}</a>
+            <button class="ghost sm" data-drop title="Discard this draft">${ibtn("trash", "Discard")}</button>
+          </div></div>
+        </div>
+      </div>`);
+    $("[data-drop]", row).addEventListener("click", () => {
+      dropLocalDraft(id);
+      go(location.hash.slice(1) || "/decks");
+      row.remove();
+    });
+    box.append(row);
+  }
 }
 
 function section(box, title, list, note, { byType = false, byCustomer = false } = {}) {
