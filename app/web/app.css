@@ -829,11 +829,52 @@ button.primary.full { width: 100%; justify-content: center; }
   background: var(--accent); color: #fff; font-weight: 800; font-size: 12px;
 }
 .avatar.sm { width: 20px; height: 20px; font-size: 10.5px; }
-.role-pick {
-  font-family: inherit; font-size: 12.5px; color: var(--ink); background: var(--surface);
-  border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px;
-}
-.acct-note { margin: 4px 0 0 34px; }
+/* Accounts: a roster of facts, with the actions in a panel under each row.
+   The row states who someone is; Manage opens what you can do about it. */
+.acct-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+.acct-row { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.acct-row.is-disabled .acct-line { opacity: .55; }
+.acct-line { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.acct-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.acct-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.acct-name b { font-size: 14.5px; }
+.acct-sub { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; font-size: 12px; }
+.acct-panel { border-top: 1px solid var(--line); padding: 14px; }
+/* Sibling margin, not grid gap on the panel: the blocks arrive inside one
+   wrapper div, so a gap on the panel would separate nothing. */
+.acct-block + .acct-block { margin-top: 18px; padding-top: 16px; border-top: 1px dashed var(--line); }
+.acct-block h4 { margin: 0 0 7px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--muted); }
+.acct-block .field { margin-bottom: 8px; max-width: 480px; }
+
+.badge--role { text-transform: none; }
+.badge--owner { background: var(--accent); border-color: var(--accent); color: #fff; }
+.badge--editor { border-color: var(--machine); color: var(--machine); }
+
+/* A role is three described choices, not a bare select: the sentence saying
+   what the role allows sits on the control that grants it. */
+.rolecards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.rolecard { position: relative; display: flex; flex-direction: column; gap: 3px;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; cursor: pointer;
+  background: var(--surface); }
+.rolecard input { position: absolute; opacity: 0; pointer-events: none; }
+.rolecard.on { border-color: var(--machine); background: rgba(62,104,116,.08); }
+.rolecard:has(input:focus-visible) { outline: 2px solid var(--machine); outline-offset: 2px; }
+.rolecard b { font-size: 13px; }
+.rolecard span { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+
+/* The activity feed: day headings, then time - who - what. */
+.audit-list { border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); padding: 4px 0 8px; }
+.audit-day { padding: 12px 14px 5px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+  border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.audit-row { display: flex; align-items: baseline; gap: 10px; padding: 4px 14px; font-size: 13px; }
+.audit-time { color: var(--muted); font-size: 11.5px; flex: none; }
+.audit-who { font-weight: 700; flex: none; }
+.audit-what { min-width: 0; }
+.audit-what .mono { font-size: 11.5px; }
+.audit-note { padding: 0 14px 6px 66px; font-size: 12px; }
 
 /* ---------------------------------------------------------------- brand kit
    Library > Brand. The preview stages deliberately use the literal brand
