@@ -1,14 +1,23 @@
 // Customers — the home of the customer-first app (Deck Studio v3). Companies and
 // the decks shipped to each come from the BACKEND (state.backend), matched by
-// customer_id. Registering a customer inserts a backend row directly; building a
-// deck for them still goes through the CLI (a brief staged to dump/_app/).
+// customer_id. Registering a customer inserts a backend row directly; New deck
+// opens the builder already bound to them.
+//
+// The deck rows here are `artifactRow` — the SAME row the Decks page draws
+// (2026-08-20). They used to be a local, thinner copy: title, version and two
+// buttons, while the Decks page showed the note, the star, the page count, the
+// verify chip and the download. That is the disease that killed the deck
+// builder's landing page, and it was alive here: which facts you could see
+// about a deck depended on which door you came through.
 
-import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
+import { $, el, esc, decodeEntities, toast, backdropClose } from "../util.js";
 import { state, loadBackend } from "../state.js";
 import * as api from "../api.js";
 import { go } from "../router.js";
 import { icon, ibtn } from "../icons.js";
 import { offlinePanel } from "./deck.js";
+import { artifactRow } from "./artifacts.js";
+import { openRecordSent } from "../recordsent.js";
 
 const customers = () => state.backend.customers || [];
 const decksFor = (custId) => (state.backend.decks || []).filter((d) => d.customer_id === custId);
@@ -29,15 +38,17 @@ export function renderList() {
         <div class="area-title">${icon("building", 20)}<h1 class="page-title">Customers</h1></div>
         <button class="primary" id="new-cust" style="margin-left:auto">${ibtn("add", "New customer")}</button>
       </div>
-      <p class="note">Your companies and the decks shipped to each. Register one here, then build or personalize its deck. Reusable masters and social live under <a href="#/output/masters">Output</a>.</p>
+      <p class="note">Your companies and the decks shipped to each. Register one here, then build its
+        deck. The reusable company decks live under <a href="#/decks">Decks</a>.</p>
       <div id="cust-body"></div>
     </div>`);
-  $("#new-cust", wrap).addEventListener("click", () => go("/customers/new"));
+  $("#new-cust", wrap).addEventListener("click", () => openNewCustomer());
   const body = $("#cust-body", wrap);
   if (!list.length) {
     body.innerHTML = `<div class="empty">
       <p>No customers yet.</p>
-      <p class="note">Add one, or personalize a master for a customer from <a href="#/output/masters">Output → Masters</a>.</p>
+      <p class="note">Register one here. Its decks are copies of the company decks in
+        <a href="#/decks">Decks</a>, made for them and cleared for their name.</p>
     </div>`;
     return wrap;
   }
@@ -96,9 +107,25 @@ export function renderDetail(slug) {
   $("#add-deck", wrap).addEventListener("click", () => go("/build/new?for=" + encodeURIComponent(c.slug)));
   const decks = $("#cust-decks", wrap);
   if (!list.length) decks.innerHTML = `<p class="note">No decks yet. <b>New deck</b> opens the builder for ${esc(c.name)} — start from scratch, or from an existing deck and change it.</p>`;
-  else for (const d of list) decks.append(deckRow(d));
+  else for (const d of list) decks.append(customerDeckRow(d, c));
   loadSends(c, wrap);
   return wrap;
+}
+
+// The shared artifact row, plus the one action that belongs to this page rather
+// than to the deck: recording that it went out. Everything else on the row (the
+// star, the note, Open, Download) is the same control as on the Decks page and
+// writes to the same place.
+function customerDeckRow(d, c) {
+  const row = artifactRow(d);
+  const sent = el(`<button class="ghost sm act-sent" title="Record that this went out">${
+    ibtn("open", "Record sent")}</button>`);
+  sent.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openRecordSent(d, () => go("/customers/" + encodeURIComponent(c.slug)));
+  });
+  $(".row-actions", row)?.prepend(sent);
+  return row;
 }
 
 // The sales timeline: what went to this customer, when, and which version they
@@ -137,77 +164,58 @@ async function loadSends(c, wrap) {
   }
 }
 
-// Recording a send is a fact about the world, not a change to the artifact, so
-// it is offered on every deck including a master and needs no owner.
-async function askRecordSent(d, onDone) {
-  const who = prompt(`Who did "${decodeEntities(d.title)}" v${d.current_version_n} go to?`, "");
-  if (who === null) return;
-  try {
-    await api.recordSend(d.id, { recipient: who, version_n: d.current_version_n });
-    toast(`Recorded: v${d.current_version_n} sent.`);
-    onDone?.();
-  } catch (e) {
-    toast(`Could not record it: ${e.message}`);
-  }
-}
-
-function deckRow(d) {
-  const row = el(`
-    <div class="deck-row">
-      <div class="head">
-        <h3>${esc(decodeEntities(d.title))}</h3>
-        <span class="tags mono">v${d.current_version_n}</span>
-        ${d.status === "needs_cli" ? `<span class="pill-status draft">needs CLI</span>` : ""}
-        <div class="spacer">
-          <button class="ghost sent">Record sent</button>
-          <button class="ghost icon-only open" title="Open">${icon("open")}</button>
-        </div>
-      </div>
-    </div>`);
-  row.querySelector(".sent").addEventListener("click", (e) => {
-    e.stopPropagation();
-    askRecordSent(d, () => go("/customers/" + encodeURIComponent(
-      (customers().find((c) => c.id === d.customer_id) || {}).slug || "")));
-  });
-  row.querySelector(".open").addEventListener("click", () => go("/deck/" + d.id));
-  row.addEventListener("click", (e) => { if (!e.target.closest("button")) go("/deck/" + d.id); });
-  return row;
-}
-
 // ---- new customer -----------------------------------------------------------
-// Registering the company, and nothing else. Building its deck used to be a
-// brief staged here for the CLI; the builder does that job now, so a customer's
-// New deck goes to `#/build/new?for=<slug>` and this page is one thing again.
-export function renderNew() {
-  const d = { name: "", notes: "" };
-  const wrap = el(`
-    <div>
-      <div class="detail-head">
-        <button class="ghost" id="back">${ibtn("prev", "Customers")}</button>
-        <h1>New customer</h1>
-      </div>
-      <p class="note">Register the company now. Its decks appear here once you build one,
-        and its name becomes a clearance a deck can be cleared for.</p>
-      <div class="panel" style="max-width:640px">
-        <div class="field"><label>Company name</label><input id="c-name" placeholder="Acme Manufacturing"></div>
-        <div class="field"><label>Notes (optional)</label><input id="c-notes" placeholder="industry, contact"></div>
-        <div class="panel handoff-panel">
-          <button class="primary" id="c-save">${ibtn("save", "Add customer")}</button>
+// A dialog, not a page (2026-08-20). Registering a company is two fields, and a
+// new deck — which asks more — has always been a dialog over the list. Two
+// grammars for "how does a new thing start" is one more thing to learn for no
+// gain, and the dialog is the better half: you never leave the list you were
+// looking at.
+export function openNewCustomer(onDone) {
+  const m = el(`
+    <div class="modal">
+      <div class="modal-box">
+        <header><b>New customer</b>
+          <div class="spacer"></div>
+          <button class="ghost icon-only close" title="Close">${icon("close")}</button></header>
+        <div class="modal-body">
+          <p class="note">Register the company now. Its decks appear on its page once you build
+            one, and its name becomes a clearance a deck can be cleared for.</p>
+          <div class="field"><label for="c-name">Company name</label>
+            <input id="c-name" type="text" placeholder="Acme Manufacturing" maxlength="120"></div>
+          <div class="field"><label for="c-notes">Notes (optional)</label>
+            <input id="c-notes" type="text" placeholder="industry, contact" maxlength="500"></div>
+          <div class="modal-actions">
+            <button class="primary" id="c-save">${ibtn("save", "Add customer")}</button>
+          </div>
         </div>
       </div>
     </div>`);
-  $("#back", wrap).addEventListener("click", () => go("/customers"));
-  $("#c-name", wrap).addEventListener("input", (e) => (d.name = e.target.value));
-  $("#c-notes", wrap).addEventListener("input", (e) => (d.notes = e.target.value));
 
-  $("#c-save", wrap).addEventListener("click", async () => {
-    if (!d.name.trim()) { toast("Company name is required."); return; }
+  const close = () => m.remove();
+  $(".close", m).addEventListener("click", close);
+  backdropClose(m, close);
+  m.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+
+  $("#c-save", m).addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const name = $("#c-name", m).value.trim();
+    if (!name) { toast("Company name is required."); return; }
+    btn.disabled = true;
     try {
-      const out = await api.createCustomer2({ name: d.name.trim(), notes: d.notes });
+      const out = await api.createCustomer2({ name, notes: $("#c-notes", m).value.trim() });
       await loadBackend(api);
+      close();
       toast("Customer added.");
-      go("/customers/" + encodeURIComponent(out.customer?.slug || ""));
-    } catch (err) { toast(err.message || "could not save"); }
+      onDone ? onDone(out.customer) : go("/customers/" + encodeURIComponent(out.customer?.slug || ""));
+    } catch (err) {
+      // Registering a name creates a GATED TERM, and the server refuses one that
+      // would newly fail published decks. That refusal names them, so it is
+      // shown rather than flattened to "could not save".
+      toast(err.message || "could not save");
+      btn.disabled = false;
+    }
   });
-  return wrap;
+
+  document.body.append(m);
+  setTimeout(() => $("#c-name", m).focus(), 30);
 }

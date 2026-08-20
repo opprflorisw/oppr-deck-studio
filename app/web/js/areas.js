@@ -30,11 +30,17 @@ export const NAV_GROUPS = [
 export const AREAS = [
   { id: "customers", title: "Customers", icon: "building", home: true, group: "work" },
   { id: "decks", title: "Decks", icon: "monitor", group: "work" },
+  // The tabs name what a thing IS (2026-08-20). They used to be All ·
+  // Carousels · Job descriptions · Posts, where "Posts" quietly meant articles,
+  // "Job descriptions" held two items, articles had no tab bearing their name,
+  // and a plain image was reachable from All and nowhere else. These three
+  // cover every social artifact exactly once; a job description is an image,
+  // and says so as a group heading inside Images.
   { id: "social", title: "Social output", icon: "share", group: "work", tabs: [
     { id: "all", label: "All", icon: "layers" },
     { id: "carousel", label: "Carousels", icon: "cards" },
-    { id: "job-description", label: "Job descriptions", icon: "building" },
-    { id: "post", label: "Posts", icon: "text" },
+    { id: "article", label: "Articles", icon: "book" },
+    { id: "image", label: "Images", icon: "image" },
   ]},
   { id: "research", title: "Last 30 days", icon: "brain", group: "work", tabs: [
     { id: "brain", label: "Brain", icon: "brain" },

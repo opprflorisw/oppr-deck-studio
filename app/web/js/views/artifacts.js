@@ -33,9 +33,12 @@ const SOCIAL_KINDS = new Set(["carousel", "image", "article", "post"]);
 const isDeck = (d) => !d.kind || d.kind === "deck";
 const isSocial = (d) => SOCIAL_KINDS.has(d.kind);
 
-// The category key a social artifact groups and filters under, matching the
-// tabbar: `category` when it has one, otherwise its kind.
-const catOf = (d) => d.category || d.kind;
+// A social artifact's TAB is its kind — what the thing is. `category` is a
+// finer label some artifacts carry ("job-description"), used for the group
+// heading inside a tab, never as a tab of its own: it held two items and
+// stranded every plain image outside the tabbar.
+const catOf = (d) => d.kind;
+const groupOf = (d) => d.category || d.kind;
 
 // "Behind" sits next to the verify chip because it is the same kind of signal
 // asking a different question: verify says "is this deck sound", behind says
@@ -63,10 +66,10 @@ function draftChip(d) {
 
 const CAT_LABEL = {
   carousel: "Carousels",
-  "job-description": "Job descriptions",
-  post: "Posts",
   article: "Articles",
   image: "Images",
+  post: "Posts",
+  "job-description": "Job descriptions",
 };
 
 let publishLog = {};
@@ -269,9 +272,7 @@ function socialBody(box, category) {
   // with the same copy.
   let all = (state.backend.decks || []).filter(isSocial)
     .filter((d) => d.page_format !== "hero-1200x627");
-  if (category && category !== "all") {
-    all = all.filter((d) => catOf(d) === category || (category === "post" && d.kind === "article"));
-  }
+  if (category && category !== "all") all = all.filter((d) => catOf(d) === category);
 
   box.append(el(`<p class="note">Everything published to a channel. Social is public by definition:
     an artifact carrying customer-cleared imagery fails verification on purpose.</p>`));
@@ -289,18 +290,25 @@ function socialBody(box, category) {
     return;
   }
 
-  const grouped = (!category || category === "all") && prefs.socialView === "grouped";
-  if (!grouped) {
-    for (const d of shown) box.append(artifactRow(d));
-  } else {
+  const isAll = !category || category === "all";
+  const grouped = isAll && prefs.socialView === "grouped";
+  // Inside one kind's tab, sub-groups still earn their heading when there is
+  // more than one: that is where "Job descriptions" belongs.
+  const subKeys = isAll ? [] : [...new Set(shown.map(groupOf))];
+
+  if (grouped) {
     // Group order follows the tabbar so the two ways of narrowing the same list
     // agree with each other.
-    const order = ["carousel", "job-description", "post", "article", "image"];
+    const order = ["carousel", "article", "image", "post"];
     const keys = [...new Set(shown.map(catOf))]
       .sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
-    for (const key of keys) {
-      section(box, CAT_LABEL[key] || key, shown.filter((d) => catOf(d) === key));
+    for (const key of keys) section(box, CAT_LABEL[key] || key, shown.filter((d) => catOf(d) === key));
+  } else if (subKeys.length > 1) {
+    for (const key of subKeys.sort()) {
+      section(box, CAT_LABEL[key] || key, shown.filter((d) => groupOf(d) === key));
     }
+  } else {
+    for (const d of shown) box.append(artifactRow(d));
   }
 
   // The publish log is a separate table, so the posted column fills in a beat
@@ -434,10 +442,17 @@ function paintPosted(slot, entry) {
 // ---- the row ----------------------------------------------------------------
 
 export function artifactRow(d) {
+  // A chip marks an EXCEPTION (2026-08-20). Every artifact that had never been
+  // printed wore "not verified yet" and every healthy one wore "verified", so
+  // the column was a chip on ~every row: a signal everything carries is
+  // wallpaper, and the two rows that genuinely need a look were the hardest to
+  // spot. Only fails and warnings get a chip now; "verified" and "not verified
+  // yet" are the normal states and say nothing worth the ink.
   const v = summarize(d.verify_report);
+  const showVerify = v.tone === "fail" || v.tone === "warn";
   // The type in words, not its slug: "How we work together" is what the deck is;
   // "engagement" is only what the folder is called.
-  const kindBadge = isDeck(d) ? esc(typeLabel(d.type)) : esc(catOf(d));
+  const kindBadge = isDeck(d) ? esc(typeLabel(d.type)) : esc(groupOf(d));
   const social = isSocial(d);
   const pages = d.page_count
     ? `${d.page_count} ${d.page_count === 1 ? "page" : "pages"}`
@@ -470,7 +485,7 @@ export function artifactRow(d) {
             <span class="tags mono">v${d.current_version_n}</span>
             ${d.archived ? `<span class="pill-status draft">archived</span>` : ""}
             ${d.status === "needs_cli" ? `<span class="pill-status draft" title="${esc(d.needs_cli_reason || "")}">needs CLI</span>` : ""}
-            <span class="verify-chip verify-chip--${v.tone}" title="${esc(v.text)}">${esc(v.text)}</span>
+            ${showVerify ? `<span class="verify-chip verify-chip--${v.tone}" title="${esc(v.text)}">${esc(v.text)}</span>` : ""}
             ${behindChip(d)}
             ${draftChip(d)}
           </div>
@@ -478,7 +493,6 @@ export function artifactRow(d) {
             <span>${esc(pages)}</span>
             <span class="dot">·</span>
             <span>${when ? `updated ${esc(when)}` : "never updated"}${who ? ` by ${esc(who)}` : ""}</span>
-            ${d.pdf_current ? "" : `<span class="dot">·</span><span title="Downloading prints it first, so you always get the current version">PDF not printed</span>`}
           </div>
           <div class="row-note"></div>
         </div>

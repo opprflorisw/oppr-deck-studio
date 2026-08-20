@@ -28,12 +28,10 @@ export function renderSidebar() {
 
   const link = (a) => {
     const active = path === `/${a.id}` || path.startsWith(`/${a.id}/`) || isAlias(a.id, path);
-    const hasBadge = (a.tabs || []).some((t) => t.badge);
-    return `
+      return `
       <a href="#${areaPath(a)}" class="side-link ${active ? "active" : ""}" data-area="${a.id}">
         <span class="side-ic">${icon(a.icon, 18)}</span>
         <span class="side-label">${a.title}</span>
-        ${hasBadge ? `<span class="side-badge" data-draft-count>0</span>` : ""}
         ${a.id === "decks" && behindCount()
           ? `<span class="side-badge side-badge--behind" data-behind-count
                    title="${behindCount()} deck(s) would differ if rebuilt now">${behindCount()}</span>`

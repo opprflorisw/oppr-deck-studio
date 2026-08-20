@@ -394,7 +394,7 @@ report are different states and read differently.
 - **`server.mjs`** — a localhost HTTP server holding the Supabase secret key
   (never sent to the browser). Serves the front-end, repo files read-only under
   `/repo/…`, the materialized cache under `/deck-cache/…`, and the API. Writes
-  only staging areas (`dump/_app/`, `decks/drafts/`, `social/drafts/`) and the
+  only staging areas (`dump/_app/`, `social/drafts/`) and the
   backend; never `library/`, `brand/` or `templates/`.
 - **`lib/jobs.mjs`** — printing and the build job. Runs the **same**
   `tools/verify-deck.py` gate the CLI runs.

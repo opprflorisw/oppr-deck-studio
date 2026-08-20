@@ -7,7 +7,6 @@
 
 import { $, $$, el, esc , backdropClose } from "../util.js";
 import { fillPreviewVars, fetchFragment, deckPageDoc } from "../preview.js";
-import { pageHtmlFor } from "./carousel-build.js";
 import { icon, ibtn } from "../icons.js";
 import { go } from "../router.js";
 
@@ -236,15 +235,4 @@ function placeholderInner(slot) {
     ${slot.role ? `<div style="font-family:monospace;color:#5f6965;font-size:20px;margin-bottom:24px">role: ${esc(slot.role)}${slot.id ? " &middot; id: " + esc(slot.id) : ""}</div>` : ""}
     <div style="font-size:34px;line-height:1.4">${esc(slot.brief || "(no instruction yet)")}</div>
   </section>`;
-}
-
-// The carousel composer's live pages (client-built, not yet on disk).
-export function carouselComposerViewer(pageSpecs, title) {
-  if (!pageSpecs.length) return;
-  const head = `<link rel="stylesheet" href="/repo/templates/linkedin.css">`;
-  const pages = pageSpecs.map((pg, i) => ({
-    label: pg.pattern,
-    render: () => scaledDoc(head, `<div class="carousel">${pageHtmlFor(pg, i, pageSpecs.length)}</div>`, 1080, 1350),
-  }));
-  openDeckViewer(pages, { title: title || "Carousel preview" });
 }

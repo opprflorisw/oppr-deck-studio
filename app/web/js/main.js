@@ -48,8 +48,8 @@ const RENDER = {
   social: {
     all: () => artifacts.renderSocial("all"),
     carousel: () => artifacts.renderSocial("carousel"),
-    "job-description": () => artifacts.renderSocial("job-description"),
-    post: () => artifacts.renderSocial("post"),
+    article: () => artifacts.renderSocial("article"),
+    image: () => artifacts.renderSocial("image"),
   },
   research: {
     brain: () => research.renderBody("brain"),
@@ -115,8 +115,6 @@ async function boot() {
     <button class="ghost sm" id="signout">Sign out</button>`;
   document.querySelector(".topstrip-right")?.prepend(who);
   document.getElementById("signout")?.addEventListener("click", signOut);
-  const composeToggle = $("#compose-toggle");
-  if (composeToggle) composeToggle.remove(); // composing moved to the CLI
 
   $("#refresh-btn").addEventListener("click", async () => {
     toast("Refreshing…");
@@ -141,7 +139,9 @@ async function boot() {
 
   // Customers — the home (list + detail + new-customer intake; no tabbar).
   route("/customers", () => mount(customers.renderList()));
-  route("/customers/new", () => mount(customers.renderNew()));
+  // New customer is a dialog over the list, like New deck. The old page route
+  // still resolves so a bookmark opens the list with the dialog on it.
+  route("/customers/new", () => { mount(customers.renderList()); customers.openNewCustomer(); });
   route("/customers/:slug", (slug) => mount(customers.renderDetail(slug)));
 
   // Artifact detail + editor (standalone pages, no tabbar). One URL, two homes:

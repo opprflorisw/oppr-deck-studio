@@ -1,12 +1,23 @@
-// Slides: three view modes (cards / sections / table) + a detail page.
+// Slides: two view modes (cards / table) + a detail page.
+//
+// There were three. "Cards" and "Sections" rendered the SAME cards from the
+// same template; Sections only broke the grid with headings. A toggle whose
+// two states differ by whether headings are drawn is not a choice worth
+// offering, so Cards is grouped now and the flat one is gone. What is left is a
+// real pair: browse it, or read it dense.
+//
+// Two things left on 2026-08-20. The "+ Add to draft" buttons belonged to
+// compose mode, which had been unreachable since the builder replaced it (you
+// add a slide to a deck in the builder's rail now). And every detail page ended
+// in a "Version history" panel that called an endpoint the server has never
+// had, so it only ever printed its own failure message; `git log` answers that
+// question for the one person who asks it.
 
-import { $, $$, el, esc, decodeEntities, toast, ENTITLEMENTS } from "../util.js";
-import { state, setSlideView, slideById, addSlide, saveDraftLocal } from "../state.js";
+import { $, $$, el, esc, decodeEntities, ENTITLEMENTS } from "../util.js";
+import { state, setSlideView, slideById } from "../state.js";
 import { go } from "../router.js";
 import { previewFrame, fetchFragment } from "../preview.js";
-import { renderTray } from "../compose.js";
 import { downloadPanel } from "../download.js";
-import { historySection } from "./history.js";
 import { icon, ibtn } from "../icons.js";
 
 function filtered() {
@@ -21,23 +32,6 @@ function filtered() {
     }
     return true;
   });
-}
-
-function addBtn(s) {
-  if (!state.composeMode) return "";
-  const pos = state.draft.slides.filter((x) => x.source !== "new").findIndex((x) => x.id === s.id);
-  return `<button class="add-btn ${pos >= 0 ? "added" : ""}" data-add="${esc(s.id)}">${pos >= 0 ? `In draft #${pos + 1} (add again)` : "+ Add to draft"}</button>`;
-}
-
-function wireAdds(root) {
-  $$("[data-add]", root).forEach((b) =>
-    b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      addSlide(b.dataset.add);
-      toast("Added to draft");
-      renderTray();
-      go(location.hash.replace("#", "") || "/slides"); // re-render current
-    }));
 }
 
 // ---- list shell -------------------------------------------------------------
@@ -56,7 +50,7 @@ function toolbar() {
   const bar = el(`
     <div class="subbar">
       <div class="viewswitch">
-        ${["cards", "sections", "table"].map((v) => `<button data-view="${v}" class="${state.slideView === v ? "active" : ""}">${icon(v, 15)}<span>${v[0].toUpperCase() + v.slice(1)}</span></button>`).join("")}
+        ${[["cards", "Cards"], ["table", "Table"]].map(([v, l]) => `<button data-view="${v}" class="${state.slideView === v ? "active" : ""}">${icon(v, 15)}<span>${l}</span></button>`).join("")}
       </div>
       <div class="filters">
         <input type="search" id="q" placeholder="Filter…" value="${esc(state.filter.q)}">
@@ -78,10 +72,8 @@ function renderBody(container) {
   container.innerHTML = "";
   const list = filtered();
   if (!list.length) { container.innerHTML = `<div class="loading">No slides match.</div>`; return; }
-  if (state.slideView === "cards") container.append(cardsView(list));
-  else if (state.slideView === "sections") container.append(sectionsView(list));
-  else container.append(tableView(list));
-  wireAdds(container);
+  if (state.slideView === "table") container.append(tableView(list));
+  else container.append(cardsView(list));
 }
 
 // ---- cards ------------------------------------------------------------------
@@ -96,31 +88,35 @@ function card(s) {
           <span class="badge ${esc(s.entitlement)}">${esc(s.entitlement)}</span>
         </div>
         <div class="tags">${(s.tags || []).slice(0, 5).map(esc).join(" · ")}</div>
-        <div class="actions">${addBtn(s)}</div>
       </div>
     </div>`;
 }
+// Cards, grouped by section, because a library is navigated by meaning before
+// it is navigated by name. A slide whose section is not in the index still
+// shows, under its own heading, rather than vanishing from the only visual view.
 function cardsView(list) {
-  const grid = el(`<div class="grid">${list.map(card).join("")}</div>`);
-  $$("[data-open]", grid).forEach((c) => c.addEventListener("click", (e) => {
-    if (e.target.closest("[data-add]")) return;
-    go("/slides/" + c.dataset.open);
-  }));
-  return grid;
-}
-
-// ---- sections ---------------------------------------------------------------
-function sectionsView(list) {
   const box = el(`<div></div>`);
+  const grid = (items) => {
+    const g = el(`<div class="grid">${items.map(card).join("")}</div>`);
+    $$("[data-open]", g).forEach((c) => c.addEventListener("click", () => go("/slides/" + c.dataset.open)));
+    return g;
+  };
+  const named = new Set();
   for (const sec of state.index.sections) {
     const inSec = list.filter((s) => s.section === sec.name);
+    named.add(sec.name);
     if (!inSec.length) continue;
     box.append(el(`<div class="section-head"><h2>${esc(sec.name)}</h2><span class="section-desc">${esc(sec.desc)}</span><span class="section-count">${inSec.length}</span></div>`));
-    const grid = el(`<div class="grid">${inSec.map(card).join("")}</div>`);
-    $$("[data-open]", grid).forEach((c) => c.addEventListener("click", (e) => { if (e.target.closest("[data-add]")) return; go("/slides/" + c.dataset.open); }));
-    box.append(grid);
+    box.append(grid(inSec));
   }
-  // sections with zero slides in the library -> flag as gaps
+  const loose = list.filter((s) => !named.has(s.section));
+  if (loose.length) {
+    box.append(el(`<div class="section-head"><h2>Unsectioned</h2><span class="section-count">${loose.length}</span></div>`));
+    box.append(grid(loose));
+  }
+  // Sections with no slides at all are library GAPS, which is a fact about the
+  // library rather than about this filter, so it is measured against the whole
+  // index and not against what is on screen.
   const gaps = state.index.sections.filter((sec) => !state.index.slides.some((s) => s.section === sec.name));
   if (gaps.length) box.append(el(`<p class="note" style="margin-top:16px">Empty sections (library gaps): ${gaps.map((g) => esc(g.name)).join(", ")}.</p>`));
   return box;
@@ -172,7 +168,6 @@ export function renderDetail(id) {
       <div class="detail-head">
         <button class="ghost" id="back">&larr; Slides</button>
         <h1>${esc(decodeEntities(s.title))}</h1>
-        ${state.composeMode ? `<button class="primary" id="add-detail">+ Add to draft</button>` : ""}
       </div>
       <div class="detail-grid">
         <div class="detail-main" id="preview-col"></div>
@@ -192,7 +187,14 @@ export function renderDetail(id) {
           <div id="dl-panel"></div>
           <div class="panel">
             <h2>Used in</h2>
-            ${decks.length ? `<ul class="plain">${decks.map((d) => `<li><a href="#/decks">${esc(d)}</a></li>`).join("")}</ul>` : `<p class="note">Not used in any deck yet.</p>`}
+            ${decks.length ? `<ul class="plain">${decks.map((slug) => {
+              // Link to the artifact, not to the list of artifacts. `slideUsage`
+              // is keyed by slug (it is derived from published HTML), so the id
+              // comes from the backend slice.
+              const d = (state.backend.decks || []).find((x) => x.slug === slug);
+              return `<li>${d ? `<a href="#/deck/${esc(d.id)}">${esc(decodeEntities(d.title))}</a>`
+                              : `<span class="mono">${esc(slug)}</span>`}</li>`;
+            }).join("")}</ul>` : `<p class="note">Not used in any deck yet.</p>`}
           </div>
           <div class="panel">
             <h2>Images</h2>
@@ -200,13 +202,9 @@ export function renderDetail(id) {
           </div>
         </div>
       </div>
-      <div id="history-col"></div>
     </div>`);
   wrap.querySelector("#back").addEventListener("click", () => go("/slides"));
-  const addBtnEl = wrap.querySelector("#add-detail");
-  if (addBtnEl) addBtnEl.addEventListener("click", () => { addSlide(id); toast("Added to draft"); renderTray(); });
   wrap.querySelector("#dl-panel").replaceWith(downloadPanel("slide", id));
   wrap.querySelector("#preview-col").append(previewFrame(fetchFragment(id), 720));
-  wrap.querySelector("#history-col").append(historySection(id));
   return wrap;
 }

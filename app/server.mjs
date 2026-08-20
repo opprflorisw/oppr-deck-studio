@@ -1,14 +1,13 @@
 // Oppr Deck Studio App — local dev server.
 //
 // Zero runtime dependencies: Node built-ins only. `npm run dev` runs this.
-// It reads the repo LIVE (so a new slide shows up on refresh) and writes ONLY
-// under decks/drafts/. It never edits the library, decks, or brand — the CLI
-// stays the engine. The front-end is plain ES modules in app/web/.
+// It reads the repo LIVE (so a new slide shows up on refresh) and never edits
+// the library, decks, or brand — the CLI stays the engine. The front-end is
+// plain ES modules in app/web/.
 //
 // Guardrails:
 //   - GET /repo/<path>  serves any repo file READ-ONLY, with traversal blocked.
-//   - POST/DELETE drafts touch ONLY decks/drafts/<safe-slug>/.
-//   - Writes are confined to app-owned staging: decks/drafts/, social/drafts/,
+//   - Writes are confined to app-owned staging: social/drafts/,
 //     dump/_app/, and social/_status.json (the publish-status log — posted date +
 //     post link + archived flag per built output; tracking metadata, never a
 //     built artifact).
@@ -123,7 +122,6 @@ const REPO_ROOT = SERVERLESS
   ? path.join(APP_DIR, "..", "no-repo-when-hosted")
   : path.resolve(APP_DIR, "..");
 const WEB_DIR = path.join(APP_DIR, "web");
-const DRAFTS_DIR = path.join(REPO_ROOT, "decks", "drafts");
 const SOCIAL_DRAFTS_DIR = path.join(REPO_ROOT, "social", "drafts");
 const SOCIAL_STATUS_FILE = path.join(REPO_ROOT, "social", "_status.json");
 const DUMP_APP_DIR = path.join(REPO_ROOT, "dump", "_app");
@@ -281,13 +279,6 @@ function git(args) {
     child.on("error", reject);
     child.on("close", (code) => (code === 0 ? resolve(out) : reject(new Error(err || `git exit ${code}`))));
   });
-}
-
-function draftDir(slug) {
-  if (!SLUG_RE.test(slug)) return null;
-  const dir = safeResolve(DRAFTS_DIR, "/" + slug);
-  if (!dir || dir === DRAFTS_DIR) return null;
-  return dir;
 }
 
 async function readBody(req, limit = 2_000_000) {
@@ -525,7 +516,7 @@ async function listResearchPosts() {
 
 // Idea -> social draft. Copies the body, keeps the lineage, and for an article
 // writes the hero page through the CLI tool so the banner comes from the real
-// linkedin.css. Deliberately does NOT build: /deckbuilder owns that.
+// linkedin.css. Deliberately does NOT build: an owner does that from the repo.
 async function promoteIdea(file, rawBody) {
   let over = {};
   try { over = rawBody ? JSON.parse(rawBody) : {}; } catch { /* optional overrides */ }
@@ -534,7 +525,7 @@ async function promoteIdea(file, rawBody) {
   // then builds. Hosted there is no repo, so say that plainly instead of failing
   // on a read-only filesystem halfway through.
   if (!fs.existsSync(REPO_ROOT) || !fs.existsSync(path.join(REPO_ROOT, "social"))) {
-    const e = new Error("Promoting writes a draft into the repo, so it needs the CLI. Run /deckbuilder locally.");
+    const e = new Error("Promoting writes a draft into the repo, so it only works where there is a checkout. Run it from the local app.");
     e.code = "ENOREPO";
     throw e;
   }
@@ -584,10 +575,41 @@ async function promoteIdea(file, rawBody) {
   };
   await researchWriteJson("performance.json", perf);
 
-  return { ok: true, slug, kind, hero, prompt: `/deckbuilder build social ${slug}` };
+  return { ok: true, slug, kind, hero, staged: `social/drafts/${slug}` };
 }
 
 const readPerformance = () => researchReadJson("performance.json", { posts: {} });
+
+// "Has it been posted, when, and where" is ONE fact, and it lives in
+// publish_log — the table the Social list's checkbox and the publication page's
+// posted bar both write. Performance used to keep its own copy in
+// performance.json, so marking an article posted on its own page left the
+// Performance card still saying "not posted": the same question answered two
+// ways depending on which page you asked.
+//
+// The two stores are keyed alike (a promoted draft's slug becomes the published
+// artifact's slug), so the join is exact. performance.json keeps what is
+// genuinely its own: the engagement readings.
+async function publishLogMap() {
+  if (!supabaseConfigured()) return {};
+  try {
+    const rows = await db.select("publish_log", { select: "slug,status,posted_date,url" });
+    return Object.fromEntries(rows.map((r) => [r.slug, r]));
+  } catch { return {}; }
+}
+
+// A performance record as the UI should see it: its own samples, with the
+// posted fact read from the shared store.
+async function performanceRecords() {
+  const perf = await readPerformance();
+  const log = await publishLogMap();
+  return Object.values(perf.posts || {}).map((rec) => {
+    const e = log[rec.slug];
+    return e
+      ? { ...rec, posted_date: e.posted_date || "", url: e.url || "", posted: e.status === "posted" }
+      : { ...rec, posted: Boolean(rec.posted_date || rec.url) };
+  });
+}
 
 // One record per promoted post. `sample` appends a dated engagement reading;
 // everything else merges, so recording the LinkedIn URL and adding numbers a
@@ -595,8 +617,28 @@ const readPerformance = () => researchReadJson("performance.json", { posts: {} }
 async function updatePerformance(slug, d) {
   const perf = await readPerformance();
   const rec = perf.posts[slug] || { slug, title: slug, kind: "linkedin-post", themes: [], posted_date: "", url: "", samples: [] };
-  for (const k of ["title", "kind", "url", "posted_date", "source_idea"]) {
+  for (const k of ["title", "kind", "source_idea"]) {
     if (typeof d[k] === "string") rec[k] = d[k];
+  }
+  // The posted fact belongs to publish_log, so recording the link here and
+  // ticking the box on the Social list are the same write. Without a backend
+  // there is nowhere shared to put it, so it falls back to the local record
+  // rather than being silently dropped.
+  if (typeof d.url === "string" || typeof d.posted_date === "string") {
+    const url = typeof d.url === "string" ? d.url.trim() : rec.url || "";
+    const date = typeof d.posted_date === "string" ? d.posted_date : rec.posted_date || "";
+    if (supabaseConfigured()) {
+      const log = await publishLogMap();
+      const was = log[slug] || {};
+      await db.upsert("publish_log", [{
+        slug,
+        status: url || date ? "posted" : was.status === "posted" ? "posted" : "draft",
+        posted_date: date, url, archived: false,
+      }], "slug");
+      rec.posted_date = ""; rec.url = "";
+    } else {
+      rec.posted_date = date; rec.url = url;
+    }
   }
   if (Array.isArray(d.themes)) rec.themes = d.themes;
   if (d.sample && typeof d.sample === "object") {
@@ -613,7 +655,11 @@ async function updatePerformance(slug, d) {
   if (d.delete_sample != null) rec.samples.splice(Number(d.delete_sample), 1);
   perf.posts[slug] = rec;
   await researchWriteJson("performance.json", perf);
-  return { ok: true, record: rec };
+  const log = await publishLogMap();
+  const e = log[slug];
+  return { ok: true, record: e
+    ? { ...rec, posted_date: e.posted_date || "", url: e.url || "", posted: e.status === "posted" }
+    : { ...rec, posted: Boolean(rec.posted_date || rec.url) } };
 }
 
 async function listResearchRuns() {
@@ -666,7 +712,7 @@ async function researchIndex() {
       : null,
     runs,
     posts: await listResearchPosts(),
-    performance: Object.values((await readPerformance()).posts || {}),
+    performance: await performanceRecords(),
   };
 }
 
@@ -689,7 +735,6 @@ async function syncResearchToStorage() {
   return { ok: true, uploaded: uploaded.length, files: uploaded };
 }
 
-const listDrafts = () => listDraftsIn(DRAFTS_DIR, (slug, d) => ({ slug, title: d.title || slug, slides: (d.slides || []).length }));
 const listSocialDrafts = () => listDraftsIn(SOCIAL_DRAFTS_DIR, (slug, d) => ({ slug, title: d.title || slug, kind: d.kind || "carousel", pages: (d.pages || []).length }));
 
 async function handleApi(req, res, url) {
@@ -1055,13 +1100,13 @@ async function handleApi(req, res, url) {
       + (logoName ? `logo: ${logoName}\n` : "")
       + (notes ? `notes: ${JSON.stringify(notes)}\n` : "");
     await fsp.writeFile(path.join(dir, "customer.yaml"), yaml, "utf-8");
-    const briefMd = `# New customer intake — ${name}\n\n- slug: ${slug}\n- logo: ${logoName || "(none provided)"}\n\n## Brief\n\n${brief || "(no brief yet)"}\n\n---\nRun \`/ingest-dump\` (or \`/deckbuilder new-customer ${slug}\`) to file this into `
+    const briefMd = `# New customer intake — ${name}\n\n- slug: ${slug}\n- logo: ${logoName || "(none provided)"}\n\n## Brief\n\n${brief || "(no brief yet)"}\n\n---\nRun \`/ingest-dump\` to file this into `
       + `\`customers/${slug}/\` and build the first deck.\n`;
     await fsp.writeFile(path.join(dir, "brief.md"), briefMd, "utf-8");
     return sendJson(res, 200, { ok: true, slug, dir: path.relative(REPO_ROOT, dir).replace(/\\/g, "/"), prompt: `/ingest-dump` });
   }
 
-  // Social drafts (Phase 6): staged like deck drafts, built by /deckbuilder.
+  // Social drafts: staged in the repo, built by an owner from the checkout.
   const sm = p.match(/^\/api\/social-drafts\/([^/]+)$/);
   if (sm) {
     const slug = sm[1];
@@ -1073,8 +1118,8 @@ async function handleApi(req, res, url) {
     // stage it where no CLI can reach it.
     if (SERVERLESS && req.method !== "GET") {
       return needsCli(res,
-        "A social draft is staged in the repo for /deckbuilder to build, so it is written on your machine.",
-        `/deckbuilder build social ${slug}`);
+        "A social draft is staged in the repo for an owner to build, so it is written on a machine with a checkout.",
+        `social/drafts/${slug}`);
     }
     if (req.method === "GET") {
       try { return sendJson(res, 200, JSON.parse(await fsp.readFile(file, "utf-8"))); }
@@ -1090,7 +1135,7 @@ async function handleApi(req, res, url) {
         source_idea: d.source_idea || null, themes: Array.isArray(d.themes) ? d.themes : [] };
       await fsp.mkdir(dir, { recursive: true });
       await fsp.writeFile(file, JSON.stringify(rec, null, 2), "utf-8");
-      return sendJson(res, 200, { ok: true, slug, prompt: `/deckbuilder build social ${slug}` });
+      return sendJson(res, 200, { ok: true, slug, staged: `social/drafts/${slug}` });
     }
     if (req.method === "DELETE") {
       try { await fsp.rm(dir, { recursive: true, force: true }); return sendJson(res, 200, { ok: true }); }
@@ -1204,7 +1249,7 @@ async function handleApi(req, res, url) {
   // loud" and "something we intend to ship": it copies the body into
   // social/drafts/, keeps the lineage (source idea + theme ids), and for an
   // article writes the 1200x627 hero page via the CLI tool. It never builds the
-  // output — /deckbuilder still does that, with its verify gate.
+  // output — an owner still does that from the repo, with its verify gate.
   rm = p.match(/^\/api\/research\/posts\/([^/]+)\/promote$/);
   if (req.method === "POST" && rm) {
     const file = rm[1];
@@ -1218,7 +1263,7 @@ async function handleApi(req, res, url) {
 
   // Performance: the engagement samples behind "is this working".
   if (req.method === "GET" && p === "/api/research/performance") {
-    return sendJson(res, 200, await readPerformance());
+    return sendJson(res, 200, { posts: await performanceRecords() });
   }
   rm = p.match(/^\/api\/research\/performance\/([^/]+)$/);
   if (rm && (req.method === "PUT" || req.method === "POST")) {
@@ -1274,67 +1319,6 @@ async function handleApi(req, res, url) {
       catch { /* fall through */ }
     }
     return send(res, 404, "Not found");
-  }
-
-  if (req.method === "GET" && p === "/api/drafts") {
-    return sendJson(res, 200, { drafts: await listDrafts() });
-  }
-
-  // /api/drafts/<slug>
-  const m = p.match(/^\/api\/drafts\/([^/]+)$/);
-  if (m) {
-    const slug = m[1];
-    const dir = draftDir(slug);
-    if (!dir) return sendJson(res, 400, { error: "invalid slug" });
-    const file = path.join(dir, "draft.json");
-
-    // A deck draft is staging for /new-deck. Composing a deck hosted goes
-    // through the Deck builder instead, which publishes rather than stages.
-    if (SERVERLESS && req.method !== "GET") {
-      return needsCli(res,
-        "A deck draft is staged in the repo for /new-deck to build. Hosted, compose it in the Deck builder instead.",
-        "/new-deck");
-    }
-
-    if (req.method === "GET") {
-      try {
-        const d = JSON.parse(await fsp.readFile(file, "utf-8"));
-        return sendJson(res, 200, d);
-      } catch {
-        return sendJson(res, 404, { error: "no such draft" });
-      }
-    }
-
-    if (req.method === "PUT" || req.method === "POST") {
-      let data;
-      try {
-        data = JSON.parse(await readBody(req));
-      } catch {
-        return sendJson(res, 400, { error: "bad json" });
-      }
-      const record = {
-        slug,
-        title: String(data.title || slug),
-        type: String(data.type || ""),
-        intent: data.intent || {},
-        vars: data.vars || {},
-        slides: Array.isArray(data.slides) ? data.slides : [],
-        source_deck: data.source_deck || null,
-        status: "draft",
-      };
-      await fsp.mkdir(dir, { recursive: true });
-      await fsp.writeFile(file, JSON.stringify(record, null, 2), "utf-8");
-      return sendJson(res, 200, { ok: true, slug, prompt: `/deckbuilder build draft ${slug}` });
-    }
-
-    if (req.method === "DELETE") {
-      try {
-        await fsp.rm(dir, { recursive: true, force: true });
-        return sendJson(res, 200, { ok: true });
-      } catch {
-        return sendJson(res, 500, { error: "delete failed" });
-      }
-    }
   }
 
   // === Deck Studio v3 backend (decks/customers/versions/build) =============

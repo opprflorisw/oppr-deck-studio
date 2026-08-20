@@ -14,6 +14,7 @@
 
 import { $, $$, el, esc, toast } from "../util.js";
 import * as api from "../api.js";
+import { state } from "../state.js";
 import { renderMarkdown } from "../md.js";
 import { icon } from "../icons.js";
 import { go } from "../router.js";
@@ -279,6 +280,17 @@ function runDetail(r) {
 
 // --- Posts -------------------------------------------------------------------
 
+// Where a promoted idea went. Once it has been built and published it IS an
+// artifact, so the link goes to that artifact rather than to the list it sits
+// in; until then it is still a draft in the repo and says so.
+function promotedLink(p) {
+  const slug = p.promoted_to || "";
+  const d = (state.backend.decks || []).find((x) => x.slug === slug);
+  return d
+    ? `<a class="ghost accent" href="#/deck/${esc(d.id)}">Open the publication</a>`
+    : `<span class="note">Staged as <code>${esc(slug)}</code>, waiting to be built.</span>`;
+}
+
 function postsBody(data) {
   if (!data.posts.length) {
     return el(`<div class="empty"><p>No ideas yet.</p>
@@ -307,8 +319,7 @@ function postsBody(data) {
               <button class="ghost" data-act="open">Read</button>
               <button class="ghost" data-act="copy">Copy text</button>
               ${p.status === "promoted"
-                ? `<a class="ghost" href="#/social/${p.kind === "linkedin-article" ? "post" : "post"}">Open in Social output</a>
-                   <span class="note">draft <code>${esc(p.promoted_to || "")}</code></span>`
+                ? promotedLink(p)
                 : `<button class="ghost accent" data-act="promote">Promote to social draft</button>`}
             </div>
             <div class="post-slot"></div>
@@ -366,6 +377,8 @@ function perfBody(data) {
       <p class="note">What happened after posting. Record a reading whenever you check, not on a
       schedule: the series matters more than any single number. Engagement per post weights a comment
       as three likes, because a comment costs more to give.</p>
+      <p class="note">The posted date and link are the same ones the artifact carries in
+      <a href="#/social/all">Social output</a> — set here or set there, it is one fact.</p>
       <div class="perflist">
         ${posts.map((r) => {
           const last = (r.samples || []).slice(-1)[0];
@@ -374,8 +387,8 @@ function perfBody(data) {
             <div class="runcard-top">
               <span class="chip">${esc(r.kind)}</span>
               ${(r.themes || []).map((t) => `<span class="chip domain">${esc(t)}</span>`).join("")}
-              ${r.url ? `<span class="chip conf-established">posted ${esc(r.posted_date || "")}</span>`
-                      : `<span class="chip conf-emerging">not posted</span>`}
+              ${r.posted ? `<span class="chip conf-established">posted ${esc(r.posted_date || "")}</span>`
+                         : `<span class="chip conf-emerging">not posted</span>`}
             </div>
             <h4>${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)}</h4>
             ${last ? `<div class="statstrip small">

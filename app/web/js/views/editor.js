@@ -37,7 +37,7 @@ export async function render(id, mount) {
   mount(el(`<div class="loading">Opening editor…</div>`));
   let data;
   try { data = await api.getDeck(id); }
-  catch { return mount(el(`<div class="loading">Backend not reachable. <a href="#/output/masters">Back</a></div>`)); }
+  catch { return mount(el(`<div class="loading">Backend not reachable. <a href="#/decks">Back</a></div>`)); }
   const deck = data.deck;
   const n = deck.current_version_n;
   let [SLIDE_W, SLIDE_H] = PAGE_SIZES[deck.page_format] || DEFAULT_PAGE;

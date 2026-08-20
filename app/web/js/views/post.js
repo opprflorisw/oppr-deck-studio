@@ -27,7 +27,7 @@
 // - **Posted is on the page.** The same publish_log entry the list's checkbox
 //   writes, with the date and the post's link, where you finish the work.
 
-import { $, $$, el, esc, decodeEntities, toast, todayISO , backdropClose } from "../util.js";
+import { $, $$, el, esc, decodeEntities, toast, todayISO } from "../util.js";
 import { state, loadBackend } from "../state.js";
 import * as api from "../api.js";
 import { go } from "../router.js";
@@ -36,6 +36,7 @@ import { deckVersionViewer } from "./viewer.js";
 import { postEditorPanel } from "../postedit.js";
 import { mountNote } from "../note.js";
 import { offlinePanel } from "./deck.js";
+import { openRename } from "../rename.js";
 
 export { SOCIAL_KINDS } from "../areas.js";
 
@@ -401,38 +402,4 @@ function articleBody(html) {
     else plain += "\n\n" + blocks[i];
   }
   return { rich, plain: plain.trim() };
-}
-
-// ------------------------------------------------------------------- rename
-
-// The lean rename for a social artifact: the title, and the filename core for
-// the kinds that ship a file. No master naming rules here — social is never a
-// master and never carries a client slug.
-function openRename(deck, done) {
-  const m = el(`<div class="modal"><div class="modal-box">
-    <header><b>Rename</b><button class="ghost icon-only close" title="Close">${icon("close")}</button></header>
-    <div class="modal-body">
-      <div class="field"><label for="r-title">Title</label>
-        <input id="r-title" type="text" value="${esc(decodeEntities(deck.title))}" maxlength="200"></div>
-      <div class="field"><label for="r-core">Filename</label>
-        <input id="r-core" type="text" value="${esc(deck.pdf_core || "")}" placeholder="leave empty to derive from the slug">
-        <p class="note">The middle of the downloaded file's name. The date and
-          <span class="mono">oppr</span> stay automatic.</p></div>
-      <div class="modal-actions"><button class="primary" id="r-save">Save</button></div>
-    </div>
-  </div></div>`);
-  const close = () => m.remove();
-  $(".close", m).addEventListener("click", close);
-  backdropClose(m, close);
-  $("#r-save", m).addEventListener("click", async () => {
-    try {
-      await api.renameDeck(deck.id, { title: $("#r-title", m).value, pdf_core: $("#r-core", m).value });
-      close();
-      await loadBackend(api);
-      toast("Renamed.");
-      done();
-    } catch (e) { toast(e.message || "rename failed"); }
-  });
-  document.body.append(m);
-  setTimeout(() => $("#r-title", m).focus(), 30);
 }

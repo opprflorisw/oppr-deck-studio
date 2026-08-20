@@ -1,4 +1,11 @@
-// App + draft state, with localStorage persistence for the working draft.
+// App state: the library index, the backend slice (decks + customers) and the
+// library browsing filters.
+//
+// The old COMPOSE-MODE draft lived here too — a working deck kept in
+// localStorage, added to from the slide library through a bottom tray. It was
+// removed on 2026-08-20 with the rest of that flow: the builder replaced it, and
+// the toggle that switched it on had already been deleted at boot, so nothing
+// could reach it. Deck drafts now live in drafts.js (the builder's own store).
 
 
 export const state = {
@@ -9,10 +16,10 @@ export const state = {
   // slideId -> [artifact slug]. Derived from published content, not from
   // disk folders (those are build scratch and get deleted after publish).
   slideUsage: {},
-  composeMode: false,
-  slideView: localStorage.getItem("oppr.slideView") || "cards", // cards | sections | table
+  // cards | table. A remembered "sections" from before the two card views
+  // merged falls through to cards, which is what it now is.
+  slideView: localStorage.getItem("oppr.slideView") === "table" ? "table" : "cards",
   filter: { role: "", entitlement: "", section: "", q: "" },
-  draft: loadDraft(),
 };
 
 export const deckById = (id) => state.backend.decks.find((d) => d.id === id);
@@ -36,58 +43,9 @@ export async function loadBackend(api) {
   return state.backend;
 }
 
-export function blankDraft() {
-  return {
-    slug: "", title: "", type: "",
-    intent: { audience: "", client: "", language: "en", entitlement: "public", goal: "", presenter: "" },
-    vars: { deck_footer: "", cover_meta: "" },
-    slides: [],
-    source_deck: null,
-  };
-}
-
-export function loadDraft() {
-  try { return { ...blankDraft(), ...JSON.parse(localStorage.getItem("oppr.draft") || "{}") }; }
-  catch { return blankDraft(); }
-}
-
-export function saveDraftLocal() {
-  localStorage.setItem("oppr.draft", JSON.stringify(state.draft));
-  updateDraftCount();
-}
-
-export function setDraft(d) {
-  state.draft = { ...blankDraft(), ...d };
-  saveDraftLocal();
-}
-
-export function updateDraftCount() {
-  const n = state.draft.slides.length;
-  document.querySelectorAll("[data-draft-count]").forEach((e) => (e.textContent = n));
-}
-
-
 export function setSlideView(v) {
   state.slideView = v;
   localStorage.setItem("oppr.slideView", v);
 }
 
 export const slideById = (id) => state.index?.slides.find((s) => s.id === id);
-
-// Clearance is per customer (2026-08-01), not a rank. It used to be a rank, and
-// that quietly stopped working the moment `named-customer` was split into one
-// slug per customer: Holliday and Attero were both rank 1, so `1 > 1` was false
-// and a Holliday-cleared draft would happily accept Attero material. `public` is
-// always allowed; every other slug needs an exact match.
-export function slideExceedsClearance(entitlement) {
-  const want = entitlement || "public";
-  if (want === "public") return false;
-  return want !== (state.draft.intent.entitlement || "public");
-}
-
-export function addSlide(id) {
-  const s = slideById(id);
-  if (!s) return;
-  state.draft.slides.push({ source: "library", id: s.id, role: s.role, title: s.title, thumb: s.thumb, comment: "" });
-  saveDraftLocal();
-}

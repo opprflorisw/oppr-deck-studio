@@ -3,15 +3,18 @@
 // version in the viewer, Edit, Regenerate the PDF (runs the same verify gate as
 // the CLI), Personalize a master for a customer/event, toggle the master tag.
 
-import { $, $$, el, esc, decodeEntities, toast , backdropClose } from "../util.js";
+import { $, el, esc, decodeEntities, toast } from "../util.js";
 import { state, loadBackend } from "../state.js";
 import * as api from "../api.js";
 import { go } from "../router.js";
 import { icon, ibtn } from "../icons.js";
 import { deckVersionViewer } from "./viewer.js";
 import { openPersonalize } from "./personalize.js";
-import { explain, summarize } from "../verify.js";
+import { explain } from "../verify.js";
 import { mountNote } from "../note.js";
+import { isOwner } from "../auth.js";
+import { openRecordSent } from "../recordsent.js";
+import { openRename } from "../rename.js";
 
 // "Edit" is two jobs, and the server already knows they are two jobs:
 // `htmlcheck.mjs` allows text and attribute changes and rejects everything
@@ -48,12 +51,18 @@ export async function renderDetail(id, mount) {
   const { deck, versions, family } = data;
   const pdf = data.pdf || { name: "", current: false, verify: null };
   const current = versions.find((v) => v.n === deck.current_version_n);
+  // Mother work — the master tag, and archiving a master — changes every deck
+  // built from here on, so `guard.mjs` refuses it for anyone but an owner. A
+  // button that always answers with a refusal is a trap, not an option, so it
+  // is not drawn. The server still enforces it; this only stops offering it.
+  const owner = isOwner();
 
   const badges = [
     deck.is_master ? `<span class="badge badge--master">MASTER</span>` : "",
     `<span class="badge">${esc(deck.kind && deck.kind !== "deck" ? deck.kind : deck.type || "—")}</span>`,
     deck.audience_kind && deck.audience_kind !== "general" ? `<span class="tags">${esc(deck.audience_label || deck.audience_kind)}</span>` : "",
-    deck.status === "needs_cli" ? `<span class="pill-status draft">needs CLI</span>` : `<span class="pill-status posted">ok</span>`,
+    // "ok" on every healthy deck is not information. Only the exception shows.
+    deck.status === "needs_cli" ? `<span class="pill-status draft">needs CLI</span>` : "",
   ].filter(Boolean).join("");
 
   const wrap = el(`
@@ -77,14 +86,15 @@ export async function renderDetail(id, mount) {
           <button class="ghost" id="open">${ibtn("preview", "Open")}</button>
           ${editDoors()}
           <button class="ghost" id="download">${ibtn("download", "Download PDF")}</button>
+          <button class="ghost" id="sent" title="Record that this deck went out, and to whom">${ibtn("open", "Record sent")}</button>
           <button class="ghost" id="rename">${ibtn("compose", "Rename")}</button>
           ${deck.is_master ? `<button class="ghost" id="personalize">${ibtn("clone", "Personalize")}</button>` : ""}
-          <button class="ghost" id="master">${deck.is_master ? ibtn("layers", "Master ✓") : ibtn("layers", "Make master")}</button>
-          <button class="ghost ${deck.archived ? "" : "danger"}" id="archive"
+          ${owner ? `<button class="ghost" id="master">${deck.is_master ? ibtn("layers", "Master ✓") : ibtn("layers", "Make master")}</button>` : ""}
+          ${owner || !deck.is_master ? `<button class="ghost ${deck.archived ? "" : "danger"}" id="archive"
                   title="${deck.archived
                     ? "Bring this deck back into the index"
                     : "Take it out of the index. Nothing is deleted: every version and PDF stays."}">
-            ${deck.archived ? ibtn("history", "Restore") : ibtn("trash", "Archive")}</button>
+            ${deck.archived ? ibtn("history", "Restore") : ibtn("trash", "Archive")}</button>` : ""}
         </div>
       </div>
       ${pdfStatusBar(pdf, deck)}
@@ -111,11 +121,11 @@ export async function renderDetail(id, mount) {
     try { await api.patchDeck(deck.id, { starred: next }); await loadBackend(api); }
     catch (err) { deck.starred = !next; btn.classList.toggle("on", !next); toast(err.message || "could not save the star"); }
   });
-  $("#back", wrap).addEventListener("click", () => history.length > 1 ? history.back() : go("/output/masters"));
+  $("#back", wrap).addEventListener("click", () => history.length > 1 ? history.back() : go("/decks"));
   $("#open", wrap).addEventListener("click", () => deckVersionViewer(api, deck.id, cur, decodeEntities(deck.title)));
   $("#edit", wrap).addEventListener("click", () => go(`/deck/${deck.id}/edit`));
   $("#edit-slides", wrap)?.addEventListener("click", () => go(`/build/${deck.id}`));
-  $("#archive", wrap).addEventListener("click", async () => {
+  $("#archive", wrap)?.addEventListener("click", async () => {
     const next = !deck.archived;
     try {
       await api.patchDeck(deck.id, { archived: next });
@@ -127,9 +137,11 @@ export async function renderDetail(id, mount) {
     } catch (e) { toast(e.message || "could not change that"); }
   });
   $("#download", wrap).addEventListener("click", () => downloadCurrent(deck, cur, wrap, mount));
-  $("#rename", wrap).addEventListener("click", () => openRename(deck, pdf.name, mount));
+  $("#sent", wrap).addEventListener("click", () =>
+    openRecordSent(deck, () => renderDetail(deck.id, mount)));
+  $("#rename", wrap).addEventListener("click", () => openRename(deck, () => renderDetail(deck.id, mount)));
   $("#personalize", wrap)?.addEventListener("click", () => openPersonalize(deck));
-  $("#master", wrap).addEventListener("click", async () => {
+  $("#master", wrap)?.addEventListener("click", async () => {
     try {
       await api.setDeckMaster(deck.id, !deck.is_master);
       await loadBackend(api);
@@ -301,93 +313,4 @@ function failedGate(deck, n, err, wrap, mount) {
     } catch (e2) { toast(e2.message || "could not download"); }
   });
   return box;
-}
-
-// Rename: the title is yours entirely; the filename is yours in the middle only.
-// The date, the `oppr` token and the client slug stay system-owned because
-// verify-deck.py FAILs a PDF missing them, and a rename must not defeat a gate.
-function openRename(deck, currentName, mount) {
-  const m = el(`<div class="modal"><div class="modal-box">
-    <header><b>Rename</b><button class="ghost icon-only close" title="Close">${icon("close")}</button></header>
-    <div class="modal-body">
-      <div class="field"><label for="r-title">Title</label>
-        <input id="r-title" type="text" value="${esc(decodeEntities(deck.title))}" maxlength="200"></div>
-      <div class="field"><label for="r-core">Filename</label>
-        <input id="r-core" type="text" value="${esc(deck.pdf_core || "")}" placeholder="leave empty to derive from the slug"></div>
-      <p class="note">Result: <span class="mono" id="r-preview">${esc(currentName)}</span></p>
-      <p class="note">You choose the middle segment. The date, <span class="mono">oppr</span> and the client slug stay
-        automatic, because verify fails a PDF that is missing them.</p>
-      <div class="modal-actions"><button class="primary" id="r-save">Save</button></div>
-    </div>
-  </div></div>`);
-  const close = () => m.remove();
-  $(".close", m).addEventListener("click", close);
-  backdropClose(m, close);
-
-  const preview = () => {
-    const core = $("#r-core", m).value.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-");
-    const dm = /^(\d{4}-\d{2}-\d{2})[_-](.+)$/.exec(deck.slug);
-    let out;
-    if (deck.is_master) {
-      out = `oppr_${core || deck.type}.pdf`;
-    } else {
-      const parts = [];
-      if (dm) parts.push(dm[1]);
-      parts.push("oppr");
-      const body = core || (dm ? dm[2] : deck.slug);
-      if (body && body !== "oppr") parts.push(body);
-      if (deck.client_slug && !parts.join("-").includes(deck.client_slug)) parts.push(deck.client_slug);
-      out = parts.join("_") + ".pdf";
-    }
-    $("#r-preview", m).textContent = out;
-  };
-  $("#r-core", m).addEventListener("input", preview);
-  // Compute it up front too: the modal must show the resulting filename
-  // before you touch anything, not only after the first keystroke.
-  preview();
-
-  $("#r-save", m).addEventListener("click", async () => {
-    try {
-      const out = await api.renameDeck(deck.id, {
-        title: $("#r-title", m).value,
-        pdf_core: $("#r-core", m).value,
-      });
-      close();
-      await loadBackend(api);
-      toast(`Renamed. PDF will be ${out.pdf_name}`);
-      renderDetail(deck.id, mount);
-    } catch (e) { toast(e.message || "rename failed"); }
-  });
-  document.body.append(m);
-  setTimeout(() => $("#r-title", m).focus(), 30);
-}
-
-async function regenerate(id, wrap, mount) {
-  const box = $("#build-status", wrap);
-  box.innerHTML = `<div class="build-status running">${icon("refresh", 15)} Regenerating PDF and verifying…</div>`;
-  let job;
-  try { job = await api.buildDeck(id); }
-  catch (e) { box.innerHTML = `<div class="build-status fail">Could not start: ${esc(e.message)}</div>`; return; }
-  const jobId = job.job_id;
-  const poll = setInterval(async () => {
-    let s;
-    try { s = await api.getJob(jobId); } catch { return; }
-    if (s.state === "running") return;
-    clearInterval(poll);
-    if (s.state === "pass") {
-      box.innerHTML = `<div class="build-status pass">${icon("info", 15)} PDF regenerated and verified.${warnLine(s)}</div>`;
-      await loadBackend(api);
-      setTimeout(() => renderDetail(id, mount), 700);
-    } else {
-      const fails = (s.verify_report?.fails || []).map((f) => `<li>${esc(f)}</li>`).join("");
-      box.innerHTML = `<div class="build-status fail"><b>Verification failed — PDF withheld.</b><ul>${fails}</ul></div>`;
-      await loadBackend(api);
-      setTimeout(() => renderDetail(id, mount), 1400);
-    }
-  }, 1000);
-}
-
-function warnLine(s) {
-  const w = s.verify_report?.warns || [];
-  return w.length ? ` <span class="note">(${w.length} warning${w.length === 1 ? "" : "s"})</span>` : "";
 }

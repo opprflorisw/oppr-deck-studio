@@ -19,7 +19,10 @@ function usageOf(file) {
 }
 
 let gFilter = { q: "", ent: "", unused: false };
-let gView = localStorage.getItem("oppr.gView") || "cards"; // cards | categories | table
+// cards | table. Cards is grouped by type: the flat grid and the grouped grid
+// drew the same cards and differed only by whether headings broke them up, so
+// the third mode was a toggle with nothing behind it.
+let gView = localStorage.getItem("oppr.gView") === "table" ? "table" : "cards";
 
 const TYPE_ORDER = ["photo", "diagram", "product-screenshot", "logo"];
 
@@ -28,7 +31,7 @@ export function renderList() {
   const bar = el(`
     <div class="subbar">
       <div class="viewswitch">
-        ${[["cards", "Cards"], ["categories", "Categories"], ["table", "Table"]].map(([v, l]) => `<button data-gview="${v}" class="${gView === v ? "active" : ""}">${icon(v, 15)}<span>${l}</span></button>`).join("")}
+        ${[["cards", "Cards"], ["table", "Table"]].map(([v, l]) => `<button data-gview="${v}" class="${gView === v ? "active" : ""}">${icon(v, 15)}<span>${l}</span></button>`).join("")}
       </div>
       <div class="filters">
         <input type="search" id="gq" placeholder="Filter…" value="${esc(gFilter.q)}">
@@ -67,19 +70,12 @@ function renderBody(container) {
   const imgs = filteredImgs();
   container.innerHTML = "";
   if (!imgs.length) { container.innerHTML = `<div class="loading">No graphics match.</div>`; return; }
-  if (gView === "cards") container.append(cardsGrid(imgs));
-  else if (gView === "categories") container.append(categoriesView(imgs));
-  else container.append(tableView(imgs));
+  if (gView === "table") container.append(tableView(imgs));
+  else container.append(categoriesView(imgs));
 }
 
 function wireOpen(root) {
   $$("[data-gopen]", root).forEach((c) => c.addEventListener("click", () => go("/graphics/" + encodeURIComponent(c.dataset.gopen))));
-}
-
-function cardsGrid(imgs) {
-  const grid = el(`<div class="grid">${imgs.map(gcard).join("")}</div>`);
-  wireOpen(grid);
-  return grid;
 }
 
 function categoriesView(imgs) {

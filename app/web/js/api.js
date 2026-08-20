@@ -36,27 +36,8 @@ async function j(url, opts) {
 export const getIndex = () => j("/api/index");
 export const refresh = () => j("/api/refresh", { method: "POST" });
 
-export const listDrafts = () => j("/api/drafts");
-export const getDraft = (slug) => j(`/api/drafts/${encodeURIComponent(slug)}`);
-export const putDraft = (slug, data) =>
-  j(`/api/drafts/${encodeURIComponent(slug)}`, {
-    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-  });
-export const deleteDraft = (slug) =>
-  j(`/api/drafts/${encodeURIComponent(slug)}`, { method: "DELETE" });
-
-export const slideHistory = (id) => j(`/api/history/slide/${encodeURIComponent(id)}`);
-export const slideVersion = (id, hash) =>
-  authedFetch(`/api/history/slide/${encodeURIComponent(id)}/${encodeURIComponent(hash)}`).then((r) => r.text());
-
 export const importGraphics = (payload) =>
   j("/api/import-graphics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-
-export const listSocialDrafts = () => j("/api/social-drafts");
-export const getSocialDraft = (slug) => j(`/api/social-drafts/${encodeURIComponent(slug)}`);
-export const putSocialDraft = (slug, data) =>
-  j(`/api/social-drafts/${encodeURIComponent(slug)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-export const deleteSocialDraft = (slug) => j(`/api/social-drafts/${encodeURIComponent(slug)}`, { method: "DELETE" });
 
 // Publish status now lives in the backend publish_log table (v3). These names
 // are unchanged so social.js needs no edit; only the endpoint moved.

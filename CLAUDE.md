@@ -67,7 +67,51 @@ should be able to build a deck from these docs alone.
    (how to add the MCP connector) and **Studio files** (the old Knowledge →
    Config browser).
 
-   **Deck builder is not a sidebar area (2026-08-20).** It was, and its landing
+   **The UX pass (2026-08-20).** A full review of every page, modal and button
+  produced nine changes, and the rule behind most of them is the same one that
+  deleted the builder's landing page: **one fact, one control, one place.**
+  - **Three dead flows removed**, about 450 lines and one permanently broken
+    panel: compose mode (the pre-builder draft tray, unreachable since the
+    toggle was deleted at boot, together with its `/api/drafts` routes), the
+    carousel composer viewer, and the slide **version history** panel, which
+    called an endpoint the server has never had and so only ever printed its own
+    failure message on every slide page. `git log` answers that question.
+  - **One posted store.** The research **Performance** tab kept its own
+    `posted_date` + `url` in `performance.json`, so an article marked posted on
+    its publication page still read "not posted" there. Both now read and write
+    `publish_log` (the slugs match by construction, because a promoted draft's
+    slug becomes the artifact's). performance.json keeps only what is its own:
+    the engagement readings.
+  - **One deck row.** The customer page drew a thinner copy of the Decks list
+    (no note, star, thumbnail, verify chip or download). It uses `artifactRow`
+    now, plus the one action that is a *customer* fact: Record sent.
+  - **Record sent is a real dialog**, on the deck page as well as the customer
+    page. It was a browser `prompt()` that could take one string, offered only
+    where you were *not* standing when you sent the deck. It now takes the
+    recipient, a note, the date and the version, all of which the endpoint
+    already accepted.
+  - **Chips mark exceptions.** Every unprinted artifact wore "not verified yet"
+    and every healthy deck wore "ok", so the column was wallpaper. Only fails
+    and warnings get a chip.
+  - **Role-aware pages.** `Make master` (and archiving a master) is owner-only
+    in `guard.mjs`, but the button rendered for everyone and answered an editor
+    with a 403. A control that always refuses is a trap, so it is not drawn. The
+    server still enforces it.
+  - **One Rename** (`rename.js`), shared by the deck page and the publication
+    page; there were two, already drifting. It states the resulting filename for
+    anything that ships a file, and says plainly that an article ships none.
+  - **Social tabs name what things are**: All · Carousels · Articles · Images.
+    They were All · Carousels · Job descriptions · Posts, where "Posts" secretly
+    meant articles, "Job descriptions" held two items, and a plain image had no
+    tab at all. A job description is an image, and is now a group heading inside
+    Images.
+  - **Two library view modes, not three.** "Cards" and "Sections" rendered the
+    same cards and differed only by whether headings broke the grid, so Cards is
+    grouped and the flat twin is gone (same for Graphics). And **New customer is
+    a dialog**, like New deck: two creation grammars for two-field forms was one
+    thing too many to learn.
+
+  **Deck builder is not a sidebar area (2026-08-20).** It was, and its landing
    page listed the same decks as **Decks** with less on each row — no note, no
    star, no verify chip, no page count — so the app had two deck lists that
    disagreed about what a deck list looks like. The builder is a workspace bound
@@ -289,7 +333,7 @@ r=sb.select('social_outputs',{'slug':'eq.<slug>','select':'*'});print(r);print(l
 ```
 
 Two things that are **deliberately not** published, so do not 'fix' them:
-`social/drafts/` and `decks/drafts/` are staging (the CLI builds them into real
+`social/drafts/` is staging (an owner builds it into real
 outputs first), and anything personal or named-recipient never becomes public
 social output at all. If a piece belongs in neither place, say so explicitly in
 the hand-off rather than leaving it on disk and calling it delivered.
@@ -517,7 +561,7 @@ mirror that did not update.
   every save server-side and rejects anything beyond text/attribute level, so the
   boundary never depends on the browser. When the app refuses, it shows the exact
   CLI prompt and **clicking it copies it**. The app writes only staging areas
-  (`dump/_app/`, `decks/drafts/`, `social/drafts/`) and the backend; it never
+  (`dump/_app/`, `social/drafts/`) and the backend; it never
   writes `library/`, `brand/` or `templates/`.
 - **Documentation is checked, not trusted.** `python tools\check-docs.py --check`
   fails when a path, tool or command named in any `CLAUDE.md` / README does not
@@ -551,7 +595,7 @@ mirror that did not update.
   together") · `customer` · `investor`.
 - `decks/` — **build scratch only** (gitignored): the CLI assembles into
   `decks/<slug>/`, publishes, confirms it landed, and the folder is disposable.
-  Plus `drafts/<slug>/` (pending drafts from the app; normally empty). The deck
+  A deck being composed is a `draft_recipe` on its own row, never a folder. The deck
   itself lives in the backend.
 - `customers/<slug>/` — one folder per customer (`customer.yaml` + logo);
   CLI-owned (filed by `/ingest-dump` from a `dump/_app/` intake), read by the app.
