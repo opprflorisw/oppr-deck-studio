@@ -1992,7 +1992,7 @@ async function handleDeckApi(req, res, url) {
       if (bar) return sendJson(res, 403, bar);
       const d = JSON.parse(await readBody(req, 4_000_000));
       const html = String(d.html || "");
-      const decks = await db.select("decks", { id: `eq.${id}`, select: "id,current_version_n" });
+      const decks = await db.select("decks", { id: `eq.${id}`, select: "id,current_version_n,page_format" });
       if (!decks.length) return sendJson(res, 404, { error: "no such deck" });
       const cur = decks[0].current_version_n;
       const prevRows = await db.select("deck_versions", { deck_id: `eq.${id}`, n: `eq.${cur}`, select: "html" });
@@ -2024,6 +2024,13 @@ async function handleDeckApi(req, res, url) {
         p_author: req.member.email, p_author_id: req.member.id,
         p_verify_report: report,
       });
+      // The snapshot is the truth about page size (the editor's ratio switch
+      // rewrites it there); the row mirrors it so the lists, the editor's next
+      // open and the PNG endpoint all agree without re-reading the HTML.
+      const pfm = /"page_format":\s*"([^"]+)"/.exec(html);
+      if (pfm && pfm[1] !== decks[0].page_format) {
+        await db.update("decks", { id }, { page_format: pfm[1] });
+      }
       await audit(req.member, "version.save", id, { n, change_note: note });
       return sendJson(res, 200, { ok: true, n });
     }

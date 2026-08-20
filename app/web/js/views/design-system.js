@@ -1,7 +1,7 @@
 // Design system: every specimen rendered inline and scrollable (no click-through),
 // grouped by foundations / blocks / patterns. Stays in the Library.
 
-import { $, $$, el, esc } from "../util.js";
+import { $, $$, el, esc , backdropClose } from "../util.js";
 import { state } from "../state.js";
 import { icon } from "../icons.js";
 import { downloadPanel } from "../download.js";
@@ -70,7 +70,7 @@ function openBlockDownload(name) {
   </div></div>`);
   const close = () => m.remove();
   $(".close", m).addEventListener("click", close);
-  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  backdropClose(m, close);
   $("#dl-host", m).append(downloadPanel("block", name));
   document.body.append(m);
 }

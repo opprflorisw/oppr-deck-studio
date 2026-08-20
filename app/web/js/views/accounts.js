@@ -14,7 +14,7 @@
 // the separate "Your password" section is gone — you are an account like the
 // others, managed where accounts are managed.
 
-import { $, $$, el, esc, toast } from "../util.js";
+import { $, $$, el, esc, toast , backdropClose } from "../util.js";
 import * as api from "../api.js";
 import { icon, ibtn } from "../icons.js";
 import { currentMember, changePassword } from "../auth.js";
@@ -293,7 +293,7 @@ function openAddDialog(onCreated) {
 
   const close = () => m.remove();
   $(".close", m).addEventListener("click", close);
-  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  backdropClose(m, close);
   wireSuggest(m);
   $$(".rolecard input", m).forEach((i) => i.addEventListener("change", () => {
     $$(".rolecard", m).forEach((c) => c.classList.toggle("on", $("input", c).checked));

@@ -2,7 +2,7 @@
 // cross-references (which slides / decks use each graphic), a detail page, and
 // (Phase 5) an import flow. Usage is computed from the index client-side.
 
-import { $, $$, el, esc, decodeEntities, toast, ENTITLEMENTS } from "../util.js";
+import { $, $$, el, esc, decodeEntities, toast, ENTITLEMENTS , backdropClose } from "../util.js";
 import { state } from "../state.js";
 import { go } from "../router.js";
 import * as api from "../api.js";
@@ -162,7 +162,7 @@ function openImport() {
     </div>`);
   const close = () => m.remove();
   $(".close", m).addEventListener("click", close);
-  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  backdropClose(m, close);
 
   const dz = $("#dz", m), fin = $("#fin", m);
   const refresh = () => {

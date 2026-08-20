@@ -4,7 +4,7 @@
 // it. The server checks the result is structurally identical to the master and
 // files the new deck under the chosen customer / event with lineage recorded.
 
-import { $, $$, el, esc, toast } from "../util.js";
+import { $, $$, el, esc, toast , backdropClose } from "../util.js";
 import { state, loadBackend } from "../state.js";
 import * as api from "../api.js";
 import { go } from "../router.js";
@@ -85,7 +85,7 @@ export async function openPersonalize(deck) {
   const close = () => m.remove();
   $(".close", m).addEventListener("click", close);
   $(".close2", m).addEventListener("click", close);
-  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  backdropClose(m, close);
 
   $("#create", m).addEventListener("click", async () => {
     // build personalized html: set each slot's textContent

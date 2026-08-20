@@ -19,7 +19,7 @@
 // customers passes `allowed_entitlements` in a recipe to `npm run studio -- build`,
 // which is still honoured.
 
-import { $, el, esc, toast, slugify, todayISO } from "../util.js";
+import { $, el, esc, toast, slugify, todayISO , backdropClose } from "../util.js";
 import { state } from "../state.js";
 import { icon } from "../icons.js";
 import { DECK_TYPES, typeLabel, typeRank, isCustomerDeck } from "../decktypes.js";
@@ -150,7 +150,7 @@ export function openNewDeck(onCreate, { forCustomer = null } = {}) {
 
   const close = () => m.remove();
   $(".close", m).addEventListener("click", close);
-  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  backdropClose(m, close);
 
   // Which customer this deck is for: fixed when the Customers page opened the
   // dialog, chosen here otherwise.

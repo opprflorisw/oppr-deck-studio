@@ -12,7 +12,7 @@ import { $, $$ } from "./util.js";
 // The PATH, not the raw hash: an area link must still light up when the route
 // carries a query (`#/build/new?for=<customer>`).
 import { currentPath } from "./router.js";
-import { AREAS, NAV_GROUPS, areaPath } from "./areas.js";
+import { AREAS, NAV_GROUPS, areaPath, SOCIAL_KINDS } from "./areas.js";
 import { icon } from "./icons.js";
 import { state } from "./state.js";
 
@@ -73,11 +73,22 @@ const ALIASES = {
   library: ["/slides", "/graphics", "/icons", "/design-system", "/brand"],
   // The builder has no sidebar entry of its own: it is a deck, opened. It lights
   // up Decks, because that is where you were and where Back returns you.
-  decks: ["/output/masters", "/build", "/builder", "/deck"],
+  // (/deck/<id> is NOT here: which button it lights depends on what the
+  // artifact IS, so it is resolved by kind in isAlias below.)
+  decks: ["/output/masters", "/build", "/builder"],
   social: ["/social-out", "/output/social"],
   knowledge: ["/knowledge"],
   settings: ["/config", "/knowledge/config"],
 };
 function isAlias(id, path) {
+  // An open artifact lights the area it belongs to: a LinkedIn publication is
+  // Social output, a deck is Decks. Same URL shape, different home — exactly
+  // the rule the router uses to pick the page, applied to the rail.
+  const dm = /^\/deck\/([^/?]+)/.exec(path);
+  if (dm) {
+    const d = (state.backend?.decks || []).find((x) => x.id === dm[1]);
+    const area = d && SOCIAL_KINDS.has(d.kind) ? "social" : "decks";
+    return id === area;
+  }
   return (ALIASES[id] || []).some((p) => path === p || path.startsWith(p + "/"));
 }

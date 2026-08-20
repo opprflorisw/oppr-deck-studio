@@ -30,7 +30,7 @@
 // not a suggestion, which is why the rail greys out what this deck is not
 // cleared for INSTEAD of letting you find out 40 seconds into a build.
 
-import { $, $$, el, esc, toast, decodeEntities } from "../util.js";
+import { $, $$, el, esc, toast, decodeEntities , backdropClose } from "../util.js";
 import { state, loadBackend } from "../state.js";
 import * as api from "../api.js";
 import { go, query } from "../router.js";
@@ -222,7 +222,7 @@ function openSlidePreview(sid) {
     closeModal();
   });
   $("#b-modal-arch", m)?.addEventListener("click", () => { archive(sid, !s.archived); closeModal(); });
-  m.addEventListener("click", (e) => { if (e.target === m) closeModal(); });
+  backdropClose(m, closeModal);
   document.addEventListener("keydown", onEsc);
 }
 

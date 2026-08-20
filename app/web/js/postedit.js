@@ -16,7 +16,7 @@
 // search cannot index it and a screen reader spells it out. Leaving digits
 // unmapped enforces that silently instead of warning about it after the fact.
 
-import { $, el, esc, toast } from "./util.js";
+import { $, el, esc, toast , backdropClose } from "./util.js";
 import { icon } from "./icons.js";
 import * as api from "./api.js";
 
@@ -87,7 +87,12 @@ const hasStyle = (str, key) => {
 
 // deck: the artifact row (id + title). onSaved(text) lets the caller refresh
 // whatever it shows about the post without reloading the whole list.
-export function openPostEditor(deck, text, onSaved) {
+//
+// postEditorPanel is the editor itself — toolbar, textarea, live feed preview —
+// as an element any surface can host. The publication page embeds it straight
+// into its Short form tab (no modal: the screen is already open). openPostEditor
+// wraps the same panel in a modal for the places that only have a list row.
+export function postEditorPanel(deck, text, { onSaved } = {}) {
   const styleBtns = Object.entries(STYLES)
     .map(([k, s]) => `<button class="ghost pe-style" data-style="${k}" title="${s.label}">${s.label}</button>`)
     .join("");
@@ -95,56 +100,48 @@ export function openPostEditor(deck, text, onSaved) {
     (m) => `<button class="ghost pe-mark" data-ch="${esc(m.ch)}" title="Insert ${m.title}">${esc(m.ch)}</button>`
   ).join("");
 
-  const m = el(`
-    <div class="modal">
-      <div class="modal-box pe-box">
-        <header>
-          <b>Post text · ${esc(deck.title || deck.slug)}</b>
-          <div class="spacer"></div>
-          <button class="ghost icon-only close" title="Close">${icon("close")}</button>
-        </header>
-        <div class="pe-bar">
-          ${styleBtns}
-          <span class="pe-sep"></span>
-          ${markBtns}
-          <span class="pe-sep"></span>
-          <button class="ghost pe-clear" title="Remove all Unicode styling">Clear styling</button>
-          <div class="spacer"></div>
-          <span class="pe-count note"></span>
-          <button class="ghost pe-copy">${icon("copy", 14)} Copy all</button>
-          <button class="primary pe-save">${icon("save", 14)} Save</button>
-        </div>
-        <div class="pe-split">
-          <textarea class="postedit" spellcheck="false" placeholder="Write the post that goes with this artifact…"></textarea>
-          <aside class="pe-side">
-            <div class="pe-side-head">
-              <b>In the feed</b>
-              <label class="pe-toggle"><input type="checkbox" class="pe-expand"> Expand</label>
+  const box = el(`
+    <div class="pe-panel">
+      <div class="pe-bar">
+        ${styleBtns}
+        <span class="pe-sep"></span>
+        ${markBtns}
+        <span class="pe-sep"></span>
+        <button class="ghost pe-clear" title="Remove all Unicode styling">Clear styling</button>
+        <div class="spacer"></div>
+        <span class="pe-count note"></span>
+        <button class="ghost pe-copy">${icon("copy", 14)} Copy all</button>
+        <button class="primary pe-save">${icon("save", 14)} Save</button>
+      </div>
+      <div class="pe-split">
+        <textarea class="postedit" spellcheck="false" placeholder="Write the post that goes with this artifact…"></textarea>
+        <aside class="pe-side">
+          <div class="pe-side-head">
+            <b>In the feed</b>
+            <label class="pe-toggle"><input type="checkbox" class="pe-expand"> Expand</label>
+          </div>
+          <div class="pe-phone">
+            <div class="pe-author">
+              <span class="pe-avatar">O</span>
+              <span class="pe-who"><b>Floris Wyers</b><span>Oppr &middot; Operator Intelligence</span></span>
             </div>
-            <div class="pe-phone">
-              <div class="pe-author">
-                <span class="pe-avatar">O</span>
-                <span class="pe-who"><b>Floris Wyers</b><span>Oppr &middot; Operator Intelligence</span></span>
-              </div>
-              <div class="pe-post"></div>
-              <div class="pe-meta"></div>
-            </div>
-          </aside>
-        </div>
+            <div class="pe-post"></div>
+            <div class="pe-meta"></div>
+          </div>
+        </aside>
       </div>
     </div>`);
 
-  const ta = $(".postedit", m);
+  const ta = $(".postedit", box);
   ta.value = text || "";
-  const saved = () => ta.value;
   let last = ta.value;
 
-  const expand = $(".pe-expand", m);
+  const expand = $(".pe-expand", box);
 
   function refresh() {
     const v = ta.value;
     const n = chars(v);
-    const cnt = $(".pe-count", m);
+    const cnt = $(".pe-count", box);
     cnt.textContent = `${n} / ${MAX}`;
     cnt.classList.toggle("warn-text", n > MAX);
 
@@ -157,14 +154,14 @@ export function openPostEditor(deck, text, onSaved) {
 
     // LinkedIn collapses runs of blank lines to one. Render it the same way, so
     // the preview is not quietly more spacious than the real thing.
-    const post = $(".pe-post", m);
+    const post = $(".pe-post", box);
     post.textContent = shown.replace(/\n{3,}/g, "\n\n");
     if (folded && !expand.checked) post.append(el(`<span class="pe-more">… see more</span>`));
 
-    $(".pe-meta", m).textContent = folded
+    $(".pe-meta", box).textContent = folded
       ? `Fold at ${FOLD} of ${n} characters`
       : `Whole post shows (${n} characters)`;
-    $(".pe-save", m).disabled = ta.value === last;
+    $(".pe-save", box).disabled = ta.value === last;
   }
 
   // Replace the selection, keep it selected so the user can chain actions
@@ -178,7 +175,7 @@ export function openPostEditor(deck, text, onSaved) {
     refresh();
   }
 
-  m.querySelectorAll(".pe-style").forEach((btn) =>
+  box.querySelectorAll(".pe-style").forEach((btn) =>
     btn.addEventListener("click", () => {
       const key = btn.dataset.style;
       // Toggle: styled text of this kind goes back to plain, anything else takes
@@ -188,7 +185,7 @@ export function openPostEditor(deck, text, onSaved) {
     })
   );
 
-  m.querySelectorAll(".pe-mark").forEach((btn) =>
+  box.querySelectorAll(".pe-mark").forEach((btn) =>
     btn.addEventListener("click", () => {
       const ch = btn.dataset.ch;
       const { selectionStart: a, selectionEnd: b } = ta;
@@ -198,14 +195,14 @@ export function openPostEditor(deck, text, onSaved) {
     })
   );
 
-  $(".pe-clear", m).addEventListener("click", () => {
+  $(".pe-clear", box).addEventListener("click", () => {
     const { selectionStart: a, selectionEnd: b } = ta;
     if (a === b) { ta.value = toPlain(ta.value); toast("Styling removed."); }
     else replaceSelection(toPlain);
     refresh();
   });
 
-  $(".pe-copy", m).addEventListener("click", async () => {
+  $(".pe-copy", box).addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(ta.value);
       toast("Copied. Paste straight into LinkedIn.");
@@ -216,7 +213,7 @@ export function openPostEditor(deck, text, onSaved) {
   });
 
   const save = async () => {
-    const btn = $(".pe-save", m);
+    const btn = $(".pe-save", box);
     btn.disabled = true;
     try {
       await api.patchDeck(deck.id, { post_text: ta.value });
@@ -228,25 +225,46 @@ export function openPostEditor(deck, text, onSaved) {
     }
     refresh();
   };
-  $(".pe-save", m).addEventListener("click", save);
-
-  // Closing with unsaved text is the one way to lose work here, so it asks.
-  const close = () => {
-    if (saved() !== last && !confirm("Close without saving the post text?")) return;
-    m.remove();
-  };
+  $(".pe-save", box).addEventListener("click", save);
 
   ta.addEventListener("input", refresh);
   expand.addEventListener("change", refresh);
-  $(".close", m).addEventListener("click", close);
-  m.addEventListener("click", (e) => { if (e.target === m) close(); });
-  document.addEventListener("keydown", function onKey(e) {
-    if (!document.body.contains(m)) { document.removeEventListener("keydown", onKey); return; }
-    if (e.key === "Escape") close();
+  // Ctrl+S saves while the caret is in the editor; nothing global to unhook.
+  ta.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); save(); }
   });
 
-  document.body.append(m);
   refresh();
-  setTimeout(() => ta.focus(), 30);
+  return { node: box, unsaved: () => ta.value !== last, focus: () => ta.focus() };
+}
+
+// The modal wrapper, for surfaces that only have a list row to offer.
+export function openPostEditor(deck, text, onSaved) {
+  const m = el(`
+    <div class="modal">
+      <div class="modal-box pe-box">
+        <header>
+          <b>Post text · ${esc(deck.title || deck.slug)}</b>
+          <div class="spacer"></div>
+          <button class="ghost icon-only close" title="Close">${icon("close")}</button>
+        </header>
+      </div>
+    </div>`);
+  const panel = postEditorPanel(deck, text, { onSaved });
+  $(".pe-box", m).append(panel.node);
+
+  // Closing with unsaved text is the one way to lose work here, so it asks.
+  const close = () => {
+    if (panel.unsaved() && !confirm("Close without saving the post text?")) return;
+    m.remove();
+  };
+  $(".close", m).addEventListener("click", close);
+  backdropClose(m, close);
+  document.addEventListener("keydown", function onKey(e) {
+    if (!document.body.contains(m)) { document.removeEventListener("keydown", onKey); return; }
+    if (e.key === "Escape") close();
+  });
+
+  document.body.append(m);
+  setTimeout(() => panel.focus(), 30);
 }

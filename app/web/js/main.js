@@ -7,7 +7,7 @@ import * as api from "./api.js";
 import { state, loadBackend } from "./state.js";
 import { route, setNotFound, startRouter, dispatch, go } from "./router.js";
 import { renderSidebar, markActive } from "./sidebar.js";
-import { areaById, areaPath } from "./areas.js";
+import { areaById, areaPath, SOCIAL_KINDS } from "./areas.js";
 import { requireMember, currentMember, signOut } from "./auth.js";
 import { renderArea } from "./views/area.js";
 import * as slides from "./views/slides.js";
@@ -151,7 +151,16 @@ async function boot() {
   // keeps working whichever it points at.
   route("/deck/:id", (id) => {
     const d = (state.backend.decks || []).find((x) => x.id === id);
-    if (d && post.SOCIAL_KINDS.has(d.kind)) return post.renderDetail(id, mount);
+    // An article's cover lives on a hidden `<slug>-hero` image row. That row is
+    // a facet of the article, not a destination: opening it lands on the
+    // article's page, where the cover already is. Without this, editing a cover
+    // and pressing Back dropped you on a lookalike page with no long form.
+    if (d?.kind === "image" && d.slug.endsWith("-hero")) {
+      const art = (state.backend.decks || []).find(
+        (x) => x.kind === "article" && x.slug === d.slug.slice(0, -5));
+      if (art) return go(`/deck/${art.id}`);
+    }
+    if (d && SOCIAL_KINDS.has(d.kind)) return post.renderDetail(id, mount);
     return deck.renderDetail(id, mount);
   });
   route("/deck/:id/edit", (id) => editor.render(id, mount));

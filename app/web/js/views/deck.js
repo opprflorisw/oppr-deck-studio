@@ -3,7 +3,7 @@
 // version in the viewer, Edit, Regenerate the PDF (runs the same verify gate as
 // the CLI), Personalize a master for a customer/event, toggle the master tag.
 
-import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
+import { $, $$, el, esc, decodeEntities, toast , backdropClose } from "../util.js";
 import { state, loadBackend } from "../state.js";
 import * as api from "../api.js";
 import { go } from "../router.js";
@@ -112,7 +112,7 @@ export async function renderDetail(id, mount) {
     catch (err) { deck.starred = !next; btn.classList.toggle("on", !next); toast(err.message || "could not save the star"); }
   });
   $("#back", wrap).addEventListener("click", () => history.length > 1 ? history.back() : go("/output/masters"));
-  $("#open", wrap).addEventListener("click", () => deckVersionViewer(api, deck.id, cur, decodeEntities(deck.title), versions.find((v) => v.n === cur)?.has_pdf));
+  $("#open", wrap).addEventListener("click", () => deckVersionViewer(api, deck.id, cur, decodeEntities(deck.title)));
   $("#edit", wrap).addEventListener("click", () => go(`/deck/${deck.id}/edit`));
   $("#edit-slides", wrap)?.addEventListener("click", () => go(`/build/${deck.id}`));
   $("#archive", wrap).addEventListener("click", async () => {
@@ -222,7 +222,7 @@ function versionRow(deck, v, cur, mount) {
         </div>
       </div>
     </div>`);
-  $(".view", row).addEventListener("click", () => deckVersionViewer(api, deck.id, v.n, `${decodeEntities(deck.title)} · v${v.n}`, v.has_pdf));
+  $(".view", row).addEventListener("click", () => deckVersionViewer(api, deck.id, v.n, `${decodeEntities(deck.title)} · v${v.n}`));
   $(".restore", row)?.addEventListener("click", async () => {
     try { await api.restoreDeckVersion(deck.id, v.n); await loadBackend(api); toast(`Restored v${v.n} as a new version.`); renderDetail(deck.id, mount); }
     catch (e) { toast(e.message || "could not restore"); }
@@ -322,7 +322,7 @@ function openRename(deck, currentName, mount) {
   </div></div>`);
   const close = () => m.remove();
   $(".close", m).addEventListener("click", close);
-  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  backdropClose(m, close);
 
   const preview = () => {
     const core = $("#r-core", m).value.toLowerCase().replace(/[^\w\s-]/g, "").trim().replace(/[\s_-]+/g, "-");

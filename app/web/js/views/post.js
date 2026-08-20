@@ -27,17 +27,17 @@
 // - **Posted is on the page.** The same publish_log entry the list's checkbox
 //   writes, with the date and the post's link, where you finish the work.
 
-import { $, $$, el, esc, decodeEntities, toast, todayISO } from "../util.js";
+import { $, $$, el, esc, decodeEntities, toast, todayISO , backdropClose } from "../util.js";
 import { state, loadBackend } from "../state.js";
 import * as api from "../api.js";
 import { go } from "../router.js";
 import { icon, ibtn } from "../icons.js";
 import { deckVersionViewer } from "./viewer.js";
-import { openPostEditor } from "../postedit.js";
+import { postEditorPanel } from "../postedit.js";
 import { mountNote } from "../note.js";
 import { offlinePanel } from "./deck.js";
 
-export const SOCIAL_KINDS = new Set(["carousel", "image", "article", "post"]);
+export { SOCIAL_KINDS } from "../areas.js";
 
 // What each kind is, in the words the page uses. `visual` says what the
 // shipping file is; article has none — its deliverable is text.
@@ -141,7 +141,7 @@ export async function renderDetail(id, mount) {
     { id: "cover", icon: "image", label: deck.kind === "carousel" ? "Pages" : "Cover",
       make: () => visualPanel(deck, vis, visCur, hero) },
     { id: "short", icon: "text", label: "Short form",
-      make: () => shortPanel(deck, wrap) },
+      make: () => shortPanel(deck) },
     ...(deck.kind === "article" ? [
       { id: "html", icon: "book", label: "Long form · HTML",
         make: () => longPanel(deck, cur) },
@@ -229,15 +229,15 @@ function visualPanel(deck, vis, visN, hero) {
 
   const box = el(`
     <div class="facet-panel">
-      <p class="note">${esc(words.visual)}</p>
-      <div class="vis-strip">${strip}</div>
-      <div class="row-actions">
+      <div class="row-actions facet-actions">
         <button class="ghost sm" id="v-view">${ibtn("preview", "View full size")}</button>
         ${isCarousel
           ? `<button class="ghost sm" id="v-pdf">${ibtn("download", "Download PDF")}</button>`
           : `<a class="ghost sm" href="${esc(api.deckPngUrl(vis.id, visN))}" download>${ibtn("download", "Download PNG")}</a>`}
-        <button class="ghost sm" id="v-edit" title="Words, spacing and images, in place">${ibtn("text", "Edit the visual")}</button>
+        <button class="ghost sm" id="v-edit" title="Words, spacing, images — and the size/ratio">${ibtn("text", "Edit the visual")}</button>
+        <span class="note">${esc(words.visual)}</span>
       </div>
+      <div class="vis-strip">${strip}</div>
     </div>`);
 
   // A page that cannot be rendered here (hosted, never printed) hides rather
@@ -245,8 +245,13 @@ function visualPanel(deck, vis, visN, hero) {
   $$("img", box).forEach((img) => img.addEventListener("error", () => img.remove()));
 
   $("#v-view", box).addEventListener("click", () =>
-    deckVersionViewer(api, vis.id, visN, decodeEntities(vis.title || deck.title)));
-  $("#v-edit", box).addEventListener("click", () => go(`/deck/${vis.id}/edit`));
+    deckVersionViewer(api, vis.id, visN, decodeEntities(vis.title || deck.title),
+      { png: !isCarousel }));
+  // Editing the visual is editing a FACET of this publication, so the editor is
+  // told to come back here — for an article the visual is a different row, and
+  // without the back target you surfaced on that row's lookalike page.
+  $("#v-edit", box).addEventListener("click", () =>
+    go(`/deck/${vis.id}/edit?back=/deck/${deck.id}`));
   $("#v-pdf", box)?.addEventListener("click", async (e) => {
     const b = e.currentTarget;
     b.disabled = true;
@@ -259,30 +264,19 @@ function visualPanel(deck, vis, visN, hero) {
 
 // --------------------------------------------------------------- short form
 
-function shortPanel(deck, wrap) {
-  const text = deck.post_text || "";
-  const count = Array.from(text).length;
+function shortPanel(deck) {
+  // The editor IS the tab: toolbar, text and the feed preview, in place. No
+  // modal — the screen is already open, and a modal was one more surface with
+  // its own buttons. Copy and Save sit in the toolbar, at the top.
   const box = el(`
     <div class="facet-panel">
-      ${text
-        ? `<div class="post-copy">${esc(text)}</div>
-           <p class="note">${count} / 3000 characters</p>`
-        : `<p class="note">No post copy yet. This is the text above the visual in the feed —
-           the hook, the point, the hashtags.</p>`}
-      <div class="row-actions">
-        <button class="ghost sm" id="s-edit">${ibtn("compose", text ? "Edit the post" : "Write the post")}</button>
-        ${text ? `<button class="ghost sm" id="s-copy">${ibtn("copy", "Copy")}</button>` : ""}
-      </div>
+      <p class="note">The text above the visual in the feed — the hook, the point, the hashtags.
+        Styling is Unicode (LinkedIn has no rich text); Copy takes the whole post.</p>
     </div>`);
-  $("#s-edit", box).addEventListener("click", () =>
-    openPostEditor(deck, deck.post_text || "", (t) => {
-      deck.post_text = t;
-      box.replaceWith(shortPanel(deck, wrap));
-    }));
-  $("#s-copy", box)?.addEventListener("click", async () => {
-    await navigator.clipboard.writeText(deck.post_text || "");
-    toast("Post copied. Paste it into LinkedIn.");
+  const panel = postEditorPanel(deck, deck.post_text || "", {
+    onSaved: (t) => { deck.post_text = t; },
   });
+  box.append(panel.node);
   return box;
 }
 
@@ -295,18 +289,17 @@ function shortPanel(deck, wrap) {
 function longPanel(deck, n) {
   const box = el(`
     <div class="facet-panel">
-      <p class="note">The article as it reads. <b>Copy the article</b> takes it with formatting,
-        so pasting into LinkedIn's article editor keeps headings, bold and links. There is no
-        PDF of an article: it is a text you publish, not a file you send.</p>
-      <iframe class="article-frame" src="${esc(api.deckViewUrl(deck.id, n))}" title="The article"></iframe>
-      <div class="row-actions">
+      <div class="row-actions facet-actions">
         <button class="ghost sm" id="l-copy">${ibtn("copy", "Copy the article")}</button>
         <button class="ghost sm" id="l-open">${ibtn("open", "Open in a tab")}</button>
         <button class="ghost sm" id="l-edit" title="Words, spacing and images, in place">${ibtn("text", "Edit the article")}</button>
+        <span class="note">Copy keeps headings, bold and links for LinkedIn's article editor.
+          There is no PDF of an article: it is a text you publish, not a file you send.</span>
       </div>
+      <iframe class="article-frame" src="${esc(api.deckViewUrl(deck.id, n))}" title="The article"></iframe>
     </div>`);
   $("#l-open", box).addEventListener("click", () => window.open(api.deckViewUrl(deck.id, n), "_blank", "noopener"));
-  $("#l-edit", box).addEventListener("click", () => go(`/deck/${deck.id}/edit`));
+  $("#l-edit", box).addEventListener("click", () => go(`/deck/${deck.id}/edit?back=/deck/${deck.id}`));
   $("#l-copy", box).addEventListener("click", async (e) => {
     const b = e.currentTarget;
     b.disabled = true;
@@ -347,11 +340,11 @@ function textPanel(deck, n) {
       const { plain } = articleBody(html);
       const load = $(".loading", box);
       load.replaceWith(el(`<div>
-        <pre class="article-text">${esc(plain)}</pre>
-        <p class="note">${Array.from(plain).length} characters</p>
-        <div class="row-actions">
+        <div class="row-actions facet-actions">
           <button class="ghost sm" id="t-copy">${ibtn("copy", "Copy the text")}</button>
+          <span class="note">${Array.from(plain).length} characters</span>
         </div>
+        <pre class="article-text">${esc(plain)}</pre>
       </div>`));
       $("#t-copy", box).addEventListener("click", async () => {
         await navigator.clipboard.writeText(plain);
@@ -430,7 +423,7 @@ function openRename(deck, done) {
   </div></div>`);
   const close = () => m.remove();
   $(".close", m).addEventListener("click", close);
-  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  backdropClose(m, close);
   $("#r-save", m).addEventListener("click", async () => {
     try {
       await api.renameDeck(deck.id, { title: $("#r-title", m).value, pdf_core: $("#r-core", m).value });

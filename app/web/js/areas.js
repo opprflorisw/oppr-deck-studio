@@ -85,3 +85,8 @@ export function areaPath(area) {
   const valid = area.tabs.some((t) => t.id === last);
   return `/${area.id}/${valid ? last : area.tabs[0].id}`;
 }
+
+// Which `kind`s are social publications. Metadata, not view code: the sidebar
+// needs it to light the right button for a /deck/<id> path, and the router
+// needs it to pick the artifact's home page. One list, read by both.
+export const SOCIAL_KINDS = new Set(["carousel", "image", "article", "post"]);

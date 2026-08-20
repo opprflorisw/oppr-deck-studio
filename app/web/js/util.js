@@ -42,3 +42,16 @@ export function toast(msg) {
 export const ENTITLEMENTS = ["public", "mutares", "holliday", "venator", "attero",
   "keeeper", "omniplast", "sonneborn", "host", "selo", "wavin"];
 export const todayISO = () => new Date().toISOString().slice(0, 10);
+
+// Close a modal when the backdrop is CLICKED — not when a click merely ends
+// there. Dragging a text selection out of the box fires a click whose target is
+// the backdrop, which used to close the modal mid-selection and lose the work
+// in it. A close is only a close when the press started on the backdrop too.
+export function backdropClose(m, close) {
+  let down = false;
+  m.addEventListener("mousedown", (e) => { down = e.target === m; });
+  m.addEventListener("click", (e) => {
+    if (e.target === m && down) close();
+    down = false;
+  });
+}

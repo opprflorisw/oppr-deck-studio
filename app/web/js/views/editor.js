@@ -10,10 +10,10 @@
 // comes from the artifact's page_format, so a 4:5 carousel scales correctly.
 // Saving serializes the entire document, so every page's edits are captured.
 
-import { $, $$, el, esc, decodeEntities, toast } from "../util.js";
+import { $, $$, el, esc, decodeEntities, toast , backdropClose } from "../util.js";
 import { state, loadBackend } from "../state.js";
 import * as api from "../api.js";
-import { go } from "../router.js";
+import { go, query } from "../router.js";
 import { icon, ibtn } from "../icons.js";
 
 // Page geometry per format, in CSS pixels. Deck Studio 2.0: the editor is no
@@ -40,7 +40,22 @@ export async function render(id, mount) {
   catch { return mount(el(`<div class="loading">Backend not reachable. <a href="#/output/masters">Back</a></div>`)); }
   const deck = data.deck;
   const n = deck.current_version_n;
-  const [SLIDE_W, SLIDE_H] = PAGE_SIZES[deck.page_format] || DEFAULT_PAGE;
+  let [SLIDE_W, SLIDE_H] = PAGE_SIZES[deck.page_format] || DEFAULT_PAGE;
+  // Where Back returns to. A publication page sends its visual here with
+  // ?back=<its own path>, because for an article the visual is a different row
+  // and "back to /deck/<row>" would land on the wrong page.
+  const backTo = query().get("back") || "/deck/" + id;
+  const social = deck.kind && deck.kind !== "deck";
+  // A single-page visual can be RE-SHAPED: LinkedIn prefers a square (or 4:5)
+  // image in the feed, and the covers are built 1200x627. The switch rewrites
+  // the size the snapshot declares (deck-meta + @page) and inline-sizes the
+  // page, all of which the save gate treats as non-structural.
+  const RATIOS = [
+    ["hero-1200x627", "Landscape 1200×627"],
+    ["square-1x1", "Square 1080×1080"],
+    ["linkedin-4x5", "Portrait 1080×1350"],
+  ];
+  const resizable = (deck.kind === "image" || deck.kind === "post");
   const pageWord = deck.kind && deck.kind !== "deck" ? "page" : "slide";
 
   const wrap = el(`
@@ -52,10 +67,14 @@ export async function render(id, mount) {
         <span class="editor-dirty" id="dirty" hidden>unsaved changes</span>
         <div class="spacer"></div>
         <span class="editor-hint note">Click text to edit · select an element to nudge or swap</span>
+        ${resizable ? `<label class="ed-ratio note">Size
+          <select id="ratio">${RATIOS.map(([v, l]) =>
+            `<option value="${v}" ${v === (deck.page_format || "hero-1200x627") ? "selected" : ""}>${l}</option>`).join("")}
+          </select></label>` : ""}
         <button class="ghost" id="html" title="Edit this ${pageWord}'s HTML directly">${ibtn("code", "HTML")}</button>
         <button class="ghost" id="discard">${ibtn("close", "Discard")}</button>
-        <button class="ghost" id="regen" disabled title="Save first">${ibtn("refresh", "Regenerate")}</button>
-        <button class="primary" id="save" disabled>${ibtn("save", "Save version")}</button>
+        ${social ? "" : `<button class="ghost" id="regen" disabled title="Save first">${ibtn("refresh", "Regenerate")}</button>`}
+        <button class="primary" id="save" disabled>${ibtn("save", social ? "Save" : "Save version")}</button>
       </div>
       <div class="editor-strip" id="strip"></div>
       <div class="editor-main">
@@ -93,11 +112,12 @@ export async function render(id, mount) {
     $("#save", wrap).disabled = false;
   };
 
-  $("#back", wrap).addEventListener("click", () => leave(() => go("/deck/" + id)));
+  $("#back", wrap).addEventListener("click", () => leave(() => go(backTo)));
   $("#discard", wrap).addEventListener("click", () => leave(() => render(id, mount), true));
   $("#save", wrap).addEventListener("click", () => save());
-  $("#regen", wrap).addEventListener("click", () => go("/deck/" + id));
+  $("#regen", wrap)?.addEventListener("click", () => go(backTo));
   $("#html", wrap).addEventListener("click", () => toggleSource());
+  $("#ratio", wrap)?.addEventListener("change", (e) => applyRatio(e.target.value, e.target));
   $("#src-close", wrap).addEventListener("click", () => toggleSource(false));
   $("#src-revert", wrap).addEventListener("click", () => loadSource());
   $("#src-apply", wrap).addEventListener("click", () => applySource());
@@ -191,6 +211,38 @@ export async function render(id, mount) {
   frame.addEventListener("load", () => setup());
 
   function idoc() { return frame.contentDocument; }
+
+  // Re-shape a single-page visual. Three rewrites, all invisible to the
+  // structural fingerprint: the inline size on the page section (style attr),
+  // the size the deck-meta manifest declares (script contents), and the @page
+  // rule (style contents). The row's page_format follows on save, server-side,
+  // from what the snapshot says.
+  function applyRatio(fmt, sel) {
+    const [w, h] = PAGE_SIZES[fmt] || DEFAULT_PAGE;
+    const doc = idoc(); if (!doc) return;
+    const meta = doc.getElementById("deck-meta");
+    if (!meta || !/"page_format"\s*:/.test(meta.textContent)) {
+      sel.value = deck.page_format || "hero-1200x627";
+      toast("This visual predates recorded page sizes — rebuild it once to enable resizing.");
+      return;
+    }
+    for (const sec of st.sections) {
+      sec.style.width = w + "px";
+      sec.style.height = h + "px";
+    }
+    meta.textContent = meta.textContent.replace(/"page_format"\s*:\s*"[^"]*"/, `"page_format": "${fmt}"`);
+    for (const tag of doc.querySelectorAll("style")) {
+      if (/@page/.test(tag.textContent)) {
+        tag.textContent = tag.textContent.replace(/(@page\s*\{[^}]*size:\s*)[\d.]+px\s+[\d.]+px/g, `$1${w}px ${h}px`);
+      }
+    }
+    SLIDE_W = w; SLIDE_H = h;
+    st.resized = fmt;
+    layout();
+    checkOverflow();
+    markDirty();
+    toast(`Now ${w}×${h}. Nudge anything that no longer sits right, then Save.`);
+  }
 
   function setup() {
     const doc = idoc();
@@ -365,7 +417,7 @@ export async function render(id, mount) {
       </div></div>`);
       const done = (v) => { m.remove(); resolve(v); };
       $(".close", m).addEventListener("click", () => done(null));
-      m.addEventListener("click", (e) => { if (e.target === m) done(null); });
+      backdropClose(m, () => done(null));
       $$(".img-pick", m).forEach((b) => b.addEventListener("click", () => done(b.dataset.file)));
       document.body.append(m);
     });
@@ -413,11 +465,14 @@ export async function render(id, mount) {
     if (st.edits.nudge) parts.push(`nudge ×${st.edits.nudge}`);
     if (st.edits.image) parts.push(`image ×${st.edits.image}`);
     if (st.edits.html) parts.push(`html ×${st.edits.html}`);
+    if (st.resized) parts.push(`resized to ${st.resized}`);
     const note = parts.join(", ") || "fine-tune";
     try {
       const out = await api.saveDeckVersion(id, html, note);
       st.dirty = false; $("#dirty", wrap).hidden = true;
-      $("#save", wrap).disabled = true; $("#regen", wrap).disabled = false; $("#regen", wrap).title = "";
+      $("#save", wrap).disabled = true;
+      const rg = $("#regen", wrap);
+      if (rg) { rg.disabled = false; rg.title = ""; }
       toast(`Saved v${out.n}.`);
       await loadBackend(api);
     } catch (e) {
@@ -439,7 +494,7 @@ export async function render(id, mount) {
     </div></div>`);
     const close = () => m.remove();
     $(".close", m).addEventListener("click", close);
-    m.addEventListener("click", (e) => { if (e.target === m) close(); });
+    backdropClose(m, close);
     document.body.append(m);
   }
 

@@ -5,7 +5,7 @@
 // tiny inline script scales the slide to fit its own viewport, so there is no
 // fragile outer measurement.
 
-import { $, $$, el, esc } from "../util.js";
+import { $, $$, el, esc , backdropClose } from "../util.js";
 import { fillPreviewVars, fetchFragment, deckPageDoc } from "../preview.js";
 import { pageHtmlFor } from "./carousel-build.js";
 import { icon, ibtn } from "../icons.js";
@@ -33,7 +33,7 @@ setTimeout(fit,20);setTimeout(fit,120);fit();})();</script>
 // not only inspect it. You notice the problem on page 6; you fix it on page 6.
 // It returns the fresh page list and where the moved slide ended up, so the
 // caller stays the single owner of the order and the viewer never guesses.
-export function openDeckViewer(pages, { title = "", pdf = null, image = null, pdfUrl = null, onEdit = null, onMove = null } = {}) {
+export function openDeckViewer(pages, { title = "", pdf = null, image = null, pdfUrl = null, pngUrl = null, onEdit = null, onMove = null } = {}) {
   if (!pages.length) return;
   let i = 0;
 
@@ -53,6 +53,7 @@ export function openDeckViewer(pages, { title = "", pdf = null, image = null, pd
           <div class="spacer"></div>
           ${onEdit ? `<button class="primary edit-here">${ibtn("compose", "Edit")}</button>` : ""}
           ${pdfHref ? `<a class="ghost" href="${pdfHref}" download>${ibtn("download", "PDF")}</a>` : ""}
+          ${pngUrl ? `<a class="ghost" href="${esc(pngUrl)}" download>${ibtn("download", "PNG")}</a>` : ""}
           ${image ? `<a class="ghost" href="/repo/${esc(image)}" download>${ibtn("download", "PNG")}</a>` : ""}
           <button class="ghost icon-only close" title="Close (Esc)">${icon("close")}</button>
         </header>
@@ -125,7 +126,7 @@ export function openDeckViewer(pages, { title = "", pdf = null, image = null, pd
   const close = () => { m.remove(); document.removeEventListener("keydown", onKey); };
   $(".close", m).addEventListener("click", close);
   $(".edit-here", m)?.addEventListener("click", () => { close(); onEdit(i); });
-  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  backdropClose(m, close);
   document.addEventListener("keydown", onKey);
 
   document.body.append(m);
@@ -146,7 +147,15 @@ export function pagesFromHtml(html, baseHref) {
   const isCarousel = !!containerEl && containerEl.classList.contains("carousel");
   const isSquare = !!containerEl && containerEl.classList.contains("carousel--square");
   const sections = containerEl ? [...containerEl.children].filter((c) => c.tagName === "SECTION") : [];
-  const [w, h] = isSquare ? [1080, 1080] : isCarousel ? [1080, 1350] : [1280, 720];
+  // The snapshot's own page_format is the truth about page size (a hero is
+  // 1200x627, and a re-shaped visual carries its new size there); the class
+  // heuristics only cover documents from before it was recorded.
+  const SIZES = {
+    "deck-16x9": [1280, 720], "linkedin-4x5": [1080, 1350],
+    "square-1x1": [1080, 1080], "hero-1200x627": [1200, 627],
+  };
+  const pf = /"page_format":\s*"([^"]+)"/.exec(html)?.[1];
+  const [w, h] = SIZES[pf] || (isSquare ? [1080, 1080] : isCarousel ? [1080, 1350] : [1280, 720]);
   const pages = sections.map((sec, i) => ({
     label: sec.getAttribute("data-slide-id") || sec.id || String(i + 1),
     render: () => scaledDoc(head, `<div class="${containerClass}">${sec.outerHTML}</div>`, w, h),
@@ -168,7 +177,7 @@ export async function assembledViewer(indexPath, title, pdf = null, image = null
 
 // Preview a BACKEND deck version: fetching the /view URL materializes the
 // version into the cache (so assets resolve) and returns its index.html.
-export async function deckVersionViewer(api, deckId, n, title, hasPdf = false) {
+export async function deckVersionViewer(api, deckId, n, title, opts = {}) {
   const html = await api.authedFetch(api.deckViewUrl(deckId, n)).then((r) => r.text());
   const { pages } = pagesFromHtml(html, `/deck-cache/${deckId}/v${n}/`);
   // A FLOWING document (an article) has no .deck/.carousel container, so the
@@ -178,12 +187,13 @@ export async function deckVersionViewer(api, deckId, n, title, hasPdf = false) {
     window.open(api.deckViewUrl(deckId, n), "_blank", "noopener");
     return;
   }
+  // `png: true` is the caller saying what this artifact SHIPS: a single-page
+  // visual goes out as a PNG, so the viewer offers that and not a PDF nobody
+  // will ever send. Decks and carousels keep the PDF (printed on demand).
   openDeckViewer(pages, {
     title,
-    // Always offer the PDF: the endpoint prints on demand when this version has
-    // never been printed, so there is no state where looking at a page leaves
-    // you unable to take it.
-    pdfUrl: api.deckPdfUrl(deckId, n),
+    pdfUrl: opts.png ? null : api.deckPdfUrl(deckId, n),
+    pngUrl: opts.png ? api.deckPngUrl(deckId, n) : null,
     onEdit: () => go(`/deck/${deckId}/edit`),
   });
 }

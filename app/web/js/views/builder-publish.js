@@ -9,7 +9,7 @@
 // per step as it runs them, and this renders exactly those. Nothing here can
 // claim a step passed that did not.
 
-import { $, $$, el, esc, toast } from "../util.js";
+import { $, $$, el, esc, toast , backdropClose } from "../util.js";
 import { state, loadBackend } from "../state.js";
 import * as api from "../api.js";
 import { go } from "../router.js";
@@ -91,7 +91,7 @@ export function openPublish(work, { dryRun = false, onDone = null } = {}) {
   const close = () => m.remove();
   $(".close", m).addEventListener("click", close);
   $("#p-cancel", m).addEventListener("click", close);
-  m.addEventListener("click", (e) => { if (e.target === m) close(); });
+  backdropClose(m, close);
 
   const fork = $("#p-fork", m);
   fork?.addEventListener("change", () => {

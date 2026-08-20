@@ -449,6 +449,22 @@ mirror that did not update.
   are kind-appropriate: a carousel ships its PDF (what LinkedIn takes for a
   document post), an image ships a full-resolution PNG
   (`/api/decks/:id/versions/:n/png`), an article ships nothing.
+
+  Refined 2026-08-20, after the first real walk-through: the facets are **tabs**
+  (Cover/Pages · Short form · and for an article Long form as HTML and as plain
+  text), each leading with its actions; the short form's Unicode editor is
+  **inlined in its tab** (`postedit.js` exports the panel; the modal wrapper
+  survives only for list rows, and every modal now closes on a backdrop *press*,
+  not on a text-selection drag that ends there). Identity follows kind
+  everywhere: `/deck/<id>` lights **Social output** in the rail when the row is
+  social, and a `<slug>-hero` row **redirects to its article** — the cover is a
+  facet, never a destination, and Edit hands the editor a `?back=` so it returns
+  to the publication it left. The editor gained a **size switch** for one-page
+  visuals (1200×627 · 1080×1080 · 4:5): it rewrites what the snapshot declares
+  (deck-meta `page_format`, `@page`, inline page size — all invisible to the
+  structural fingerprint), and the save route mirrors the snapshot's
+  `page_format` back onto the deck row, so the lists, the editor and the PNG
+  endpoint agree without re-reading the HTML.
 - **One verify gate, several rule sets.** `tools/verifylib.py` is the single
   source. The brand rules (no em dashes, no unfilled placeholders, no
   customer-name leak, image entitlement ≤ clearance, European numbers, `oppr` in

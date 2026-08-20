@@ -417,6 +417,14 @@ button.danger:not(.ghost):disabled { background: var(--line); border-color: var(
 .pe-more { color: var(--muted); font-weight: 600; }
 .pe-meta { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 11px; color: var(--muted); }
 @media (max-width: 1100px) { .pe-side { flex-basis: 320px; } }
+/* The editor as an embeddable panel. Inline (the publication page's Short form
+   tab) it is a bordered card that brings its own height; inside the modal the
+   box provides both, so the panel goes chrome-less and fills it. */
+.pe-panel { display: flex; flex-direction: column; border: 1px solid var(--line);
+  border-radius: 8px; overflow: hidden; background: var(--surface); }
+.pe-panel .pe-split { min-height: 420px; max-height: 62vh; }
+.pe-box .pe-panel { flex: 1; min-height: 0; border: none; border-radius: 0; }
+.pe-box .pe-panel .pe-split { max-height: none; }
 
 /* ---- paged deck/carousel viewer ---- */
 .viewer .viewer-box { width: 94vw; max-width: 1320px; height: 90vh; background: var(--surface); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
@@ -905,14 +913,8 @@ button.primary.full { width: 100%; justify-content: center; }
 .vis-page { height: 190px; width: auto; flex: none; border: 1px solid var(--line);
   border-radius: 6px; background: #fff; }
 
-/* The short form, as it will read: pre-wrap because line breaks ARE the
-   formatting on LinkedIn. */
-.post-copy { white-space: pre-wrap; font-size: 14px; line-height: 1.55; max-width: 62ch;
-  padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px;
-  background: var(--bg); overflow-wrap: break-word; }
-
 /* The long form: the reading document, scrolling inside its own frame. */
-.article-frame { width: 100%; height: 480px; border: 1px solid var(--line);
+.article-frame { width: 100%; height: 65vh; border: 1px solid var(--line);
   border-radius: 8px; background: #fff; }
 
 /* The facet tabs: same tabbar idiom as the areas, sitting under the posted bar.
@@ -920,10 +922,15 @@ button.primary.full { width: 100%; justify-content: center; }
 .facet-tabs { margin-top: 18px; border-bottom: 1px solid var(--line); }
 .facet-body { padding-top: 14px; }
 
+/* Every facet leads with its actions: view, the one right download, edit. The
+   note rides along in the same row so nothing sits below the fold. */
+.facet-actions { align-items: center; }
+.facet-actions .note { margin: 0 0 0 6px; flex: 1; min-width: 220px; }
+
 /* The long form as plain text: readable, selectable, honest about line breaks. */
-.article-text { white-space: pre-wrap; font-family: inherit; font-size: 14px;
-  line-height: 1.55; max-width: 70ch; max-height: 480px; overflow: auto;
-  padding: 14px 16px; margin: 0; border: 1px solid var(--line); border-radius: 8px;
+.article-text { white-space: pre-wrap; font-family: inherit; font-size: 15px;
+  line-height: 1.6; width: 100%; max-height: 70vh; overflow: auto; box-sizing: border-box;
+  padding: 16px 20px; margin: 0; border: 1px solid var(--line); border-radius: 8px;
   background: var(--bg); overflow-wrap: break-word; }
 
 /* ---------------------------------------------------------------- brand kit
@@ -1318,3 +1325,8 @@ button.primary.full { width: 100%; justify-content: center; }
 .setup-tools li span { color: var(--muted); }
 .setup-tools:last-child { margin-bottom: 0; }
 @media (max-width: 700px) { .setup-tools li { grid-template-columns: 1fr; gap: 2px; } }
+
+/* The size switch for a single-page visual (LinkedIn prefers square/4:5). */
+.ed-ratio { display: flex; align-items: center; gap: 6px; }
+.ed-ratio select { font: inherit; font-size: 13px; padding: 3px 6px; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
