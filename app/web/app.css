@@ -915,6 +915,17 @@ button.primary.full { width: 100%; justify-content: center; }
 .article-frame { width: 100%; height: 480px; border: 1px solid var(--line);
   border-radius: 8px; background: #fff; }
 
+/* The facet tabs: same tabbar idiom as the areas, sitting under the posted bar.
+   The panel below owns its padding so a switch does not jump the page. */
+.facet-tabs { margin-top: 18px; border-bottom: 1px solid var(--line); }
+.facet-body { padding-top: 14px; }
+
+/* The long form as plain text: readable, selectable, honest about line breaks. */
+.article-text { white-space: pre-wrap; font-family: inherit; font-size: 14px;
+  line-height: 1.55; max-width: 70ch; max-height: 480px; overflow: auto;
+  padding: 14px 16px; margin: 0; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); overflow-wrap: break-word; }
+
 /* ---------------------------------------------------------------- brand kit
    Library > Brand. The preview stages deliberately use the literal brand
    grounds rather than the theme tokens: a light-background wordmark is ink and
