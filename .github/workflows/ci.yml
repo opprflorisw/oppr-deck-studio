@@ -16,10 +16,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          # 22, not 20: the suite passes glob patterns to `node --test` and uses
+          # --experimental-test-module-mocks, and Node 20 has neither -- its
+          # runner takes the glob as a literal filename and exits 1 before a
+          # single test runs. 22 is what development runs on.
+          node-version: "22"
           cache: npm
       - run: npm ci
       - name: syntax
