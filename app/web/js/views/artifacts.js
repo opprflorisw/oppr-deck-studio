@@ -531,7 +531,8 @@ export function artifactRow(d) {
     e.stopPropagation();
     openPostEditor(d, d.post_text || "", (text) => { d.post_text = text; });
   });
-  $(".act-dl", row).addEventListener("click", async (e) => {
+  // Optional: an article row has no download button at all.
+  $(".act-dl", row)?.addEventListener("click", async (e) => {
     e.stopPropagation();
     const btn = e.currentTarget;
     btn.disabled = true;

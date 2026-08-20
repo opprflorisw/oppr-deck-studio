@@ -30,11 +30,37 @@ export function go(path) {
   else location.hash = path;
 }
 
+// A view that throws must never fail SILENTLY: before this guard, an exception
+// mid-render left the previous page mounted under the new URL, which reads as
+// "the button does nothing" — the worst possible error report. The router does
+// not own the mount target, so it paints the error into #main directly; crude,
+// but crude and visible beats clean and invisible.
+function renderError(path, err) {
+  console.error(`route ${path} failed:`, err);
+  const m = document.getElementById("main");
+  if (!m) return;
+  m.innerHTML = "";
+  const box = document.createElement("div");
+  box.className = "empty";
+  box.innerHTML = `<p>This page hit an error while rendering.</p><p class="note mono"></p>
+    <p class="note">Reload the page; if it keeps happening, this text is the bug report.</p>`;
+  box.querySelector(".mono").textContent = `${path}: ${err?.message || err}`;
+  m.append(box);
+}
+
 export function dispatch() {
   const path = currentPath();
   for (const [rx, handler] of routes) {
     const m = path.match(rx);
-    if (m) return handler(...m.slice(1).map(decodeURIComponent));
+    if (!m) continue;
+    try {
+      const out = handler(...m.slice(1).map(decodeURIComponent));
+      // Async views reject later; catch that leg too.
+      if (out && typeof out.catch === "function") out.catch((e) => renderError(path, e));
+    } catch (e) {
+      renderError(path, e);
+    }
+    return;
   }
   notFound(path);
 }
